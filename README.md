@@ -16,7 +16,8 @@ Internal team communication for companies: project-tagged chat, files, announcem
 | `app/` | The Flutter app (Arabic first, right to left, light and dark) |
 | `supabase/migrations/` | Database schema, permissions (RLS) and actions (RPC), applied in order |
 | `supabase/tests/` | Permission tests that run on a throwaway local PostgreSQL |
-| `.github/workflows/` | Checks on every pull request, and the database deploy |
+| `site/` | The website's landing page (Arabic at `/`, English at `/en/`) |
+| `.github/workflows/` | Checks on every pull request, the database deploy and the website deploy |
 
 ## Run the app
 
@@ -38,9 +39,9 @@ The same app runs in a browser: `flutter run -d chrome`, or `flutter build web -
 
 ### Try it on an Android phone
 
-The **Android test build** workflow builds an APK on every change to the app (and on demand from the Actions tab). Open the run, download `wasla-android-N` under Artifacts, unzip it and install `app-release.apk` on the phone (Android asks to allow installing from that source once). Each build is signed with a throwaway key, so uninstall the previous test build first. iPhone builds wait for the Apple developer account.
+The **Android test build** workflow builds an APK on every change to the app (and on demand from the Actions tab). Open the run, download `wasla-android-N` under Artifacts, unzip it and install `app-release.apk` on the phone (Android asks to allow installing from that source once). Until the app's signing key is set up (see [The website](#the-website)), each build is signed with a throwaway key, so uninstall the previous test build first. iPhone builds wait for the Apple developer account.
 
-Sign-in uses a 6-digit email code. In the Supabase dashboard (Authentication > Email Templates), both the **Confirm signup** template (first sign-in) and the **Magic Link** template (later sign-ins) must include `{{ .Token }}` so the code is in the email. Supabase's built-in email sender only reaches the project's team members; connect an SMTP provider before inviting other people.
+Sign-in uses a 6-digit email code. In the Supabase dashboard (Authentication > Email Templates), both the **Confirm signup** template (first sign-in) and the **Magic Link** template (later sign-ins) must include `{{ .Token }}` so the code is in the email. Supabase's built-in email sender only reaches the project's team members, and on new free projects it also locks the templates to a link-only default. So connect an SMTP provider first (Authentication > Emails > SMTP Settings), then edit the two templates.
 
 ## Run the database tests
 
@@ -90,10 +91,27 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
   select id from auth.users where email = 'you@example.com';
   ```
 
+## The website
+
+The **Website** workflow publishes one site to the hosting account by FTP whenever the app or `site/` changes on `main`:
+
+| Address | What |
+| --- | --- |
+| `/` and `/en/` | The landing page; its pricing table reads the offered plans and prices live (`public_plans()`, the only thing visitors can reach without signing in) |
+| `/app/` | The web app |
+| `/download/wasla.apk` | The latest Android app, always at the same link, with `version.json` beside it |
+
+Setup, under Settings > Secrets and variables > Actions:
+
+- Secrets `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` for the hosting account. If its FTP login doesn't open on the home folder, add the variable `FTP_DIR` with the site's folder as FTP sees it (default `public_html/`). FTPS is used; set the variable `FTP_PROTOCOL` to `ftp` only if the host has none. Turn on SSL for the domain first: the site sends every visitor to HTTPS.
+- The Android app's signing key, made once: add the secret `ANDROID_KEY_PASSWORD` (a long password you keep), run the **Create Android signing key** workflow, download its `android-signing-key` artifact, and paste the contents of `ANDROID_KEYSTORE.txt` into a new secret `ANDROID_KEYSTORE`. Keep `wasla.p12` and the password safe: every update must be signed with this key, or phones refuse to install it. Until the key exists the site's download button says "coming soon".
+
+Without the FTP secrets the built site is attached to the workflow run instead.
+
 ## Plan
 
 1. Foundation: sign-up, workspaces, invites and join requests, roles, projects (done)
 2. Chat and files: realtime chat tagged by project, files, announcements (done; push notifications pending Firebase)
 3. Tasks and follow-up: tasks, statuses, reminders, public tasks, status and follow-up screens (done; push notifications pending Firebase)
-4. Subscriptions: plans, exchange rates, company invoices, platform admin dashboard on the web (in progress); landing page with the download link next
+4. Subscriptions: plans, exchange rates, company invoices, platform admin dashboard on the web, landing page with the download link (done)
 5. Later: online payments (Paymob, Tap), reports, AI assistant, calls
