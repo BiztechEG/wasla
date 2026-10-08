@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:wasla/data/api.dart';
+import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/task_models.dart';
@@ -1007,4 +1008,166 @@ class FakeApi implements WaslaApi {
 
   @override
   Stream<void> notificationEvents() => _noteEvents.stream;
+
+  // Subscriptions: one company's page in [billingPages], kept up to date by
+  // what the owner does; admin actions are recorded in [billingCalls].
+
+  bool platformAdmin = false;
+  final billingPages = <String, BillingOverview>{};
+  final billingCalls = <String>[];
+  AdminOverview adminFigures = const AdminOverview();
+  final adminRequestList = <AdminRequest>[];
+  final adminCompanyList = <AdminCompany>[];
+  final adminInvoiceList = <Invoice>[];
+  final adminPlanList = <PlanOption>[];
+  final adminRateList = <CountryRate>[];
+  PaymentInfo adminPayment = const PaymentInfo();
+
+  @override
+  Future<bool> isPlatformAdmin() async => platformAdmin;
+
+  @override
+  Future<BillingOverview> billing(String companyId) async =>
+      billingPages[companyId]!;
+
+  void _setRequest(String workspaceId, PlanRequest? request) {
+    for (final entry in billingPages.entries) {
+      final b = entry.value;
+      if (!b.workspaces.any((w) => w.id == workspaceId)) continue;
+      billingPages[entry.key] = BillingOverview(
+        company: b.company,
+        plans: b.plans,
+        invoices: b.invoices,
+        payment: b.payment,
+        workspaces: [
+          for (final w in b.workspaces)
+            w.id != workspaceId
+                ? w
+                : WorkspaceBilling(
+                    id: w.id,
+                    name: w.name,
+                    planId: w.planId,
+                    planName: w.planName,
+                    maxMembers: w.maxMembers,
+                    storageGb: w.storageGb,
+                    paidUntil: w.paidUntil,
+                    members: w.members,
+                    storageBytes: w.storageBytes,
+                    request: request,
+                  ),
+        ],
+      );
+    }
+  }
+
+  @override
+  Future<void> requestPlan(
+    String workspaceId,
+    String planId, {
+    required int months,
+    String? note,
+  }) async {
+    billingCalls.add('request $workspaceId $planId $months ${note ?? '-'}');
+    _setRequest(
+      workspaceId,
+      PlanRequest(
+        id: 'r-$workspaceId',
+        planId: planId,
+        months: months,
+        status: RequestStatus.pending,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  Future<void> cancelPlanRequest(String requestId) async {
+    billingCalls.add('cancel $requestId');
+    _setRequest(requestId.substring(2), null);
+  }
+
+  @override
+  Future<AdminOverview> adminOverview() async => adminFigures;
+
+  @override
+  Future<List<AdminCompany>> adminCompanies({String? search}) async => [
+    for (final c in adminCompanyList)
+      if (search == null ||
+          c.name.toLowerCase().contains(search.toLowerCase()) ||
+          c.ownerEmail.contains(search))
+        c,
+  ];
+
+  @override
+  Future<List<AdminRequest>> adminRequests() async => List.of(adminRequestList);
+
+  @override
+  Future<List<Invoice>> adminInvoices({InvoiceStatus? status}) async => [
+    for (final i in adminInvoiceList)
+      if (status == null || i.status == status) i,
+  ];
+
+  @override
+  Future<List<PlanOption>> adminPlans() async => List.of(adminPlanList);
+
+  @override
+  Future<List<CountryRate>> adminRates() async => List.of(adminRateList);
+
+  @override
+  Future<PaymentInfo> adminPaymentInfo() async => adminPayment;
+
+  @override
+  Future<void> adminSetRate(String countryCode, double rate) async =>
+      billingCalls.add('rate $countryCode $rate');
+
+  @override
+  Future<void> adminUpdatePlan(PlanOption plan) async => billingCalls.add(
+    'plan ${plan.id} ${plan.name} ${plan.maxMembers} ${plan.storageGb} '
+    '${plan.priceUsd} ${plan.offered}',
+  );
+
+  @override
+  Future<void> adminUpdatePaymentInfo(PaymentInfo info) async {
+    billingCalls.add(
+      'payment ${info.instructions} ${info.phone} ${info.email}',
+    );
+    adminPayment = info;
+  }
+
+  @override
+  Future<String> adminCreateInvoice(
+    String companyId,
+    List<InvoiceItem> items, {
+    required int months,
+    double discountPct = 0,
+    String? note,
+    int dueDays = 14,
+  }) async {
+    final lines = [
+      for (final i in items)
+        '${i.workspaceId}:${i.planId}:${i.priceUsd ?? '-'}',
+    ];
+    billingCalls.add(
+      'invoice $companyId ${lines.join(',')} $months $discountPct $dueDays',
+    );
+    return 'inv-new';
+  }
+
+  @override
+  Future<void> adminMarkInvoicePaid(
+    String invoiceId, {
+    String? reference,
+  }) async => billingCalls.add('paid $invoiceId ${reference ?? '-'}');
+
+  @override
+  Future<void> adminVoidInvoice(String invoiceId) async =>
+      billingCalls.add('void $invoiceId');
+
+  @override
+  Future<void> adminSetWorkspacePlan(
+    String workspaceId,
+    String planId, {
+    DateTime? until,
+  }) async =>
+      billingCalls.add('set $workspaceId $planId ${until ?? 'forever'}');
 }

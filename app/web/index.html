@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <!-- Replaced by `flutter build web --base-href /app/` when the app is not
+       served from the site's root. -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="وصلة: محادثات فريقك ومهامه في مكان واحد">
+  <!-- The landing page is what search engines should show, not the app. -->
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0F6E6A">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="وصلة">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>وصلة | Wasla</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    html, body { margin: 0; height: 100%; background: #F6F8F8; }
+    @media (prefers-color-scheme: dark) { html, body { background: #0F1419; } }
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center;
+      justify-content: center;
+    }
+    #loading img {
+      width: 72px; height: 72px; border-radius: 18px;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse { 50% { opacity: .55; transform: scale(.94); } }
+  </style>
+</head>
+<body>
+  <div id="loading"><img src="icons/Icon-192.png" alt="وصلة"></div>
+  <script>
+    // The app draws its first frame over the page; the logo goes then.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('loading');
+      if (el) el.remove();
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

@@ -486,5 +486,420 @@
   "privateTask": "Private task",
   "taskDetailsTitle": "Details",
   "errorTooManyAssignees": "A task can be for 20 people at most",
-  "errorTooManyReminders": "A task can have 10 extra reminders at most"
+  "errorTooManyReminders": "A task can have 10 extra reminders at most",
+  "subscriptionTitle": "Subscription and billing",
+  "subscriptionHint": "Plans and invoices for {company}",
+  "@subscriptionHint": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "platformSection": "Platform",
+  "adminTitle": "Platform admin",
+  "adminHint": "Subscriptions, invoices and prices",
+  "adminOverviewTab": "Overview",
+  "adminCompaniesTab": "Companies",
+  "adminInvoicesTab": "Invoices",
+  "adminPricesTab": "Prices",
+  "openApp": "Open the app",
+  "planFree": "Free",
+  "planBasic": "Basic",
+  "planBusiness": "Business",
+  "planEnterprise": "Enterprise",
+  "planLabel": "Plan",
+  "unlimitedMembers": "Unlimited members",
+  "unlimitedStorage": "Unlimited storage",
+  "storageGb": "{count} GB",
+  "@storageGb": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sizeGb": "{size} GB",
+  "@sizeGb": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "workspacesSection": "Workspaces",
+  "invoicesSection": "Invoices",
+  "noInvoices": "No invoices yet",
+  "howToPay": "How to pay",
+  "billingFootnote": "Payment is by bank transfer for now, and a plan starts as soon as the payment is confirmed. When paid time runs out, the workspace keeps its plan for 7 more days, then moves to the free plan without losing anything.",
+  "unpaidInvoices": "{count, plural, =1{An invoice is waiting for payment} other{{count} invoices are waiting for payment}}",
+  "@unpaidInvoices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "onFreePlan": "On the free plan",
+  "planNoEnd": "On this plan with no end date",
+  "paidUntil": "Paid until {date}",
+  "@paidUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planEnded": "Paid time ended on {ended}. The workspace moves to the free plan on {date} unless it is renewed.",
+  "@planEnded": {
+    "placeholders": {
+      "ended": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "membersUsed": "Members: {used} of {max}",
+  "@membersUsed": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "membersUsedUnlimited": "Members: {used}, no limit",
+  "@membersUsedUnlimited": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      }
+    }
+  },
+  "storageUsed": "Storage: {used} of {max}",
+  "@storageUsed": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "storageUsedUnlimited": "Storage: {used}, no limit",
+  "@storageUsedUnlimited": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      }
+    }
+  },
+  "requestPending": "You asked for {plan} for {months}. The invoice is on its way.",
+  "@requestPending": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "requestInvoiced": "The invoice for {plan} is out and waiting for payment.",
+  "@requestInvoiced": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "upgradePlan": "Upgrade",
+  "renewOrChange": "Renew or change",
+  "changeRequest": "Change request",
+  "cancelRequest": "Cancel request",
+  "cancelRequestConfirm": "Cancel this plan request?",
+  "choosePlanFor": "Choose a plan for {name}",
+  "@choosePlanFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noPlansOffered": "No plans are offered right now",
+  "planTooSmall": "Too small for your {count} members",
+  "@planTooSmall": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perMonth": "/ month",
+  "priceOnInvoice": "Price on the invoice",
+  "forHowLong": "For how long",
+  "monthsCount": "{count, plural, =1{1 month} other{{count} months}}",
+  "@monthsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "estimatedTotal": "Estimated total",
+  "requestNote": "Note (optional)",
+  "requestHint": "We'll send you an invoice with how to pay. The plan starts as soon as the payment is confirmed.",
+  "sendRequest": "Send request",
+  "planRequestSent": "Request sent. You'll get the invoice soon.",
+  "invoiceDue": "Due",
+  "invoiceOverdue": "Overdue",
+  "invoicePaid": "Paid",
+  "invoiceVoid": "Cancelled",
+  "issuedOn": "Issued",
+  "dueOn": "Due by",
+  "paidOn": "Paid on",
+  "paymentReference": "Payment reference",
+  "invoicePeriod": "Period",
+  "invoiceLines": "Items",
+  "lineUnit": "{price} a month",
+  "@lineUnit": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "subtotal": "Subtotal",
+  "discount": "Discount",
+  "totalUsd": "Total in dollars",
+  "exchangeRate": "Exchange rate",
+  "rateLine": "$1 = {amount}",
+  "@rateLine": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "amountDue": "Amount due",
+  "markPaid": "Record payment",
+  "markPaidTitle": "Record payment for {number}",
+  "@markPaidTitle": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "markPaidHint": "A transfer number or receipt, to find it later",
+  "invoiceMarkedPaid": "Payment recorded and the plans are on",
+  "voidInvoice": "Cancel invoice",
+  "voidInvoiceConfirm": "Cancel invoice {number}? The plan requests on it go back to waiting.",
+  "@voidInvoiceConfirm": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "setPlanByHand": "Set plan",
+  "setPlanFor": "Plan for {name}",
+  "@setPlanFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noEndDate": "No end date",
+  "noEndDateHint": "For the pilot company, or an agreement paid outside the app",
+  "pickEndDate": "Pick an end date",
+  "planEndsOn": "The plan ends on this date",
+  "planSet": "Plan saved and the owner notified",
+  "newInvoice": "New invoice",
+  "invoiceWorkspaces": "Workspaces on this invoice",
+  "currentPlan": "now {plan}",
+  "@currentPlan": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "requestedPlan": "asked for {plan}, {months}",
+  "@requestedPlan": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyPriceUsd": "Price a month (USD)",
+  "priceOverrideHint": "Leave empty for the plan's price",
+  "setPriceFirst": "Set a price for this plan first",
+  "invoiceTerms": "Terms",
+  "discountPct": "Discount %",
+  "dueInDays": "Days to pay",
+  "invoiceNote": "Note on the invoice (optional)",
+  "issueInvoice": "Issue invoice",
+  "invoiceIssued": "Invoice issued and the owner notified",
+  "pickWorkspaces": "Tick at least one workspace",
+  "invalidDiscount": "The discount must be between 0 and 100",
+  "invalidDueDays": "Days to pay must be between 0 and 365",
+  "statCompanies": "Companies",
+  "statWorkspaces": "Workspaces",
+  "statPaidWorkspaces": "On paid plans",
+  "statMembers": "Members",
+  "statUnpaid": "{count, plural, =0{No unpaid invoices} =1{1 unpaid invoice} other{{count} unpaid invoices}}",
+  "@statUnpaid": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "statPaid30d": "Paid in the last 30 days",
+  "planRequests": "Plan requests",
+  "noPlanRequests": "No plan requests waiting",
+  "requestChange": "{from} to {to} · {months}",
+  "@requestChange": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "searchCompanies": "Company, workspace or owner's email",
+  "noCompanies": "No companies found",
+  "plansSection": "Plans",
+  "plansHint": "Prices are in US dollars a month for each workspace.",
+  "notOffered": "Hidden",
+  "workspaceCount": "{count, plural, =0{no workspaces} =1{1 workspace} other{{count} workspaces}}",
+  "@workspaceCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "freePrice": "Free",
+  "noPriceYet": "No price yet",
+  "ratesSection": "Exchange rates",
+  "ratesHint": "What one US dollar is worth in each country's currency. Invoices keep the rate they were issued at.",
+  "noRateYet": "No rate yet, so prices show in dollars",
+  "rateSince": "Since {date} · {name}",
+  "@rateSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentSection": "How companies pay",
+  "paymentNotSet": "Add how companies pay you",
+  "edit": "Edit",
+  "editPlanTitle": "Edit {plan}",
+  "@editPlanTitle": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "planNameEn": "Name",
+  "maxMembersLabel": "Members",
+  "storageGbLabel": "Storage (GB)",
+  "emptyIsUnlimited": "Leave empty for no limit",
+  "offeredToggle": "Companies can ask for it",
+  "saved": "Saved",
+  "setRateTitle": "Rate for {country}",
+  "@setRateTitle": {
+    "placeholders": {
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "rateLabel": "{currency} for one dollar",
+  "@rateLabel": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "rateHint": "Invoices already issued keep their rate.",
+  "paymentInstructions": "Payment instructions",
+  "paymentInstructionsHint": "Bank account, transfer details or a wallet number. Shown with every unpaid invoice.",
+  "supportPhone": "Billing phone",
+  "supportEmail": "Billing email",
+  "enterNumber": "Enter a number",
+  "requiredField": "Required",
+  "notePlanRequest": "{name} asked for the {plan} plan",
+  "@notePlanRequest": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "noteInvoice": "New invoice {number} is waiting for payment",
+  "@noteInvoice": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "notePlanActive": "The {plan} plan is on",
+  "@notePlanActive": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "notePlanEnding": "The {plan} plan ends within a week; renew to keep it",
+  "@notePlanEnding": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "notePlanExpired": "The {plan} plan ran out, so the workspace is on the free plan",
+  "@notePlanExpired": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "errorInvalidPlan": "This plan can't be chosen",
+  "errorInvalidPrice": "Check the price",
+  "errorInvalidRate": "Enter a rate above zero",
+  "errorInvoiceChanged": "This invoice was already paid or cancelled",
+  "errorInvalidDate": "Pick a date in the future",
+  "errorInvalidInvoice": "Check the invoice's workspaces, period and discount",
+  "specialPrice": "Special price ($)"
 }

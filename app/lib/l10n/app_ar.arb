@@ -668,5 +668,420 @@
   "privateTask": "مهمة خاصة",
   "taskDetailsTitle": "التفاصيل",
   "errorTooManyAssignees": "يمكن إسناد المهمة إلى 20 شخصاً على الأكثر",
-  "errorTooManyReminders": "يمكن إضافة 10 تذكيرات على الأكثر للمهمة"
+  "errorTooManyReminders": "يمكن إضافة 10 تذكيرات على الأكثر للمهمة",
+  "subscriptionTitle": "الاشتراك والفواتير",
+  "subscriptionHint": "خطط وفواتير {company}",
+  "@subscriptionHint": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
+  "platformSection": "المنصة",
+  "adminTitle": "إدارة المنصة",
+  "adminHint": "الاشتراكات والفواتير والأسعار",
+  "adminOverviewTab": "نظرة عامة",
+  "adminCompaniesTab": "الشركات",
+  "adminInvoicesTab": "الفواتير",
+  "adminPricesTab": "الأسعار",
+  "openApp": "فتح التطبيق",
+  "planFree": "المجانية",
+  "planBasic": "الأساسية",
+  "planBusiness": "الأعمال",
+  "planEnterprise": "المؤسسات",
+  "planLabel": "الخطة",
+  "unlimitedMembers": "أعضاء بلا حد",
+  "unlimitedStorage": "تخزين بلا حد",
+  "storageGb": "{count} جيجابايت",
+  "@storageGb": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sizeGb": "{size} جيجابايت",
+  "@sizeGb": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "workspacesSection": "مساحات العمل",
+  "invoicesSection": "الفواتير",
+  "noInvoices": "لا توجد فواتير بعد",
+  "howToPay": "طريقة الدفع",
+  "billingFootnote": "يتم الدفع حالياً بالتحويل البنكي، وتُفعَّل الخطة فور تأكيد الدفع. عند انتهاء المدة المدفوعة تحتفظ المساحة بخطتها 7 أيام إضافية، ثم تنتقل إلى الخطة المجانية دون أن تفقد أي بيانات.",
+  "unpaidInvoices": "{count, plural, =1{فاتورة بانتظار الدفع} =2{فاتورتان بانتظار الدفع} few{{count} فواتير بانتظار الدفع} other{{count} فاتورة بانتظار الدفع}}",
+  "@unpaidInvoices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "onFreePlan": "على الخطة المجانية",
+  "planNoEnd": "مفعّلة بدون تاريخ انتهاء",
+  "paidUntil": "مدفوعة حتى {date}",
+  "@paidUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "planEnded": "انتهت المدة المدفوعة في {ended}، وتنتقل المساحة إلى الخطة المجانية في {date} ما لم تُجدَّد.",
+  "@planEnded": {
+    "placeholders": {
+      "ended": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "membersUsed": "الأعضاء: {used} من {max}",
+  "@membersUsed": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "membersUsedUnlimited": "الأعضاء: {used} (بلا حد)",
+  "@membersUsedUnlimited": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      }
+    }
+  },
+  "storageUsed": "التخزين: {used} من {max}",
+  "@storageUsed": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "storageUsedUnlimited": "التخزين: {used} (بلا حد)",
+  "@storageUsedUnlimited": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      }
+    }
+  },
+  "requestPending": "طلبت خطة {plan} لمدة {months}، والفاتورة قيد الإعداد.",
+  "@requestPending": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "requestInvoiced": "صدرت فاتورة خطة {plan} وهي بانتظار الدفع.",
+  "@requestInvoiced": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "upgradePlan": "ترقية الخطة",
+  "renewOrChange": "تجديد أو تغيير",
+  "changeRequest": "تعديل الطلب",
+  "cancelRequest": "إلغاء الطلب",
+  "cancelRequestConfirm": "هل تريد إلغاء طلب الخطة؟",
+  "choosePlanFor": "اختر خطة لمساحة {name}",
+  "@choosePlanFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noPlansOffered": "لا توجد خطط متاحة حالياً",
+  "planTooSmall": "لا تكفي أعضاءك الحاليين ({count})",
+  "@planTooSmall": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "perMonth": "شهرياً",
+  "priceOnInvoice": "السعر في الفاتورة",
+  "forHowLong": "المدة",
+  "monthsCount": "{count, plural, =1{شهر واحد} =2{شهران} few{{count} أشهر} many{{count} شهراً} other{{count} شهر}}",
+  "@monthsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "estimatedTotal": "الإجمالي التقديري",
+  "requestNote": "ملاحظة (اختياري)",
+  "requestHint": "سنرسل إليك فاتورة بطريقة الدفع، وتُفعَّل الخطة فور تأكيد الدفع.",
+  "sendRequest": "إرسال الطلب",
+  "planRequestSent": "أُرسل طلبك، وستصلك الفاتورة قريباً",
+  "invoiceDue": "مستحقة",
+  "invoiceOverdue": "متأخرة",
+  "invoicePaid": "مدفوعة",
+  "invoiceVoid": "ملغاة",
+  "issuedOn": "تاريخ الإصدار",
+  "dueOn": "تاريخ الاستحقاق",
+  "paidOn": "تاريخ الدفع",
+  "paymentReference": "مرجع الدفع",
+  "invoicePeriod": "المدة",
+  "invoiceLines": "البنود",
+  "lineUnit": "{price} شهرياً",
+  "@lineUnit": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "subtotal": "المجموع قبل الخصم",
+  "discount": "الخصم",
+  "totalUsd": "الإجمالي بالدولار",
+  "exchangeRate": "سعر الصرف",
+  "rateLine": "1 دولار = {amount}",
+  "@rateLine": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "amountDue": "المبلغ المستحق",
+  "markPaid": "تسجيل الدفع",
+  "markPaidTitle": "تسجيل دفع الفاتورة {number}",
+  "@markPaidTitle": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "markPaidHint": "رقم التحويل أو الإيصال للرجوع إليه لاحقاً",
+  "invoiceMarkedPaid": "سُجّل الدفع وفُعّلت الخطط",
+  "voidInvoice": "إلغاء الفاتورة",
+  "voidInvoiceConfirm": "هل تريد إلغاء الفاتورة {number}؟ تعود طلبات الخطط التي تشملها إلى الانتظار.",
+  "@voidInvoiceConfirm": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "setPlanByHand": "تعيين الخطة",
+  "setPlanFor": "خطة {name}",
+  "@setPlanFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noEndDate": "بدون تاريخ انتهاء",
+  "noEndDateHint": "للشركة التجريبية أو لاتفاق مدفوع خارج التطبيق",
+  "pickEndDate": "اختر تاريخ الانتهاء",
+  "planEndsOn": "تنتهي الخطة في هذا التاريخ",
+  "planSet": "حُفظت الخطة وأُبلغ مالك الشركة",
+  "newInvoice": "فاتورة جديدة",
+  "invoiceWorkspaces": "مساحات العمل في الفاتورة",
+  "currentPlan": "الحالية: {plan}",
+  "@currentPlan": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "requestedPlan": "طلب {plan} لمدة {months}",
+  "@requestedPlan": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyPriceUsd": "السعر الشهري (دولار)",
+  "priceOverrideHint": "اتركه فارغاً لسعر الخطة",
+  "setPriceFirst": "حدّد سعراً لهذه الخطة أولاً",
+  "invoiceTerms": "الشروط",
+  "discountPct": "نسبة الخصم %",
+  "dueInDays": "مهلة الدفع (أيام)",
+  "invoiceNote": "ملاحظة على الفاتورة (اختياري)",
+  "issueInvoice": "إصدار الفاتورة",
+  "invoiceIssued": "صدرت الفاتورة وأُبلغ مالك الشركة",
+  "pickWorkspaces": "اختر مساحة عمل واحدة على الأقل",
+  "invalidDiscount": "يجب أن يكون الخصم بين 0 و100",
+  "invalidDueDays": "يجب أن تكون مهلة الدفع بين 0 و365 يوماً",
+  "statCompanies": "الشركات",
+  "statWorkspaces": "مساحات العمل",
+  "statPaidWorkspaces": "على خطط مدفوعة",
+  "statMembers": "الأعضاء",
+  "statUnpaid": "{count, plural, =0{لا فواتير غير مدفوعة} =1{فاتورة غير مدفوعة} =2{فاتورتان غير مدفوعتين} few{{count} فواتير غير مدفوعة} other{{count} فاتورة غير مدفوعة}}",
+  "@statUnpaid": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "statPaid30d": "المدفوع آخر 30 يوماً",
+  "planRequests": "طلبات الخطط",
+  "noPlanRequests": "لا توجد طلبات خطط بانتظار فاتورة",
+  "requestChange": "من {from} إلى {to} · {months}",
+  "@requestChange": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "months": {
+        "type": "String"
+      }
+    }
+  },
+  "searchCompanies": "اسم الشركة أو مساحة العمل أو بريد المالك",
+  "noCompanies": "لا توجد شركات",
+  "plansSection": "الخطط",
+  "plansHint": "الأسعار بالدولار الأمريكي شهرياً لكل مساحة عمل.",
+  "notOffered": "مخفية",
+  "workspaceCount": "{count, plural, =0{بلا مساحات} =1{مساحة واحدة} =2{مساحتان} few{{count} مساحات} many{{count} مساحة} other{{count} مساحة}}",
+  "@workspaceCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "freePrice": "مجانية",
+  "noPriceYet": "لم يُحدَّد السعر",
+  "ratesSection": "أسعار الصرف",
+  "ratesHint": "قيمة الدولار الأمريكي بعملة كل دولة. تحتفظ الفواتير بالسعر الذي صدرت به.",
+  "noRateYet": "لم يُحدَّد سعر بعد، فتظهر الأسعار بالدولار",
+  "rateSince": "منذ {date} · {name}",
+  "@rateSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentSection": "طريقة دفع الشركات",
+  "paymentNotSet": "أضف طريقة دفع الشركات",
+  "edit": "تعديل",
+  "editPlanTitle": "تعديل خطة {plan}",
+  "@editPlanTitle": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "planNameEn": "الاسم",
+  "maxMembersLabel": "عدد الأعضاء",
+  "storageGbLabel": "التخزين (جيجابايت)",
+  "emptyIsUnlimited": "اتركه فارغاً لعدم وضع حد",
+  "offeredToggle": "متاحة لطلب الشركات",
+  "saved": "تم الحفظ",
+  "setRateTitle": "سعر الصرف في {country}",
+  "@setRateTitle": {
+    "placeholders": {
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "rateLabel": "عدد {currency} مقابل دولار واحد",
+  "@rateLabel": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "rateHint": "تحتفظ الفواتير الصادرة بسعرها.",
+  "paymentInstructions": "تعليمات الدفع",
+  "paymentInstructionsHint": "الحساب البنكي أو بيانات التحويل أو رقم المحفظة، وتظهر مع كل فاتورة غير مدفوعة.",
+  "supportPhone": "هاتف الفواتير",
+  "supportEmail": "بريد الفواتير",
+  "enterNumber": "أدخل رقماً",
+  "requiredField": "مطلوب",
+  "notePlanRequest": "طلب {name} خطة {plan}",
+  "@notePlanRequest": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "noteInvoice": "صدرت فاتورة جديدة {number} بانتظار الدفع",
+  "@noteInvoice": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "notePlanActive": "فُعّلت خطة {plan}",
+  "@notePlanActive": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "notePlanEnding": "تنتهي خطة {plan} خلال أسبوع، جدّد الاشتراك للاستمرار",
+  "@notePlanEnding": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "notePlanExpired": "انتهت خطة {plan} وانتقلت المساحة إلى الخطة المجانية",
+  "@notePlanExpired": {
+    "placeholders": {
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "errorInvalidPlan": "لا يمكن اختيار هذه الخطة",
+  "errorInvalidPrice": "تحقق من السعر",
+  "errorInvalidRate": "أدخل سعر صرف أكبر من صفر",
+  "errorInvoiceChanged": "هذه الفاتورة دُفعت أو أُلغيت بالفعل",
+  "errorInvalidDate": "اختر تاريخاً في المستقبل",
+  "errorInvalidInvoice": "تحقق من مساحات الفاتورة ومدتها والخصم",
+  "specialPrice": "سعر خاص ($)"
 }

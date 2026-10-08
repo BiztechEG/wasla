@@ -29,7 +29,7 @@ final notificationEventsProvider = StreamProvider.autoDispose<int>((ref) {
 
 /// Calls [refresh] shortly after the last of a burst of changes from
 /// [source].
-void _refreshOn(
+void refreshOn(
   Ref ref,
   ProviderListenable<AsyncValue<int>> source,
   void Function() refresh,
@@ -47,10 +47,10 @@ void _refreshOn(
 /// as notifications, and as task changes in the workspace on screen.
 final myTasksProvider = FutureProvider.autoDispose<List<TaskItem>>((ref) async {
   final api = ref.watch(apiProvider);
-  _refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
+  refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
   final workspaceId = ref.watch(currentMembershipProvider)?.workspaceId;
   if (workspaceId != null) {
-    _refreshOn(ref, taskEventsProvider(workspaceId), ref.invalidateSelf);
+    refreshOn(ref, taskEventsProvider(workspaceId), ref.invalidateSelf);
   }
   if (await ref.watch(authProvider.future) == null) return const [];
   return api.myTasks();
@@ -63,8 +63,8 @@ typedef ProjectKey = ({String workspaceId, String projectId});
 final projectTasksProvider = FutureProvider.autoDispose
     .family<List<TaskItem>, ProjectKey>((ref, key) async {
       final api = ref.watch(apiProvider);
-      _refreshOn(ref, taskEventsProvider(key.workspaceId), ref.invalidateSelf);
-      _refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
+      refreshOn(ref, taskEventsProvider(key.workspaceId), ref.invalidateSelf);
+      refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
       await ref.watch(authProvider.future);
       return api.projectTasks(key.projectId);
     });
@@ -73,7 +73,7 @@ final projectTasksProvider = FutureProvider.autoDispose
 final managedTasksProvider = FutureProvider.autoDispose
     .family<List<TaskItem>, String>((ref, workspaceId) async {
       final api = ref.watch(apiProvider);
-      _refreshOn(ref, taskEventsProvider(workspaceId), ref.invalidateSelf);
+      refreshOn(ref, taskEventsProvider(workspaceId), ref.invalidateSelf);
       await ref.watch(authProvider.future);
       return api.managedTasks(workspaceId);
     });
@@ -83,8 +83,8 @@ typedef TaskKey = ({String workspaceId, String taskId});
 final taskDetailProvider = FutureProvider.autoDispose
     .family<TaskDetail, TaskKey>((ref, key) async {
       final api = ref.watch(apiProvider);
-      _refreshOn(ref, taskEventsProvider(key.workspaceId), ref.invalidateSelf);
-      _refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
+      refreshOn(ref, taskEventsProvider(key.workspaceId), ref.invalidateSelf);
+      refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
       await ref.watch(authProvider.future);
       return api.task(key.taskId);
     });
@@ -92,7 +92,7 @@ final taskDetailProvider = FutureProvider.autoDispose
 final notificationsProvider = FutureProvider.autoDispose<List<AppNotification>>(
   (ref) async {
     final api = ref.watch(apiProvider);
-    _refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
+    refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
     if (await ref.watch(authProvider.future) == null) return const [];
     return api.notifications();
   },
