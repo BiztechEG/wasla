@@ -26,6 +26,8 @@ class StartScreen extends ConsumerWidget {
     Future<void> refresh() async {
       ref.invalidate(myInvitesProvider);
       ref.invalidate(myJoinRequestsProvider);
+      // An admin may have accepted a request meanwhile.
+      ref.invalidate(membershipsProvider);
       await ref.read(myInvitesProvider.future);
     }
 
@@ -37,7 +39,16 @@ class StartScreen extends ConsumerWidget {
             IconButton(
               tooltip: l.signOut,
               icon: const Icon(Icons.logout),
-              onPressed: () => ref.read(apiProvider).signOut(),
+              onPressed: () async {
+                if (await confirm(
+                  context,
+                  message: l.signOutConfirm,
+                  action: l.signOut,
+                  destructive: true,
+                )) {
+                  await ref.read(apiProvider).signOut();
+                }
+              },
             ),
         ],
       ),
@@ -230,6 +241,15 @@ class _InviteCard extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () async {
+                        if (!await confirm(
+                          context,
+                          message: l.confirmDeclineInvite(invite.workspaceName),
+                          action: l.decline,
+                          destructive: true,
+                        )) {
+                          return;
+                        }
+                        if (!context.mounted) return;
                         await runAction(
                           context,
                           () =>

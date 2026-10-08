@@ -60,14 +60,14 @@ void main() {
     await _start(tester, api);
 
     // Arabic and right-to-left by default.
-    expect(find.text('أرسل رمز الدخول'), findsOneWidget);
+    expect(find.text('إرسال رمز الدخول'), findsOneWidget);
     expect(
       Directionality.of(tester.element(find.byKey(const Key('email')))),
       TextDirection.rtl,
     );
 
     await tester.enterText(find.byKey(const Key('email')), 'Amr@Example.com');
-    await tester.tap(find.text('أرسل رمز الدخول'));
+    await tester.tap(find.text('إرسال رمز الدخول'));
     await tester.pumpAndSettle();
     expect(api.sentCodes, ['amr@example.com']);
 
@@ -122,11 +122,11 @@ void main() {
 
     await tester.tap(find.text('المزيد'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('غامق'), 200);
-    await tester.tap(find.text('غامق'));
+    await tester.scrollUntilVisible(find.text('داكن'), 200);
+    await tester.tap(find.text('داكن'));
     await tester.pumpAndSettle();
     expect(
-      Theme.of(tester.element(find.text('غامق'))).brightness,
+      Theme.of(tester.element(find.text('داكن'))).brightness,
       Brightness.dark,
     );
 
@@ -155,5 +155,82 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Send sign-in code'), findsOneWidget);
+  });
+
+  testWidgets('pulling to refresh lets someone in once a request is approved', (
+    tester,
+  ) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr');
+    await _start(tester, api);
+    expect(find.text('ابدأ مع وصلة'), findsOneWidget);
+
+    // An admin accepts the request somewhere else.
+    api.memberships.add(
+      FakeApi.membership('ws1', 'Engineering', WorkspaceRole.member),
+    );
+    await tester.fling(find.byType(ListView), const Offset(0, 400), 1000);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Engineering'), findsOneWidget);
+    expect(find.text('المشاريع'), findsWidgets);
+  });
+
+  testWidgets('screens on top close when the session ends', (tester) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.owner),
+      );
+    await _start(tester, api);
+
+    await tester.tap(find.text('المزيد'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الأعضاء'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BackButton), findsOneWidget);
+
+    await api.signOut();
+    await tester.pumpAndSettle();
+
+    expect(find.text('إرسال رمز الدخول'), findsOneWidget);
+    expect(find.byType(BackButton), findsNothing);
+  });
+
+  testWidgets('member actions fit on a small phone', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.owner),
+      )
+      ..membersByWorkspace['ws1'] = [
+        const Member(userId: 'me', fullName: 'Amr', role: WorkspaceRole.owner),
+        const Member(
+          userId: 'u2',
+          fullName: 'Mona',
+          role: WorkspaceRole.admin,
+          email: 'mona@example.com',
+        ),
+      ];
+    await _start(tester, api);
+
+    await tester.tap(find.text('المزيد'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الأعضاء'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mona'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.text('إزالة من مساحة العمل'),
+      100,
+      scrollable: find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.text('إزالة من مساحة العمل'), findsOneWidget);
   });
 }

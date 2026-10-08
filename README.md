@@ -38,7 +38,7 @@ Checks: `flutter analyze` and `flutter test` inside `app/`.
 
 The **Android test build** workflow builds an APK on every change to the app (and on demand from the Actions tab). Open the run, download `wasla-android-N` under Artifacts, unzip it and install `app-release.apk` on the phone (Android asks to allow installing from that source once). Each build is signed with a throwaway key, so uninstall the previous test build first. iPhone builds wait for the Apple developer account.
 
-Sign-in uses a 6-digit email code. In the Supabase dashboard, the **Magic Link** email template must include `{{ .Token }}` so the code is in the email.
+Sign-in uses a 6-digit email code. In the Supabase dashboard (Authentication > Email Templates), both the **Confirm signup** template (first sign-in) and the **Magic Link** template (later sign-ins) must include `{{ .Token }}` so the code is in the email. Supabase's built-in email sender only reaches the project's team members; connect an SMTP provider before inviting other people.
 
 ## Run the database tests
 

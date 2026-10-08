@@ -74,6 +74,7 @@ class _CreateWorkspaceScreenState extends ConsumerState<CreateWorkspaceScreen> {
               key: const Key('companyName'),
               controller: _company,
               autofocus: true,
+              inputFormatters: nameLimit,
               decoration: InputDecoration(labelText: l.companyNameLabel),
               validator: required,
               textInputAction: TextInputAction.next,
@@ -82,6 +83,7 @@ class _CreateWorkspaceScreenState extends ConsumerState<CreateWorkspaceScreen> {
             TextFormField(
               key: const Key('workspaceName'),
               controller: _workspace,
+              inputFormatters: nameLimit,
               decoration: InputDecoration(
                 labelText: l.workspaceNameLabel,
                 hintText: l.workspaceNameHint,

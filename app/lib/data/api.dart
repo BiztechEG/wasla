@@ -87,7 +87,11 @@ class SupabaseWaslaApi implements WaslaApi {
   @override
   Stream<String?> userIdChanges() async* {
     yield _client.auth.currentUser?.id;
-    yield* _client.auth.onAuthStateChange.map((e) => e.session?.user.id);
+    // A failed background token refresh (e.g. offline) arrives as an error;
+    // it is not a sign-out, so it must not knock the app into an error state.
+    yield* _client.auth.onAuthStateChange
+        .handleError((Object _) {})
+        .map((e) => e.session?.user.id);
   }
 
   @override
@@ -104,7 +108,14 @@ class SupabaseWaslaApi implements WaslaApi {
   }
 
   @override
-  Future<void> signOut() => _client.auth.signOut();
+  Future<void> signOut() async {
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // The session is already cleared on this phone; only telling the server
+      // failed (usually offline).
+    }
+  }
 
   @override
   Future<Profile> myProfile() async {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,8 +13,30 @@ extension L10nContext on BuildContext {
   AppLocalizations get l10n => AppLocalizations.of(this);
 }
 
+/// Same limits as the database, so people never hit them as an error.
+final nameLimit = [LengthLimitingTextInputFormatter(100)];
+final messageLimit = [LengthLimitingTextInputFormatter(500)];
+
 /// Keeps an email or phone number reading left to right inside Arabic text.
 String ltr(String text) => '\u2066$text\u2069';
+
+/// One line of left-to-right text (an email, a phone number). When it is too
+/// long it keeps its beginning and trails off at its own end.
+class LtrLine extends StatelessWidget {
+  const LtrLine(this.text, {super.key, this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: style,
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  );
+}
 
 String roleLabel(AppLocalizations l, WorkspaceRole role) => switch (role) {
   WorkspaceRole.owner => l.roleOwner,
@@ -41,12 +64,14 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('invite_invalid')) return l.errorInviteInvalid;
     if (m.contains('invite_not_for_you')) return l.errorInviteNotForYou;
     if (m.contains('already_member')) return l.errorAlreadyMember;
+    if (m.contains('too_many_')) return l.errorTooManyToday;
     if (m.contains('not_allowed') ||
         m.contains('not_company_owner') ||
         error.code == '42501') {
       return l.errorNotAllowed;
     }
     if (error.code == '23505') return l.errorDuplicate;
+    if (error.code == '23514') return l.errorTooLong;
     return l.errorGeneric;
   }
   final text = error.toString();
@@ -143,6 +168,7 @@ Future<String?> promptText(
         content: TextField(
           controller: controller,
           autofocus: true,
+          inputFormatters: nameLimit,
           decoration: InputDecoration(labelText: label),
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => submit(),
@@ -293,6 +319,21 @@ class SectionTitle extends StatelessWidget {
   }
 }
 
+/// One letter for Arabic names (two Arabic letters join into a word, and
+/// "ال" says nothing), two for Latin ones.
+String initials(String name) {
+  final words = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .map((w) => w.startsWith('ال') && w.length > 2 ? w.substring(2) : w)
+      .toList();
+  if (words.isEmpty) return '';
+  final first = words.first.characters.first;
+  if (RegExp(r'[\u0600-\u06FF]').hasMatch(first)) return first;
+  return words.take(2).map((w) => w.characters.first.toUpperCase()).join();
+}
+
 /// Initials in a circle, colored by name so people are easy to tell apart.
 class Avatar extends StatelessWidget {
   const Avatar({super.key, required this.name, this.radius = 20});
@@ -303,18 +344,17 @@ class Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
-    final initials = words.take(2).map((w) => w.characters.first).join();
     final hex = WaslaColors
         .projectColors[name.hashCode.abs() % WaslaColors.projectColors.length];
     final color = WaslaColors.project(hex, brightness);
+    final text = initials(name);
     return CircleAvatar(
       radius: radius,
       backgroundColor: color.withValues(alpha: 0.16),
       child: Text(
-        initials.isEmpty ? '؟' : initials,
+        text.isEmpty ? '؟' : text,
         style: TextStyle(
-          color: color,
+          color: WaslaColors.onTint(color, brightness),
           fontWeight: FontWeight.w600,
           fontSize: radius * 0.7,
         ),
@@ -428,6 +468,51 @@ class _BusyButtonState extends State<BusyButton> {
               child: CircularProgressIndicator(strokeWidth: 2.5),
             )
           : Text(widget.label),
+    );
+  }
+}
+
+/// A person in a list: name and contact on one line each, never wrapping,
+/// with their role as a small tag under the name.
+class PersonTile extends StatelessWidget {
+  const PersonTile({
+    super.key,
+    required this.name,
+    this.avatarName,
+    this.contact,
+    this.tag,
+    this.strongTag = true,
+    this.trailing,
+    this.onTap,
+  });
+
+  final String name;
+  final String? avatarName;
+  final String? contact;
+  final String? tag;
+  final bool strongTag;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasContact = contact != null && contact!.isNotEmpty;
+    return ListTile(
+      leading: Avatar(name: avatarName ?? name),
+      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: tag == null && !hasContact
+          ? null
+          : Row(
+              children: [
+                if (tag != null) ...[
+                  Tag(tag!, strong: strongTag),
+                  const SizedBox(width: 6),
+                ],
+                if (hasContact) Flexible(child: LtrLine(contact!)),
+              ],
+            ),
+      trailing: trailing,
+      onTap: onTap,
     );
   }
 }

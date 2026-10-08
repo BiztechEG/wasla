@@ -18,8 +18,21 @@ class JoinRequestsScreen extends ConsumerWidget {
     final ws = membership.workspaceId;
     final requests = ref.watch(joinRequestsProvider(ws));
     final localizations = MaterialLocalizations.of(context);
+    final faint = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
 
     Future<void> decide(JoinRequest r, bool accept) async {
+      if (!accept &&
+          !await confirm(
+            context,
+            message: l.confirmDecline,
+            action: l.decline,
+            destructive: true,
+          )) {
+        return;
+      }
+      if (!context.mounted) return;
       final ok = await runAction(
         context,
         () => ref.read(apiProvider).decideJoinRequest(r.id, accept: accept),
@@ -75,15 +88,13 @@ class JoinRequestsScreen extends ConsumerWidget {
                                               fontWeight: FontWeight.w600,
                                             ),
                                       ),
+                                      if (r.email != null)
+                                        LtrLine(r.email!, style: faint),
                                       Text(
-                                        '${ltr(r.email ?? '')} · '
-                                        '${localizations.formatMediumDate(r.createdAt.toLocal())}',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
+                                        localizations.formatMediumDate(
+                                          r.createdAt.toLocal(),
+                                        ),
+                                        style: faint,
                                       ),
                                     ],
                                   ),

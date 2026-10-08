@@ -41,6 +41,20 @@ class ProjectScreen extends ConsumerWidget {
     }
 
     Future<void> setStatus(ProjectStatus status) async {
+      final question = switch (status) {
+        ProjectStatus.archived => l.confirmArchive,
+        ProjectStatus.closed => l.confirmClose,
+        ProjectStatus.active => null,
+      };
+      if (question != null &&
+          !await confirm(
+            context,
+            message: question,
+            action: l.continueAction,
+          )) {
+        return;
+      }
+      if (!context.mounted) return;
       final ok = await runAction(
         context,
         () => ref.read(apiProvider).setProjectStatus(project.id, status),
@@ -141,27 +155,20 @@ class ProjectScreen extends ConsumerWidget {
               TileGroup(
                 children: [
                   for (final m in list)
-                    ListTile(
-                      leading: Avatar(name: m.fullName),
-                      title: Text(
-                        m.userId == me
-                            ? '${m.fullName} (${l.you})'
-                            : m.fullName,
-                      ),
-                      subtitle: m.email == null ? null : Text(ltr(m.email!)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (m.role == ProjectRole.lead)
-                            Tag(l.roleLead, strong: true),
-                          if (canEdit && m.userId != me)
-                            _MemberMenu(
+                    PersonTile(
+                      name: m.userId == me
+                          ? '${m.fullName} (${l.you})'
+                          : m.fullName,
+                      avatarName: m.fullName,
+                      contact: m.email,
+                      tag: m.role == ProjectRole.lead ? l.roleLead : null,
+                      trailing: canEdit && m.userId != me
+                          ? _MemberMenu(
                               project: current,
                               member: m,
                               onDone: refresh,
-                            ),
-                        ],
-                      ),
+                            )
+                          : null,
                     ),
                 ],
               ),
@@ -204,6 +211,16 @@ class _MemberMenu extends ConsumerWidget {
 
     return PopupMenuButton<String>(
       onSelected: (action) async {
+        if (action == 'remove' &&
+            !await confirm(
+              context,
+              message: l.confirmRemoveFromProject(member.fullName),
+              action: l.remove,
+              destructive: true,
+            )) {
+          return;
+        }
+        if (!context.mounted) return;
         final ok = await runAction(context, () {
           return switch (action) {
             'lead' => api.setProjectRole(
@@ -274,8 +291,12 @@ class _AddMemberSheet extends ConsumerWidget {
                       for (final m in candidates)
                         ListTile(
                           leading: Avatar(name: m.fullName),
-                          title: Text(m.fullName),
-                          subtitle: Text(ltr(m.contact)),
+                          title: Text(
+                            m.fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: LtrLine(m.contact),
                           trailing: const Icon(Icons.add_circle_outline),
                           onTap: () async {
                             final ok = await runAction(

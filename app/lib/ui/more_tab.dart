@@ -55,7 +55,7 @@ class MoreTab extends ConsumerWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            subtitle: Text(ltr(profile?.email ?? profile?.phone ?? '')),
+            subtitle: LtrLine(profile?.email ?? profile?.phone ?? ''),
             trailing: IconButton(
               tooltip: l.editName,
               icon: const Icon(Icons.edit_outlined),
@@ -158,7 +158,7 @@ class MoreTab extends ConsumerWidget {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.swap_horiz),
+              leading: const Icon(Icons.add_circle_outline),
               title: Text(l.addWorkspace),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => push(const StartScreen(asPage: true)),

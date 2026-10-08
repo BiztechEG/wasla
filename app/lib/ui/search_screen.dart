@@ -188,6 +188,7 @@ class _JoinDialogState extends State<_JoinDialog> {
       title: Text(widget.workspace),
       content: TextField(
         controller: _message,
+        inputFormatters: messageLimit,
         maxLines: 3,
         minLines: 1,
         decoration: InputDecoration(labelText: l.joinMessageLabel),
