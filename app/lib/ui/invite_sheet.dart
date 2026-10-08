@@ -138,7 +138,11 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
                     for (final p in projects)
                       FilterChip(
                         avatar: ColorDot(hex: p.color),
-                        label: Text(p.name),
+                        label: Text(
+                          p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         selected: _projects.contains(p.id),
                         onSelected: (on) => setState(
                           () =>

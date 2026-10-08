@@ -20,6 +20,24 @@ final messageLimit = [LengthLimitingTextInputFormatter(500)];
 /// Keeps an email or phone number reading left to right inside Arabic text.
 String ltr(String text) => '\u2066$text\u2069';
 
+/// One line of left-to-right text (an email, a phone number). When it is too
+/// long it keeps its beginning and trails off at its own end.
+class LtrLine extends StatelessWidget {
+  const LtrLine(this.text, {super.key, this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: style,
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  );
+}
+
 String roleLabel(AppLocalizations l, WorkspaceRole role) => switch (role) {
   WorkspaceRole.owner => l.roleOwner,
   WorkspaceRole.admin => l.roleAdmin,
@@ -490,14 +508,7 @@ class PersonTile extends StatelessWidget {
                   Tag(tag!, strong: strongTag),
                   const SizedBox(width: 6),
                 ],
-                if (hasContact)
-                  Flexible(
-                    child: Text(
-                      ltr(contact!),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                if (hasContact) Flexible(child: LtrLine(contact!)),
               ],
             ),
       trailing: trailing,

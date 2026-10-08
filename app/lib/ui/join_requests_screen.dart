@@ -18,6 +18,9 @@ class JoinRequestsScreen extends ConsumerWidget {
     final ws = membership.workspaceId;
     final requests = ref.watch(joinRequestsProvider(ws));
     final localizations = MaterialLocalizations.of(context);
+    final faint = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
 
     Future<void> decide(JoinRequest r, bool accept) async {
       if (!accept &&
@@ -85,15 +88,13 @@ class JoinRequestsScreen extends ConsumerWidget {
                                               fontWeight: FontWeight.w600,
                                             ),
                                       ),
+                                      if (r.email != null)
+                                        LtrLine(r.email!, style: faint),
                                       Text(
-                                        '${ltr(r.email ?? '')} · '
-                                        '${localizations.formatMediumDate(r.createdAt.toLocal())}',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: theme
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
+                                        localizations.formatMediumDate(
+                                          r.createdAt.toLocal(),
+                                        ),
+                                        style: faint,
                                       ),
                                     ],
                                   ),

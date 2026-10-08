@@ -291,8 +291,12 @@ class _AddMemberSheet extends ConsumerWidget {
                       for (final m in candidates)
                         ListTile(
                           leading: Avatar(name: m.fullName),
-                          title: Text(m.fullName),
-                          subtitle: Text(ltr(m.contact)),
+                          title: Text(
+                            m.fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: LtrLine(m.contact),
                           trailing: const Icon(Icons.add_circle_outline),
                           onTap: () async {
                             final ok = await runAction(

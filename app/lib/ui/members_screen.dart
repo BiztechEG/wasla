@@ -73,7 +73,7 @@ class MembersScreen extends ConsumerWidget {
                         leading: const CircleAvatar(
                           child: Icon(Icons.mail_outline, size: 20),
                         ),
-                        title: Text(ltr(invite.contact)),
+                        title: LtrLine(invite.contact),
                         subtitle: Text(roleLabel(l, invite.role)),
                         trailing: IconButton(
                           tooltip: l.cancelInvite,
@@ -134,7 +134,7 @@ class MembersScreen extends ConsumerWidget {
                   member.fullName,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: Text(ltr(member.contact)),
+                subtitle: LtrLine(member.contact),
               ),
               const Divider(),
               Padding(
