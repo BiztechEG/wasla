@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/l10n/app_localizations_ar.dart';
 import 'package:wasla/ui/widgets.dart';
@@ -78,7 +79,7 @@ void main() {
         l,
         const PostgrestException(message: 'too_many_requests', code: 'P0001'),
       ),
-      l.errorTooManyToday,
+      l.errorTooMany,
     );
     expect(
       errorText(
@@ -87,7 +88,53 @@ void main() {
       ),
       l.errorTooLong,
     );
+    expect(
+      errorText(
+        l,
+        const StorageException(
+          'new row violates row-level security policy',
+          statusCode: '403',
+        ),
+      ),
+      l.errorUploadRefused,
+    );
     expect(errorText(l, Exception('boom')), l.errorGeneric);
+  });
+
+  test('only a private chat can show its other person as gone', () {
+    final project = Conversation.fromJson({
+      'id': 'c1',
+      'kind': 'project',
+      'project_id': 'p1',
+      'project_name': 'Dock',
+      'other_active': false,
+    });
+    final direct = Conversation.fromJson({
+      'id': 'c2',
+      'kind': 'direct',
+      'other_id': 'u2',
+      'other_name': 'Mona',
+      'other_active': false,
+    });
+    expect(project.otherActive, isTrue);
+    expect(direct.otherActive, isFalse);
+  });
+
+  test('a search hit carries the chat it is in', () {
+    final hit = MessageHit.fromJson({
+      'message_id': 'm1',
+      'conversation_id': 'c1',
+      'created_at': '2026-10-08T09:00:00.123456+00:00',
+      'sender_name': 'Mona',
+      'body': 'تقرير',
+      'kind': 'project',
+      'project_id': 'p1',
+      'project_name': 'Dock',
+      'project_color': '#2F5BD3',
+    });
+    expect(hit.conversationId, 'c1');
+    expect(hit.chat.isProject, isTrue);
+    expect(hit.chat.title, 'Dock');
   });
 
   test('Arabic names get one initial without the article', () {

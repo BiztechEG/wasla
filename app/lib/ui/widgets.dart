@@ -64,7 +64,7 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('invite_invalid')) return l.errorInviteInvalid;
     if (m.contains('invite_not_for_you')) return l.errorInviteNotForYou;
     if (m.contains('already_member')) return l.errorAlreadyMember;
-    if (m.contains('too_many_')) return l.errorTooManyToday;
+    if (m.contains('too_many_')) return l.errorTooMany;
     if (m.contains('invalid_project')) return l.errorInvalidProject;
     if (m.contains('conversation_closed')) return l.errorChatClosed;
     if (m.contains('storage_full')) return l.errorStorageFull;
@@ -77,6 +77,13 @@ String errorText(AppLocalizations l, Object error) {
     if (error.code == '23505') return l.errorDuplicate;
     if (error.code == '23514') return l.errorTooLong;
     return l.errorGeneric;
+  }
+  if (error is StorageException) {
+    if (error.statusCode == '413') return l.fileTooLarge;
+    // The upload rules: the plan's storage, or today's upload allowance.
+    if (error.statusCode == '403' || error.statusCode == '400') {
+      return l.errorUploadRefused;
+    }
   }
   final text = error.toString();
   if (error is TimeoutException ||
@@ -204,7 +211,9 @@ class AsyncView<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A failed refresh keeps showing what was loaded before.
     return value.when(
+      skipError: true,
       data: builder,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => ErrorView(error: error, onRetry: onRetry),

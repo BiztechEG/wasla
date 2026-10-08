@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'chat_models.dart';
@@ -104,11 +105,19 @@ abstract class WaslaApi {
     Upload? file,
   });
   Future<void> markRead(String conversationId, DateTime until);
-  Future<void> deleteMessage(String messageId);
+
+  /// [filePath]: the message's file, when the signed-in user sent it, so the
+  /// stored copy is removed too.
+  Future<void> deleteMessage(String messageId, {String? filePath});
   Future<List<ReadState>> readStates(String conversationId);
   Future<List<MessageHit>> searchMessages(String workspaceId, String query);
 
-  /// Fires whenever a message arrives, changes or is read in [workspaceId].
+  /// Projects a private chat's messages can be tagged with: active ones both
+  /// people are in.
+  Future<List<String>> sharedProjects(String conversationId);
+
+  /// Fires whenever a message arrives, changes or is read in [workspaceId],
+  /// and with [ChatEvent.everything] when changes may have been missed.
   Stream<ChatEvent> chatEvents(String workspaceId);
 
   // Files
@@ -120,7 +129,10 @@ abstract class WaslaApi {
     Upload file,
   );
   Future<void> setFilePinned(String fileId, bool pinned);
-  Future<void> deleteFile(String fileId);
+
+  /// [filePath]: given when the signed-in user added the file, so the stored
+  /// copy is removed too.
+  Future<void> deleteFile(String fileId, {String? filePath});
 
   /// A short-lived link for viewing or downloading a stored file.
   Future<String> fileUrl(String path);
@@ -481,6 +493,30 @@ class SupabaseWaslaApi implements WaslaApi {
     return path;
   }
 
+  /// Uploads [file], then records it with [record]. If recording fails the
+  /// upload is removed again, so nothing is left behind.
+  Future<void> _withUpload(
+    String workspaceId,
+    Upload file,
+    Future<void> Function(String path) record,
+  ) async {
+    final path = await _upload(workspaceId, file);
+    try {
+      await record(path);
+    } catch (_) {
+      await _remove(path);
+      rethrow;
+    }
+  }
+
+  /// Best effort: the server only lets people remove their own unused files.
+  Future<void> _remove(String? path) async {
+    if (path == null) return;
+    try {
+      await _client.storage.from('files').remove([path]);
+    } catch (_) {}
+  }
+
   @override
   Future<List<Conversation>> conversations(String workspaceId) async => _rows(
     await _client.rpc('my_conversations', params: {'p_workspace': workspaceId}),
@@ -529,8 +565,7 @@ class SupabaseWaslaApi implements WaslaApi {
     String? projectId,
     Upload? file,
   }) async {
-    final path = file == null ? null : await _upload(workspaceId, file);
-    await _client.rpc(
+    Future<void> send(String? path) => _client.rpc(
       'send_message',
       params: {
         'p_conversation': conversationId,
@@ -543,6 +578,11 @@ class SupabaseWaslaApi implements WaslaApi {
         'p_file_size': file?.bytes.length,
       },
     );
+    if (file == null) {
+      await send(null);
+    } else {
+      await _withUpload(workspaceId, file, send);
+    }
   }
 
   @override
@@ -555,8 +595,10 @@ class SupabaseWaslaApi implements WaslaApi {
   );
 
   @override
-  Future<void> deleteMessage(String messageId) =>
-      _client.rpc('delete_message', params: {'p_message': messageId});
+  Future<void> deleteMessage(String messageId, {String? filePath}) async {
+    await _client.rpc('delete_message', params: {'p_message': messageId});
+    await _remove(filePath);
+  }
 
   @override
   Future<List<ReadState>> readStates(String conversationId) async => _rows(
@@ -578,42 +620,76 @@ class SupabaseWaslaApi implements WaslaApi {
   ).map(MessageHit.fromJson).toList();
 
   @override
+  Future<List<String>> sharedProjects(String conversationId) async =>
+      ((await _client.rpc(
+                'shared_projects',
+                params: {'p_conversation': conversationId},
+              ) as List?) ??
+              const [])
+          .cast<String>();
+
+  @override
   Stream<ChatEvent> chatEvents(String workspaceId) {
     late final RealtimeChannel channel;
     late final StreamController<ChatEvent> controller;
+    AppLifecycleListener? lifecycle;
+    var joined = false;
 
     void forward(PostgresChangePayload payload) {
-      final row = payload.newRecord.isEmpty
-          ? payload.oldRecord
-          : payload.newRecord;
+      final row = payload.newRecord;
       final id = row['conversation_id'];
-      if (id is String) controller.add(ChatEvent(id));
+      if (id is! String) return;
+      final reader = row['user_id'];
+      controller.add(
+        ChatEvent(
+          conversationId: id,
+          readerId: reader is String ? reader : null,
+        ),
+      );
     }
+
+    final workspace = PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'workspace_id',
+      value: workspaceId,
+    );
 
     controller = StreamController<ChatEvent>(
       onListen: () {
-        channel = _client
-            .channel('chats:$workspaceId:${_random.nextInt(1 << 30)}')
-            .onPostgresChanges(
-              event: PostgresChangeEvent.all,
+        channel = _client.channel(
+          'chats:$workspaceId:${_random.nextInt(1 << 30)}',
+        );
+        // New and changed rows only: messages are never hard-deleted, and
+        // delete events are not filtered by workspace.
+        for (final table in ['messages', 'conversation_reads']) {
+          for (final event in [
+            PostgresChangeEvent.insert,
+            PostgresChangeEvent.update,
+          ]) {
+            channel.onPostgresChanges(
+              event: event,
               schema: 'public',
-              table: 'messages',
-              filter: PostgresChangeFilter(
-                type: PostgresChangeFilterType.eq,
-                column: 'workspace_id',
-                value: workspaceId,
-              ),
+              table: table,
+              filter: workspace,
               callback: forward,
-            )
-            .onPostgresChanges(
-              event: PostgresChangeEvent.all,
-              schema: 'public',
-              table: 'conversation_reads',
-              callback: forward,
-            )
-            .subscribe();
+            );
+          }
+        }
+        // Changes made while the connection was down are not replayed, so
+        // catch up after reconnecting and when the app comes back.
+        channel.subscribe((status, _) {
+          if (status != RealtimeSubscribeStatus.subscribed) return;
+          if (joined) controller.add(const ChatEvent.everything());
+          joined = true;
+        });
+        lifecycle = AppLifecycleListener(
+          onResume: () => controller.add(const ChatEvent.everything()),
+        );
       },
-      onCancel: () => _client.removeChannel(channel),
+      onCancel: () async {
+        lifecycle?.dispose();
+        await _client.removeChannel(channel);
+      },
     );
     return controller.stream;
   }
@@ -630,9 +706,10 @@ class SupabaseWaslaApi implements WaslaApi {
     String workspaceId,
     String projectId,
     Upload file,
-  ) async {
-    final path = await _upload(workspaceId, file);
-    await _client.rpc(
+  ) => _withUpload(
+    workspaceId,
+    file,
+    (path) => _client.rpc(
       'add_project_file',
       params: {
         'p_project': projectId,
@@ -641,8 +718,8 @@ class SupabaseWaslaApi implements WaslaApi {
         'p_mime': file.mime,
         'p_size': file.bytes.length,
       },
-    );
-  }
+    ),
+  );
 
   @override
   Future<void> setFilePinned(String fileId, bool pinned) => _client.rpc(
@@ -651,8 +728,10 @@ class SupabaseWaslaApi implements WaslaApi {
   );
 
   @override
-  Future<void> deleteFile(String fileId) =>
-      _client.rpc('delete_file', params: {'p_file': fileId});
+  Future<void> deleteFile(String fileId, {String? filePath}) async {
+    await _client.rpc('delete_file', params: {'p_file': fileId});
+    await _remove(filePath);
+  }
 
   @override
   Future<String> fileUrl(String path) =>

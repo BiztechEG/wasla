@@ -37,9 +37,22 @@ void _refreshOnChatEvents(
 final conversationsProvider = FutureProvider.autoDispose
     .family<List<Conversation>, String>((ref, workspaceId) async {
       final api = ref.watch(apiProvider);
-      _refreshOnChatEvents(ref, workspaceId, ref.invalidateSelf);
+      // Others reading a chat changes nothing in this list; reading it here
+      // (maybe on another phone) clears its unread count.
+      _refreshOnChatEvents(
+        ref,
+        workspaceId,
+        ref.invalidateSelf,
+        where: (e) =>
+            e.readerId == null || e.readerId == ref.read(authProvider).value,
+      );
       // A new, closed or reopened project changes which group chats show.
-      ref.watch(projectsProvider(workspaceId).select((p) => p.value));
+      ref.listen(projectsProvider(workspaceId).select((p) => p.value), (
+        before,
+        after,
+      ) {
+        if (before != null && after != null) ref.invalidateSelf();
+      });
       await ref.watch(authProvider.future);
       return api.conversations(workspaceId);
     });
@@ -85,7 +98,13 @@ final fileUrlProvider = FutureProvider.autoDispose.family<String, String>((
   final link = ref.keepAlive();
   final timer = Timer(const Duration(minutes: 50), link.close);
   ref.onDispose(timer.cancel);
-  return ref.watch(apiProvider).fileUrl(path);
+  try {
+    return await ref.watch(apiProvider).fileUrl(path);
+  } catch (_) {
+    // Try again next time rather than keeping the failure.
+    link.close();
+    rethrow;
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -171,14 +190,19 @@ class ChatController extends AsyncNotifier<ChatState> {
   static const _page = 50;
   int _nextLocalId = 0;
 
+  /// Refreshes can finish out of order; only the latest one started counts.
+  int _refreshes = 0;
+  int _applied = 0;
+
   @override
   Future<ChatState> build() async {
     final api = ref.watch(apiProvider);
     _refreshOnChatEvents(
       ref,
       key.workspaceId,
-      () => refresh(),
-      where: (e) => e.conversationId == key.conversationId,
+      () => refresh().catchError((Object _) {}),
+      where: (e) =>
+          e.conversationId == null || e.conversationId == key.conversationId,
     );
     final messages = await api.messages(
       key.conversationId,
@@ -200,22 +224,41 @@ class ChatController extends AsyncNotifier<ChatState> {
   Future<void> refresh({int? dropPending}) async {
     final before = state.value;
     if (before == null) return;
+    final run = ++_refreshes;
     final api = ref.read(apiProvider);
+    final limit = min(max(before.messages.length, _page), 200);
     final latest = await api.messages(
       key.conversationId,
       projectId: key.projectId,
-      limit: min(max(before.messages.length, _page), 200),
+      limit: limit,
     );
     final reads = await api.readStates(key.conversationId);
     if (!ref.mounted) return;
+    if (run < _applied) {
+      // A later refresh already landed; this one is older news.
+      if (dropPending != null) _drop(dropPending);
+      return;
+    }
+    _applied = run;
     final now = state.value ?? before;
     final oldest = latest.isEmpty ? null : latest.last.createdAt;
+    final newestBefore = now.messages.isEmpty
+        ? null
+        : now.messages.first.createdAt;
+    // So many arrived that they do not reach what was on screen: start from
+    // the new ones and page back, rather than leave a hole in between.
+    final gap =
+        latest.length == limit &&
+        oldest != null &&
+        newestBefore != null &&
+        oldest.isAfter(newestBefore);
     final next = now.copyWith(
       messages: [
         ...latest,
-        if (oldest != null)
+        if (oldest != null && !gap)
           ...now.messages.where((m) => m.createdAt.isBefore(oldest)),
       ],
+      hasMore: gap ? true : null,
       reads: reads,
       pending: [
         for (final p in now.pending)
@@ -294,7 +337,7 @@ class ChatController extends AsyncNotifier<ChatState> {
 
   Future<void> _send(PendingMessage message) async {
     final now = state.value;
-    if (now == null) return;
+    if (now == null) throw StateError('chat_not_loaded');
     state = AsyncData(now.copyWith(pending: [...now.pending, message]));
     try {
       await ref
@@ -344,11 +387,17 @@ class ChatController extends AsyncNotifier<ChatState> {
   }
 
   Future<void> delete(ChatMessage message) async {
-    await ref.read(apiProvider).deleteMessage(message.id);
+    final mine = message.senderId == ref.read(authProvider).value;
+    await ref
+        .read(apiProvider)
+        .deleteMessage(message.id, filePath: mine ? message.file?.path : null);
     if (ref.mounted) await refresh();
   }
 
   void _markRead(ChatState chat) {
+    // Read marks cover everything up to a time, so a chat filtered by
+    // project would mark messages that are not on screen.
+    if (key.projectId != null) return;
     final me = ref.read(authProvider).value;
     ChatMessage? newest;
     for (final m in chat.messages) {
@@ -371,6 +420,14 @@ final chatProvider = AsyncNotifierProvider.autoDispose
     .family<ChatController, ChatState, ChatKey>(ChatController.new);
 
 final pickerProvider = Provider<Picker>((ref) => DevicePicker());
+
+/// Projects a private chat's messages can be tagged with.
+final sharedProjectsProvider = FutureProvider.autoDispose
+    .family<List<String>, String>((ref, conversationId) async {
+      final api = ref.watch(apiProvider);
+      await ref.watch(authProvider.future);
+      return api.sharedProjects(conversationId);
+    });
 
 final projectConversationProvider = FutureProvider.autoDispose
     .family<String?, String>((ref, projectId) async {

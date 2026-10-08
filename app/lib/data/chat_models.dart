@@ -64,27 +64,33 @@ class Conversation {
   bool get isProject => kind == ConversationKind.project;
   String get title => (isProject ? projectName : otherName) ?? '';
 
-  factory Conversation.fromJson(Json json) => Conversation(
-    id: json['id'] as String,
-    kind: ConversationKind.parse(json['kind']),
-    projectId: json['project_id'] as String?,
-    projectName: json['project_name'] as String?,
-    projectColor: json['project_color'] as String?,
-    otherId: json['other_id'] as String?,
-    otherName: json['other_name'] as String?,
-    otherActive: json['other_active'] as bool? ?? true,
-    lastAt: _timeOrNull(json['last_at']),
-    lastSenderId: json['last_sender_id'] as String?,
-    lastSenderName: json['last_sender_name'] as String?,
-    lastBody: json['last_body'] as String?,
-    lastFileName: json['last_file_name'] as String?,
-    lastDeleted: json['last_deleted'] as bool? ?? false,
-    unread: json['unread'] as int? ?? 0,
-    tagProjectIds: [
-      for (final id in (json['tag_project_ids'] as List? ?? const []))
-        if (id != null) id as String,
-    ],
-  );
+  factory Conversation.fromJson(Json json) {
+    final kind = ConversationKind.parse(json['kind']);
+    return Conversation(
+      id: json['id'] as String,
+      kind: kind,
+      projectId: json['project_id'] as String?,
+      projectName: json['project_name'] as String?,
+      projectColor: json['project_color'] as String?,
+      otherId: json['other_id'] as String?,
+      otherName: json['other_name'] as String?,
+      // Only a private chat has another person who can leave.
+      otherActive:
+          kind == ConversationKind.project ||
+          (json['other_active'] as bool? ?? true),
+      lastAt: _timeOrNull(json['last_at']),
+      lastSenderId: json['last_sender_id'] as String?,
+      lastSenderName: json['last_sender_name'] as String?,
+      lastBody: json['last_body'] as String?,
+      lastFileName: json['last_file_name'] as String?,
+      lastDeleted: json['last_deleted'] as bool? ?? false,
+      unread: json['unread'] as int? ?? 0,
+      tagProjectIds: [
+        for (final id in (json['tag_project_ids'] as List? ?? const []))
+          if (id != null) id as String,
+      ],
+    );
+  }
 }
 
 /// A file stored in the backend.
@@ -297,7 +303,7 @@ class UnreadAnnouncement {
 class MessageHit {
   const MessageHit({
     required this.messageId,
-    required this.conversationId,
+    required this.chat,
     required this.createdAt,
     required this.senderName,
     this.body,
@@ -305,15 +311,27 @@ class MessageHit {
   });
 
   final String messageId;
-  final String conversationId;
+
+  /// The chat it is in, enough to open it even when it is not in the list.
+  final Conversation chat;
   final DateTime createdAt;
   final String senderName;
   final String? body;
   final String? fileName;
 
+  String get conversationId => chat.id;
+
   factory MessageHit.fromJson(Json json) => MessageHit(
     messageId: json['message_id'] as String,
-    conversationId: json['conversation_id'] as String,
+    chat: Conversation(
+      id: json['conversation_id'] as String,
+      kind: ConversationKind.parse(json['kind']),
+      projectId: json['project_id'] as String?,
+      projectName: json['project_name'] as String?,
+      projectColor: json['project_color'] as String?,
+      otherId: json['other_id'] as String?,
+      otherName: json['other_name'] as String?,
+    ),
     createdAt: _time(json['created_at']),
     senderName: _text(json['sender_name']),
     body: json['body'] as String?,
@@ -323,9 +341,16 @@ class MessageHit {
 
 /// Something changed in a chat: a message arrived, changed, or was read.
 class ChatEvent {
-  const ChatEvent(this.conversationId);
+  const ChatEvent({this.conversationId, this.readerId});
 
-  final String conversationId;
+  /// Anything may have changed, for example after being offline.
+  const ChatEvent.everything() : conversationId = null, readerId = null;
+
+  /// Null when anything may have changed.
+  final String? conversationId;
+
+  /// For read receipts: the person who read.
+  final String? readerId;
 }
 
 /// The content type for a file name, for the few kinds people share most.

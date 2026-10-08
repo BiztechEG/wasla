@@ -174,7 +174,9 @@ class _AnnouncementsViewState extends ConsumerState<AnnouncementsView> {
       isScrollControlled: true,
       builder: (_) => _ComposeSheet(scope: _scope),
     );
-    if (posted ?? false) ref.invalidate(announcementsProvider(_scope));
+    if (mounted && (posted ?? false)) {
+      ref.invalidate(announcementsProvider(_scope));
+    }
   }
 }
 
