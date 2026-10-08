@@ -783,7 +783,12 @@ $$;
 do $$
 begin
   if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
-    create extension if not exists pg_cron with schema pg_catalog;
+    -- The tasks migration already turned it on. On hosted Supabase even a
+    -- "create extension if not exists" re-runs its setup script, which then
+    -- fails ("dependent privileges exist"), so it is only created if missing.
+    if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+      create extension pg_cron with schema pg_catalog;
+    end if;
     perform cron.schedule('wasla-subscriptions', '0 6 * * *',
                           'select public.process_subscriptions()');
   else
