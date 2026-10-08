@@ -1,0 +1,458 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../data/chat_models.dart';
+import '../data/models.dart';
+import '../data/task_models.dart';
+import '../state/providers.dart';
+import '../state/task_providers.dart';
+import 'files_common.dart';
+import 'task_format.dart';
+import 'widgets.dart';
+
+/// Whether the signed-in user leads [projectId] or administers its
+/// workspace: they can give tasks to anyone in the project.
+bool managesProject(
+  WidgetRef ref,
+  String workspaceId,
+  List<ProjectMember>? members,
+) {
+  final me = ref.watch(authProvider).value;
+  final memberships = ref.watch(membershipsProvider).value ?? const [];
+  final role = memberships
+      .where((m) => m.workspaceId == workspaceId)
+      .firstOrNull
+      ?.role;
+  if (role?.canManage ?? false) return true;
+  return members?.any((m) => m.userId == me && m.role == ProjectRole.lead) ??
+      false;
+}
+
+/// Creates a task, or changes one when [existing] is given. Pops with the
+/// task's id once saved.
+class TaskEditorScreen extends ConsumerStatefulWidget {
+  const TaskEditorScreen({
+    super.key,
+    required this.workspaceId,
+    this.projectId,
+    this.lockProject = false,
+    this.existing,
+    this.title,
+    this.description,
+    this.assigneeIds,
+    this.sourceMessageId,
+  });
+
+  final String workspaceId;
+  final String? projectId;
+
+  /// From a project or a project's chat: the project is given.
+  final bool lockProject;
+  final TaskDetail? existing;
+
+  /// Filled in from a chat message.
+  final String? title;
+  final String? description;
+  final List<String>? assigneeIds;
+  final String? sourceMessageId;
+
+  @override
+  ConsumerState<TaskEditorScreen> createState() => _TaskEditorScreenState();
+}
+
+class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
+  late final TaskDetail? _existing = widget.existing;
+  late final _title = TextEditingController(
+    text: _existing?.task.title ?? widget.title ?? '',
+  );
+  late final _details = TextEditingController(
+    text: _existing?.description ?? widget.description ?? '',
+  );
+  late String? _projectId = _existing?.task.projectId ?? widget.projectId;
+  late List<String> _assignees = [
+    ...?_existing?.task.assignees.map((a) => a.id),
+    if (_existing == null) ...?widget.assigneeIds,
+  ];
+  late DateTime? _due = _existing?.task.dueAt?.toLocal();
+  late final Set<int> _remind = {
+    ...(_existing?.remindBefore ?? const [1440, 60]),
+  };
+  late TaskPriority _priority = _existing?.task.priority ?? TaskPriority.normal;
+  late TaskVisibility _visibility =
+      _existing?.task.visibility ?? TaskVisibility.private;
+  final _files = <Upload>[];
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _title.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _details.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save(String me, bool manager) async {
+    final projectId = _projectId;
+    final title = _title.text.trim();
+    if (projectId == null || title.isEmpty) return;
+    // Someone who doesn't lead the project only makes tasks for themselves.
+    final people = manager && _assignees.isNotEmpty ? _assignees : [me];
+    final draft = TaskDraft(
+      workspaceId: widget.workspaceId,
+      projectId: projectId,
+      title: title,
+      description: _details.text.trim(),
+      assigneeIds: people,
+      dueAt: _due,
+      priority: _priority,
+      visibility: _visibility,
+      remindBefore: _due == null ? const [] : (_remind.toList()..sort()),
+      sourceMessageId: widget.sourceMessageId,
+      files: List.of(_files),
+    );
+    final api = ref.read(apiProvider);
+    final navigator = Navigator.of(context);
+    setState(() => _saving = true);
+    String? id;
+    final ok = await runAction(context, () async {
+      final existing = _existing;
+      if (existing == null) {
+        id = await api.createTask(draft);
+      } else {
+        id = existing.task.id;
+        await api.updateTask(existing.task.id, draft);
+        final before = existing.task.assignees.map((a) => a.id).toSet();
+        if (before.length != people.length || !before.containsAll(people)) {
+          await api.setTaskAssignees(existing.task.id, people);
+        }
+      }
+    });
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (ok) {
+      refreshTasks(ref);
+      navigator.pop(id);
+    }
+  }
+
+  Future<void> _pickAssignees(List<ProjectMember> members) async {
+    final picked = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AssigneeSheet(members: members, selected: _assignees),
+    );
+    if (picked != null) setState(() => _assignees = picked);
+  }
+
+  Future<void> _pickDue() async {
+    final picked = await pickDateTime(context, initial: _due);
+    if (picked != null) setState(() => _due = picked);
+  }
+
+  Future<void> _attach() async {
+    final file = await pickUpload(context, ref);
+    if (file != null) setState(() => _files.add(file));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final me = ref.watch(authProvider).value ?? '';
+    final ws = widget.workspaceId;
+    final projects = [
+      for (final p
+          in ref.watch(projectsProvider(ws)).value ?? const <Project>[])
+        if (p.status == ProjectStatus.active) p,
+    ];
+    final projectId = _projectId;
+    final members = projectId == null
+        ? null
+        : ref.watch(projectMembersProvider(projectId)).value;
+    final manager = managesProject(ref, ws, members);
+    final names = {
+      for (final m in members ?? const <ProjectMember>[]) m.userId: m.fullName,
+    };
+    final people = manager && _assignees.isNotEmpty ? _assignees : [me];
+    final canSave =
+        !_saving && projectId != null && _title.text.trim().isNotEmpty;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_existing == null ? l.newTask : l.editTask),
+        actions: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: FilledButton(
+              onPressed: canSave ? () => _save(me, manager) : null,
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : Text(_existing == null ? l.create : l.save),
+            ),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        children: [
+          TextField(
+            controller: _title,
+            autofocus: _existing == null && widget.title == null,
+            textCapitalization: TextCapitalization.sentences,
+            inputFormatters: [LengthLimitingTextInputFormatter(200)],
+            decoration: InputDecoration(labelText: l.taskTitleLabel),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _details,
+            minLines: 2,
+            maxLines: 6,
+            inputFormatters: [LengthLimitingTextInputFormatter(4000)],
+            decoration: InputDecoration(labelText: l.taskDetailsLabel),
+          ),
+          const SizedBox(height: 12),
+          if (_existing == null && !widget.lockProject)
+            DropdownButtonFormField<String>(
+              initialValue: projects.any((p) => p.id == projectId)
+                  ? projectId
+                  : null,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: l.projectLabel),
+              hint: Text(l.pickProject),
+              items: [
+                for (final p in projects)
+                  DropdownMenuItem(
+                    value: p.id,
+                    child: Row(
+                      children: [
+                        ColorDot(hex: p.color),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(p.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              onChanged: (id) => setState(() {
+                _projectId = id;
+                // People from the old project may not be in the new one.
+                _assignees = [];
+              }),
+            ),
+          if (_existing == null && !widget.lockProject)
+            const SizedBox(height: 12),
+          TileGroup(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(l.assigneesLabel),
+                subtitle: Text(
+                  [for (final id in people) id == me ? l.you : names[id] ?? '…']
+                      .join('، '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: manager ? const Icon(Icons.chevron_right) : null,
+                onTap: manager && members != null
+                    ? () => _pickAssignees(members)
+                    : null,
+              ),
+              ListTile(
+                leading: const Icon(Icons.event_outlined),
+                title: Text(l.dueLabel),
+                subtitle: Text(
+                  _due == null ? l.setDue : dueFull(context, _due!),
+                ),
+                trailing: _due == null
+                    ? null
+                    : IconButton(
+                        tooltip: l.clearDue,
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => _due = null),
+                      ),
+                onTap: _pickDue,
+              ),
+              if (_due != null)
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.notifications_none,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            for (final (minutes, label) in [
+                              (1440, l.remindDayBefore),
+                              (60, l.remindHourBefore),
+                            ])
+                              FilterChip(
+                                label: Text(label),
+                                selected: _remind.contains(minutes),
+                                onSelected: (on) => setState(
+                                  () => on
+                                      ? _remind.add(minutes)
+                                      : _remind.remove(minutes),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          if (!manager && projectId != null && members != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+              child: Text(
+                l.onlyYourself,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          SectionTitle(l.priorityLabel),
+          SegmentedButton<TaskPriority>(
+            showSelectedIcon: false,
+            segments: [
+              for (final p in TaskPriority.values)
+                ButtonSegment(value: p, label: Text(priorityLabel(l, p))),
+            ],
+            selected: {_priority},
+            onSelectionChanged: (s) => setState(() => _priority = s.first),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: SwitchListTile(
+              title: Text(l.publicTask),
+              subtitle: Text(
+                _visibility == TaskVisibility.public
+                    ? l.publicTaskHint
+                    : l.privateTaskHint,
+              ),
+              value: _visibility == TaskVisibility.public,
+              onChanged: (on) => setState(
+                () => _visibility = on
+                    ? TaskVisibility.public
+                    : TaskVisibility.private,
+              ),
+            ),
+          ),
+          if (_existing == null) ...[
+            SectionTitle(l.attachments),
+            for (final f in _files)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.insert_drive_file_outlined),
+                title: Text(f.name, overflow: TextOverflow.ellipsis),
+                trailing: IconButton(
+                  tooltip: l.remove,
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() => _files.remove(f)),
+                ),
+              ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                onPressed: _attach,
+                icon: const Icon(Icons.attach_file),
+                label: Text(l.attach),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AssigneeSheet extends StatefulWidget {
+  const _AssigneeSheet({required this.members, required this.selected});
+
+  final List<ProjectMember> members;
+  final List<String> selected;
+
+  @override
+  State<_AssigneeSheet> createState() => _AssigneeSheetState();
+}
+
+class _AssigneeSheetState extends State<_AssigneeSheet> {
+  late final _picked = {...widget.selected};
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.pickAssignees,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, [
+                      for (final m in widget.members)
+                        if (_picked.contains(m.userId)) m.userId,
+                    ]),
+                    child: Text(l.save),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final m in widget.members)
+                    CheckboxListTile(
+                      value: _picked.contains(m.userId),
+                      onChanged: (on) => setState(
+                        () => on == true
+                            ? _picked.add(m.userId)
+                            : _picked.remove(m.userId),
+                      ),
+                      secondary: Avatar(name: m.fullName),
+                      title: Text(
+                        m.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

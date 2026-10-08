@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'chat_models.dart';
 import 'models.dart';
+import 'task_models.dart';
 
 /// Everything the app asks of the backend. Screens only talk to this, so
 /// tests can swap in a fake and a self-hosted server only needs a new
@@ -153,6 +154,53 @@ abstract class WaslaApi {
   Future<void> markAnnouncementsRead(List<String> ids);
   Future<void> setAnnouncementPinned(String id, bool pinned);
   Future<void> deleteAnnouncement(String id);
+
+  // Tasks
+
+  /// Tasks one created or is assigned, across every workspace.
+  Future<List<TaskItem>> myTasks();
+  Future<List<TaskItem>> projectTasks(String projectId);
+
+  /// Tasks in the projects one leads (all projects for an admin).
+  Future<List<TaskItem>> managedTasks(String workspaceId);
+  Future<TaskDetail> task(String taskId);
+
+  /// Creates the task, then attaches [TaskDraft.files]. Returns its id.
+  Future<String> createTask(TaskDraft draft);
+  Future<void> updateTask(String taskId, TaskDraft draft);
+  Future<void> setTaskAssignees(String taskId, List<String> userIds);
+  Future<void> setTaskStatus(
+    String taskId,
+    TaskStatus status, {
+    String? reason,
+  });
+  Future<void> addTaskComment(String taskId, String body);
+  Future<void> addTaskAttachment(
+    String workspaceId,
+    String taskId,
+    Upload file,
+  );
+
+  /// Reminds the assignees now.
+  Future<void> nudgeTask(String taskId);
+  Future<void> addTaskReminder(String taskId, DateTime at);
+  Future<void> deleteTaskReminder(String reminderId);
+  Future<void> deleteTask(String taskId);
+
+  /// Fires when a task one sees in [workspaceId] changes, and when changes
+  /// may have been missed.
+  Stream<void> taskEvents(String workspaceId);
+
+  // Notifications
+
+  Future<List<AppNotification>> notifications();
+
+  /// Marks [ids] read, or every notification when null.
+  Future<void> markNotificationsRead([List<String>? ids]);
+
+  /// Fires when a notification arrives for the signed-in user, and when
+  /// some may have been missed.
+  Stream<void> notificationEvents();
 }
 
 class SupabaseWaslaApi implements WaslaApi {
@@ -629,61 +677,71 @@ class SupabaseWaslaApi implements WaslaApi {
           .cast<String>();
 
   @override
-  Stream<ChatEvent> chatEvents(String workspaceId) {
+  Stream<ChatEvent> chatEvents(String workspaceId) => _follow(
+    name: 'chats:$workspaceId',
+    tables: const ['messages', 'conversation_reads'],
+    filter: PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'workspace_id',
+      value: workspaceId,
+    ),
+    event: (row) {
+      final id = row['conversation_id'];
+      if (id is! String) return null;
+      final reader = row['user_id'];
+      return ChatEvent(
+        conversationId: id,
+        readerId: reader is String ? reader : null,
+      );
+    },
+    everything: const ChatEvent.everything(),
+  );
+
+  /// New and changed rows of [tables] that match [filter], as events. Rows
+  /// are never hard-deleted, and delete events are not filtered anyway.
+  /// Changes made while the connection was down are not replayed, so
+  /// [everything] is sent after reconnecting and when the app comes back.
+  Stream<T> _follow<T>({
+    required String name,
+    required List<String> tables,
+    required PostgresChangeFilter filter,
+    required T? Function(Json row) event,
+    required T everything,
+  }) {
     late final RealtimeChannel channel;
-    late final StreamController<ChatEvent> controller;
+    late final StreamController<T> controller;
     AppLifecycleListener? lifecycle;
     var joined = false;
 
     void forward(PostgresChangePayload payload) {
-      final row = payload.newRecord;
-      final id = row['conversation_id'];
-      if (id is! String) return;
-      final reader = row['user_id'];
-      controller.add(
-        ChatEvent(
-          conversationId: id,
-          readerId: reader is String ? reader : null,
-        ),
-      );
+      final e = event(payload.newRecord);
+      if (e != null) controller.add(e);
     }
 
-    final workspace = PostgresChangeFilter(
-      type: PostgresChangeFilterType.eq,
-      column: 'workspace_id',
-      value: workspaceId,
-    );
-
-    controller = StreamController<ChatEvent>(
+    controller = StreamController<T>(
       onListen: () {
-        channel = _client.channel(
-          'chats:$workspaceId:${_random.nextInt(1 << 30)}',
-        );
-        // New and changed rows only: messages are never hard-deleted, and
-        // delete events are not filtered by workspace.
-        for (final table in ['messages', 'conversation_reads']) {
-          for (final event in [
+        channel = _client.channel('$name:${_random.nextInt(1 << 30)}');
+        for (final table in tables) {
+          for (final change in [
             PostgresChangeEvent.insert,
             PostgresChangeEvent.update,
           ]) {
             channel.onPostgresChanges(
-              event: event,
+              event: change,
               schema: 'public',
               table: table,
-              filter: workspace,
+              filter: filter,
               callback: forward,
             );
           }
         }
-        // Changes made while the connection was down are not replayed, so
-        // catch up after reconnecting and when the app comes back.
         channel.subscribe((status, _) {
           if (status != RealtimeSubscribeStatus.subscribed) return;
-          if (joined) controller.add(const ChatEvent.everything());
+          if (joined) controller.add(everything);
           joined = true;
         });
         lifecycle = AppLifecycleListener(
-          onResume: () => controller.add(const ChatEvent.everything()),
+          onResume: () => controller.add(everything),
         );
       },
       onCancel: () async {
@@ -791,4 +849,167 @@ class SupabaseWaslaApi implements WaslaApi {
   @override
   Future<void> deleteAnnouncement(String id) =>
       _client.rpc('delete_announcement', params: {'p_id': id});
+
+  // Tasks
+
+  List<TaskItem> _tasks(Object? data) =>
+      _rows(data).map(TaskItem.fromJson).toList();
+
+  @override
+  Future<List<TaskItem>> myTasks() async =>
+      _tasks(await _client.rpc('my_tasks'));
+
+  @override
+  Future<List<TaskItem>> projectTasks(String projectId) async => _tasks(
+    await _client.rpc('project_tasks', params: {'p_project': projectId}),
+  );
+
+  @override
+  Future<List<TaskItem>> managedTasks(String workspaceId) async => _tasks(
+    await _client.rpc('managed_tasks', params: {'p_workspace': workspaceId}),
+  );
+
+  @override
+  Future<TaskDetail> task(String taskId) async => TaskDetail.fromJson(
+    Json.from(
+      await _client.rpc('task_detail', params: {'p_task': taskId}) as Map,
+    ),
+  );
+
+  @override
+  Future<String> createTask(TaskDraft draft) async {
+    final id = await _client.rpc(
+      'create_task',
+      params: {
+        'p_project': draft.projectId,
+        'p_title': draft.title,
+        'p_description': draft.description,
+        'p_assignees': draft.assigneeIds,
+        'p_due_at': draft.dueAt?.toUtc().toIso8601String(),
+        'p_priority': draft.priority.name,
+        'p_visibility': draft.visibility.name,
+        'p_remind_before': draft.remindBefore,
+        'p_source_message': draft.sourceMessageId,
+      },
+    ) as String;
+    for (final file in draft.files) {
+      await addTaskAttachment(draft.workspaceId, id, file);
+    }
+    return id;
+  }
+
+  @override
+  Future<void> updateTask(String taskId, TaskDraft draft) => _client.rpc(
+    'update_task',
+    params: {
+      'p_task': taskId,
+      'p_title': draft.title,
+      'p_description': draft.description,
+      'p_due_at': draft.dueAt?.toUtc().toIso8601String(),
+      'p_priority': draft.priority.name,
+      'p_visibility': draft.visibility.name,
+      'p_remind_before': draft.remindBefore,
+    },
+  );
+
+  @override
+  Future<void> setTaskAssignees(String taskId, List<String> userIds) =>
+      _client.rpc(
+        'set_task_assignees',
+        params: {'p_task': taskId, 'p_users': userIds},
+      );
+
+  @override
+  Future<void> setTaskStatus(
+    String taskId,
+    TaskStatus status, {
+    String? reason,
+  }) => _client.rpc(
+    'set_task_status',
+    params: {'p_task': taskId, 'p_status': status.wire, 'p_reason': reason},
+  );
+
+  @override
+  Future<void> addTaskComment(String taskId, String body) => _client.rpc(
+    'add_task_comment',
+    params: {'p_task': taskId, 'p_body': body},
+  );
+
+  @override
+  Future<void> addTaskAttachment(
+    String workspaceId,
+    String taskId,
+    Upload file,
+  ) => _withUpload(
+    workspaceId,
+    file,
+    (path) => _client.rpc(
+      'add_task_attachment',
+      params: {
+        'p_task': taskId,
+        'p_path': path,
+        'p_name': file.name,
+        'p_mime': file.mime,
+        'p_size': file.bytes.length,
+      },
+    ),
+  );
+
+  @override
+  Future<void> nudgeTask(String taskId) =>
+      _client.rpc('nudge_task', params: {'p_task': taskId});
+
+  @override
+  Future<void> addTaskReminder(String taskId, DateTime at) => _client.rpc(
+    'add_task_reminder',
+    params: {'p_task': taskId, 'p_at': at.toUtc().toIso8601String()},
+  );
+
+  @override
+  Future<void> deleteTaskReminder(String reminderId) =>
+      _client.rpc('delete_task_reminder', params: {'p_reminder': reminderId});
+
+  @override
+  Future<void> deleteTask(String taskId) =>
+      _client.rpc('delete_task', params: {'p_task': taskId});
+
+  @override
+  Stream<void> taskEvents(String workspaceId) => _follow<bool>(
+    name: 'tasks:$workspaceId',
+    tables: const ['tasks'],
+    filter: PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'workspace_id',
+      value: workspaceId,
+    ),
+    event: (_) => true,
+    everything: true,
+  );
+
+  // Notifications
+
+  @override
+  Future<List<AppNotification>> notifications() async => [
+    for (final row in _rows(await _client.rpc('my_notifications')))
+      ?AppNotification.fromJson(row),
+  ];
+
+  @override
+  Future<void> markNotificationsRead([List<String>? ids]) async {
+    if (ids != null && ids.isEmpty) return;
+    await _client.rpc('mark_notifications_read', params: {'p_ids': ids});
+  }
+
+  @override
+  Stream<void> notificationEvents() => _follow<bool>(
+    name: 'notifications:$_me',
+    tables: const ['notifications'],
+    filter: PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'user_id',
+      value: _me,
+    ),
+    event: (_) => true,
+    everything: true,
+  );
 }

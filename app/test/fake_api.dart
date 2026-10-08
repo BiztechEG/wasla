@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:wasla/data/api.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/data/task_models.dart';
 
 /// In-memory backend for widget tests. Only what the tests touch is real.
 class FakeApi implements WaslaApi {
@@ -123,15 +124,21 @@ class FakeApi implements WaslaApi {
   @override
   Future<List<MyJoinRequest>> myJoinRequests() async => const [];
 
+  /// Set per project in tests; otherwise just the signed-in user, as lead.
+  final projectMembersById = <String, List<ProjectMember>>{};
+
   @override
-  Future<List<ProjectMember>> projectMembers(String projectId) async => [
-    ProjectMember(
-      userId: 'me',
-      fullName: name,
-      role: ProjectRole.lead,
-      email: email,
-    ),
-  ];
+  Future<List<ProjectMember>> projectMembers(String projectId) async => List.of(
+    projectMembersById[projectId] ??
+        [
+          ProjectMember(
+            userId: 'me',
+            fullName: name,
+            role: ProjectRole.lead,
+            email: email,
+          ),
+        ],
+  );
 
   static Membership membership(String id, String name, WorkspaceRole role) =>
       Membership(
@@ -567,4 +574,431 @@ class FakeApi implements WaslaApi {
   @override
   Future<void> deleteAnnouncement(String id) async =>
       announcementList.removeWhere((a) => a.id == id);
+
+  // Tasks: the signed-in user is "me"; workspace owners and admins manage
+  // every project, as do the leads in [projectMembersById].
+
+  final taskList = <TaskItem>[];
+  final taskDetails = <String, TaskDetail>{};
+  final taskCalls = <String>[];
+
+  /// What the last new task was made from.
+  TaskDraft? lastDraft;
+  final notificationList = <AppNotification>[];
+  final _taskEvents = StreamController<void>.broadcast();
+  final _noteEvents = StreamController<void>.broadcast();
+
+  Project? _project(String projectId) {
+    for (final list in projectsByWorkspace.values) {
+      for (final p in list) {
+        if (p.id == projectId) return p;
+      }
+    }
+    return null;
+  }
+
+  bool _manages(String projectId) {
+    final project = _project(projectId);
+    if (project == null) return false;
+    final role = memberships
+        .where((m) => m.workspaceId == project.workspaceId)
+        .firstOrNull
+        ?.role;
+    if (role?.canManage ?? false) return true;
+    return projectMembersById[projectId]?.any(
+          (m) => m.userId == 'me' && m.role == ProjectRole.lead,
+        ) ??
+        false;
+  }
+
+  String _personName(String id) {
+    if (id == 'me') return name;
+    for (final list in membersByWorkspace.values) {
+      for (final m in list) {
+        if (m.userId == id) return m.fullName;
+      }
+    }
+    return id;
+  }
+
+  /// Adds a task as if someone made it on another phone.
+  TaskItem addTask({
+    required String projectId,
+    required String title,
+    String createdBy = 'me',
+    List<String> assignees = const ['me'],
+    TaskStatus status = TaskStatus.todo,
+    TaskVisibility visibility = TaskVisibility.private,
+    DateTime? dueAt,
+    String? description,
+  }) {
+    final project = _project(projectId)!;
+    final now = _tick();
+    final task = TaskItem(
+      id: 't${_seq++}',
+      workspaceId: project.workspaceId,
+      workspaceName:
+          memberships
+              .where((m) => m.workspaceId == project.workspaceId)
+              .firstOrNull
+              ?.workspaceName ??
+          '',
+      projectId: project.id,
+      projectName: project.name,
+      projectColor: project.color,
+      title: title,
+      status: status,
+      visibility: visibility,
+      dueAt: dueAt,
+      createdBy: createdBy,
+      creatorName: _personName(createdBy),
+      assignees: [
+        for (final a in assignees) TaskPerson(id: a, name: _personName(a)),
+      ],
+      createdAt: now,
+      updatedAt: now,
+      doneAt: status == TaskStatus.done ? now : null,
+    );
+    taskList.add(task);
+    taskDetails[task.id] = TaskDetail(
+      task: task,
+      description: description,
+      activity: [
+        TaskActivity(
+          id: 'a${_seq++}',
+          kind: TaskEvent.created,
+          actorId: createdBy,
+          actorName: _personName(createdBy),
+          createdAt: now,
+        ),
+      ],
+    );
+    _taskEvents.add(null);
+    return task;
+  }
+
+  TaskItem taskById(String id) => taskList.firstWhere((t) => t.id == id);
+
+  void _replace(TaskItem task) {
+    final i = taskList.indexWhere((t) => t.id == task.id);
+    taskList[i] = task;
+    _taskEvents.add(null);
+  }
+
+  void _log(String taskId, TaskEvent kind, {String? value, String? body}) {
+    final detail = taskDetails[taskId]!;
+    taskDetails[taskId] = _detail(
+      detail,
+      activity: [
+        ...detail.activity,
+        TaskActivity(
+          id: 'a${_seq++}',
+          kind: kind,
+          actorId: 'me',
+          actorName: name,
+          newValue: value,
+          body: body,
+          createdAt: _tick(),
+        ),
+      ],
+    );
+  }
+
+  TaskDetail _detail(
+    TaskDetail d, {
+    String? description,
+    String? holdReason,
+    bool clearHold = false,
+    List<TaskActivity>? activity,
+    List<ProjectFile>? files,
+    List<TaskReminder>? reminders,
+    List<int>? remindBefore,
+  }) => TaskDetail(
+    task: d.task,
+    description: description ?? d.description,
+    holdReason: clearHold ? null : holdReason ?? d.holdReason,
+    remindBefore: remindBefore ?? d.remindBefore,
+    files: files ?? d.files,
+    activity: activity ?? d.activity,
+    reminders: reminders ?? d.reminders,
+  );
+
+  /// Adds a notification for the signed-in user, as the server would.
+  void notify(
+    NotificationKind kind,
+    TaskItem task, {
+    String? actor,
+    String? detail,
+  }) {
+    notificationList.insert(
+      0,
+      AppNotification(
+        id: 'n${_seq++}',
+        kind: kind,
+        taskId: task.id,
+        taskTitle: task.title,
+        projectName: task.projectName,
+        projectColor: task.projectColor,
+        workspaceId: task.workspaceId,
+        workspaceName: task.workspaceName,
+        actorName: actor,
+        detail: detail,
+        createdAt: _tick(),
+      ),
+    );
+    _noteEvents.add(null);
+  }
+
+  @override
+  Future<List<TaskItem>> myTasks() async => [
+    for (final t in taskList)
+      if (t.createdBy == 'me' || t.isAssignedTo('me')) t,
+  ];
+
+  @override
+  Future<List<TaskItem>> projectTasks(String projectId) async => [
+    for (final t in taskList)
+      if (t.projectId == projectId &&
+          (_manages(projectId) ||
+              t.visibility == TaskVisibility.public ||
+              t.createdBy == 'me' ||
+              t.isAssignedTo('me')))
+        t,
+  ];
+
+  @override
+  Future<List<TaskItem>> managedTasks(String workspaceId) async => [
+    for (final t in taskList)
+      if (t.workspaceId == workspaceId && _manages(t.projectId)) t,
+  ];
+
+  @override
+  Future<TaskDetail> task(String taskId) async {
+    final task = taskById(taskId);
+    final d = taskDetails[taskId]!;
+    final editor = task.createdBy == 'me' || _manages(task.projectId);
+    final assignee = task.isAssignedTo('me');
+    final open = _project(task.projectId)?.status == ProjectStatus.active;
+    return TaskDetail(
+      task: task,
+      description: d.description,
+      holdReason: d.holdReason,
+      remindBefore: d.remindBefore,
+      projectOpen: open,
+      isParty: editor || assignee,
+      canEdit: editor,
+      canClose: editor,
+      isAssignee: assignee,
+      files: d.files,
+      activity: [
+        for (final a in d.activity)
+          if (editor || assignee || a.kind != TaskEvent.comment) a,
+      ],
+      reminders: editor ? d.reminders : const [],
+    );
+  }
+
+  @override
+  Future<String> createTask(TaskDraft draft) async {
+    taskCalls.add('create ${draft.title}');
+    lastDraft = draft;
+    final task = addTask(
+      projectId: draft.projectId,
+      title: draft.title.trim(),
+      assignees: draft.assigneeIds.isEmpty ? const ['me'] : draft.assigneeIds,
+      visibility: draft.visibility,
+      dueAt: draft.dueAt,
+      description: draft.description,
+    );
+    taskDetails[task.id] = _detail(
+      taskDetails[task.id]!,
+      remindBefore: draft.remindBefore,
+    );
+    for (final f in draft.files) {
+      await addTaskAttachment(draft.workspaceId, task.id, f);
+    }
+    return task.id;
+  }
+
+  @override
+  Future<void> updateTask(String taskId, TaskDraft draft) async {
+    taskCalls.add('update $taskId');
+    final t = taskById(taskId);
+    _replace(
+      TaskItem(
+        id: t.id,
+        workspaceId: t.workspaceId,
+        workspaceName: t.workspaceName,
+        projectId: t.projectId,
+        projectName: t.projectName,
+        projectColor: t.projectColor,
+        title: draft.title.trim(),
+        status: t.status,
+        priority: draft.priority,
+        visibility: draft.visibility,
+        dueAt: draft.dueAt,
+        createdBy: t.createdBy,
+        creatorName: t.creatorName,
+        assignees: t.assignees,
+        createdAt: t.createdAt,
+        updatedAt: _tick(),
+        doneAt: t.doneAt,
+      ),
+    );
+    final d = taskDetails[taskId]!;
+    taskDetails[taskId] = TaskDetail(
+      task: d.task,
+      description: draft.description,
+      holdReason: d.holdReason,
+      remindBefore: draft.remindBefore,
+      files: d.files,
+      activity: d.activity,
+      reminders: d.reminders,
+    );
+    if (draft.dueAt != t.dueAt) {
+      _log(taskId, TaskEvent.due, value: draft.dueAt?.toIso8601String());
+    }
+  }
+
+  @override
+  Future<void> setTaskAssignees(String taskId, List<String> userIds) async {
+    taskCalls.add('assign $taskId ${userIds.join(',')}');
+    _replace(
+      taskById(taskId).copyWith(
+        assignees: [
+          for (final u in userIds) TaskPerson(id: u, name: _personName(u)),
+        ],
+        updatedAt: _tick(),
+      ),
+    );
+    _log(
+      taskId,
+      TaskEvent.assignees,
+      value: userIds.map(_personName).join('، '),
+    );
+  }
+
+  @override
+  Future<void> setTaskStatus(
+    String taskId,
+    TaskStatus status, {
+    String? reason,
+  }) async {
+    taskCalls.add('status $taskId ${status.wire}');
+    final detail = await task(taskId);
+    if (!detail.canMoveTo(status)) throw StateError('not_allowed');
+    _replace(taskById(taskId).copyWith(status: status, updatedAt: _tick()));
+    taskDetails[taskId] = _detail(
+      taskDetails[taskId]!,
+      holdReason: reason,
+      clearHold: status != TaskStatus.onHold,
+    );
+    _log(taskId, TaskEvent.status, value: status.wire, body: reason);
+  }
+
+  @override
+  Future<void> addTaskComment(String taskId, String body) async {
+    taskCalls.add('comment $taskId $body');
+    _log(taskId, TaskEvent.comment, body: body.trim());
+    _taskEvents.add(null);
+  }
+
+  @override
+  Future<void> addTaskAttachment(
+    String workspaceId,
+    String taskId,
+    Upload file,
+  ) async {
+    taskCalls.add('attach $taskId ${file.name}');
+    final d = taskDetails[taskId]!;
+    taskDetails[taskId] = _detail(
+      d,
+      files: [
+        ...d.files,
+        ProjectFile(
+          file: ChatFile(
+            id: 'f${_seq++}',
+            name: file.name,
+            mime: file.mime,
+            size: file.bytes.length,
+            path: '$workspaceId/me/${file.name}',
+          ),
+          pinned: false,
+          uploadedBy: 'me',
+          uploaderName: name,
+          createdAt: _tick(),
+        ),
+      ],
+    );
+    _log(taskId, TaskEvent.attachment, value: file.name);
+    _taskEvents.add(null);
+  }
+
+  @override
+  Future<void> nudgeTask(String taskId) async => taskCalls.add('nudge $taskId');
+
+  @override
+  Future<void> addTaskReminder(String taskId, DateTime at) async {
+    taskCalls.add('remind $taskId');
+    final d = taskDetails[taskId]!;
+    taskDetails[taskId] = _detail(
+      d,
+      reminders: [
+        ...d.reminders,
+        TaskReminder(id: 'r${_seq++}', remindAt: at),
+      ],
+    );
+  }
+
+  @override
+  Future<void> deleteTaskReminder(String reminderId) async {
+    for (final entry in taskDetails.entries.toList()) {
+      taskDetails[entry.key] = _detail(
+        entry.value,
+        reminders: [
+          for (final r in entry.value.reminders)
+            if (r.id != reminderId) r,
+        ],
+      );
+    }
+  }
+
+  @override
+  Future<void> deleteTask(String taskId) async {
+    taskCalls.add('delete $taskId');
+    taskList.removeWhere((t) => t.id == taskId);
+    _taskEvents.add(null);
+  }
+
+  @override
+  Stream<void> taskEvents(String workspaceId) => _taskEvents.stream;
+
+  @override
+  Future<List<AppNotification>> notifications() async =>
+      List.of(notificationList);
+
+  @override
+  Future<void> markNotificationsRead([List<String>? ids]) async {
+    for (var i = 0; i < notificationList.length; i++) {
+      final n = notificationList[i];
+      if (ids != null && !ids.contains(n.id)) continue;
+      notificationList[i] = AppNotification(
+        id: n.id,
+        kind: n.kind,
+        taskId: n.taskId,
+        taskTitle: n.taskTitle,
+        projectName: n.projectName,
+        projectColor: n.projectColor,
+        workspaceId: n.workspaceId,
+        workspaceName: n.workspaceName,
+        actorName: n.actorName,
+        detail: n.detail,
+        createdAt: n.createdAt,
+        readAt: n.readAt ?? _clock,
+      );
+    }
+  }
+
+  @override
+  Stream<void> notificationEvents() => _noteEvents.stream;
 }

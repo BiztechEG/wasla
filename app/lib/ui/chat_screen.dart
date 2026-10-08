@@ -9,6 +9,7 @@ import '../state/providers.dart';
 import '../theme.dart';
 import 'chat_format.dart';
 import 'files_common.dart';
+import 'my_tasks_tab.dart';
 import 'project_screen.dart';
 import 'widgets.dart';
 
@@ -94,8 +95,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ? null
               : () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        ProjectScreen(project: project, initialTab: 1),
+                    builder: (_) => ProjectScreen(
+                      project: project,
+                      initialTab: ProjectTab.files,
+                    ),
                   ),
                 ),
           child: Row(
@@ -371,7 +374,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
               readers: readers,
               onLoadOlder: () =>
                   ref.read(chatProvider(_key).notifier).loadOlder(),
-              onLongPress: (m) => _actions(m, me, canModerate, members),
+              onLongPress: (m) =>
+                  _actions(m, me, canModerate, members, closed: closed),
               onRetry: (p) async {
                 try {
                   await ref.read(chatProvider(_key).notifier).retry(p);
@@ -420,11 +424,15 @@ class _ChatViewState extends ConsumerState<ChatView> {
     ChatMessage m,
     String? me,
     bool canModerate,
-    List<ProjectMember>? members,
-  ) async {
+    List<ProjectMember>? members, {
+    required bool closed,
+  }) async {
     if (m.deleted) return;
     final l = context.l10n;
     final mine = m.senderId == me;
+    // A task belongs to a project: this chat's, or the one the message is
+    // tagged with; in an untagged private message one is picked.
+    final taskProject = widget.target.projectId ?? m.projectId;
     final choice = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -441,6 +449,12 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 leading: const Icon(Icons.copy),
                 title: Text(l.copy),
                 onTap: () => Navigator.pop(context, 'copy'),
+              ),
+            if (!closed)
+              ListTile(
+                leading: const Icon(Icons.add_task),
+                title: Text(l.makeTask),
+                onTap: () => Navigator.pop(context, 'task'),
               ),
             if (mine && widget.target.isProject)
               ListTile(
@@ -471,6 +485,23 @@ class _ChatViewState extends ConsumerState<ChatView> {
       case 'copy':
         await Clipboard.setData(ClipboardData(text: m.body!));
         if (mounted) showMessage(context, l.copied);
+      case 'task':
+        final text = (m.body ?? '').trim();
+        final firstLine = text.isEmpty
+            ? m.file?.name ?? ''
+            : text.split('\n').first;
+        final title = firstLine.length > 200
+            ? firstLine.substring(0, 200)
+            : firstLine;
+        await newTask(
+          context,
+          workspaceId: widget.membership.workspaceId,
+          projectId: taskProject,
+          lockProject: widget.target.isProject,
+          title: title,
+          description: text.isEmpty || text == title ? null : text,
+          sourceMessageId: m.id,
+        );
       case 'seen':
         _showSeenBy(m, members ?? const []);
       case 'delete':

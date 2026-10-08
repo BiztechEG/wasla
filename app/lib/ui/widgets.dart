@@ -64,7 +64,14 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('invite_invalid')) return l.errorInviteInvalid;
     if (m.contains('invite_not_for_you')) return l.errorInviteNotForYou;
     if (m.contains('already_member')) return l.errorAlreadyMember;
+    if (m.contains('too_many_assignees')) return l.errorTooManyAssignees;
+    if (m.contains('too_many_reminders')) return l.errorTooManyReminders;
     if (m.contains('too_many_')) return l.errorTooMany;
+    if (m.contains('project_closed')) return l.errorProjectClosed;
+    if (m.contains('reason_required')) return l.errorReasonRequired;
+    if (m.contains('invalid_assignee')) return l.errorInvalidAssignee;
+    if (m.contains('invalid_reminder')) return l.errorInvalidReminder;
+    if (m.contains('not_found')) return l.errorTaskGone;
     if (m.contains('invalid_project')) return l.errorInvalidProject;
     if (m.contains('conversation_closed')) return l.errorChatClosed;
     if (m.contains('storage_full')) return l.errorStorageFull;
@@ -163,37 +170,75 @@ Future<String?> promptText(
   required String label,
   String initial = '',
   String? action,
-}) {
-  final l = context.l10n;
-  final controller = TextEditingController(text: initial);
-  return showDialog<String>(
-    context: context,
-    builder: (context) {
-      void submit() {
-        final value = controller.text.trim();
-        if (value.isNotEmpty) Navigator.pop(context, value);
-      }
+  int maxLength = 100,
+}) => showDialog<String>(
+  context: context,
+  builder: (_) => _PromptDialog(
+    title: title,
+    label: label,
+    initial: initial,
+    action: action,
+    maxLength: maxLength,
+  ),
+);
 
-      return AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          inputFormatters: nameLimit,
-          decoration: InputDecoration(labelText: label),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => submit(),
+/// Owns its text field's controller, so the field outlives the dialog's
+/// closing animation.
+class _PromptDialog extends StatefulWidget {
+  const _PromptDialog({
+    required this.title,
+    required this.label,
+    required this.initial,
+    required this.action,
+    required this.maxLength,
+  });
+
+  final String title;
+  final String label;
+  final String initial;
+  final String? action;
+  final int maxLength;
+
+  @override
+  State<_PromptDialog> createState() => _PromptDialogState();
+}
+
+class _PromptDialogState extends State<_PromptDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isNotEmpty) Navigator.pop(context, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        inputFormatters: [LengthLimitingTextInputFormatter(widget.maxLength)],
+        decoration: InputDecoration(labelText: widget.label),
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l.cancel),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
-          ),
-          TextButton(onPressed: submit, child: Text(action ?? l.save)),
-        ],
-      );
-    },
-  ).whenComplete(controller.dispose);
+        TextButton(onPressed: _submit, child: Text(widget.action ?? l.save)),
+      ],
+    );
+  }
 }
 
 /// Shows loading, error (with retry) or the data of an async value.
