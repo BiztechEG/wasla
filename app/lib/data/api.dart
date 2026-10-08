@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'chat_models.dart';
 import 'models.dart';
 
 /// Everything the app asks of the backend. Screens only talk to this, so
@@ -72,6 +76,71 @@ abstract class WaslaApi {
     String userId,
     ProjectRole role,
   );
+
+  // Chats
+
+  Future<List<Conversation>> conversations(String workspaceId);
+
+  /// The private chat with [userId], created on first use.
+  Future<String> openDirect(String workspaceId, String userId);
+
+  /// A project's group chat, or null for someone who cannot see it.
+  Future<String?> projectConversation(String projectId);
+
+  /// Newest first. [before] pages back; [after] fetches what is new.
+  Future<List<ChatMessage>> messages(
+    String conversationId, {
+    DateTime? before,
+    DateTime? after,
+    String? projectId,
+    int limit = 50,
+  });
+  Future<void> sendMessage(
+    String workspaceId,
+    String conversationId, {
+    String? body,
+    String? replyTo,
+    String? projectId,
+    Upload? file,
+  });
+  Future<void> markRead(String conversationId, DateTime until);
+  Future<void> deleteMessage(String messageId);
+  Future<List<ReadState>> readStates(String conversationId);
+  Future<List<MessageHit>> searchMessages(String workspaceId, String query);
+
+  /// Fires whenever a message arrives, changes or is read in [workspaceId].
+  Stream<ChatEvent> chatEvents(String workspaceId);
+
+  // Files
+
+  Future<List<ProjectFile>> projectFiles(String projectId);
+  Future<void> addProjectFile(
+    String workspaceId,
+    String projectId,
+    Upload file,
+  );
+  Future<void> setFilePinned(String fileId, bool pinned);
+  Future<void> deleteFile(String fileId);
+
+  /// A short-lived link for viewing or downloading a stored file.
+  Future<String> fileUrl(String path);
+
+  // Announcements
+
+  Future<List<Announcement>> announcements(
+    String workspaceId, {
+    String? projectId,
+  });
+  Future<List<UnreadAnnouncement>> unreadAnnouncements(String workspaceId);
+  Future<void> postAnnouncement(
+    String workspaceId, {
+    String? projectId,
+    required String body,
+    bool pinned = false,
+  });
+  Future<void> markAnnouncementsRead(List<String> ids);
+  Future<void> setAnnouncementPinned(String id, bool pinned);
+  Future<void> deleteAnnouncement(String id);
 }
 
 class SupabaseWaslaApi implements WaslaApi {
@@ -383,4 +452,264 @@ class SupabaseWaslaApi implements WaslaApi {
       .update({'role': role.name})
       .eq('project_id', projectId)
       .eq('user_id', userId);
+
+  // Chats
+
+  static final _random = Random.secure();
+
+  /// `workspace/me/random.ext`: the only place one may upload to.
+  String _uploadPath(String workspaceId, String name) {
+    final id = List.generate(
+      16,
+      (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+    final dot = name.lastIndexOf('.');
+    final ext = dot < 0 ? '' : name.substring(dot + 1).toLowerCase();
+    final safeExt = RegExp(r'^[a-z0-9]{1,10}$').hasMatch(ext) ? '.$ext' : '';
+    return '$workspaceId/$_me/$id$safeExt';
+  }
+
+  Future<String> _upload(String workspaceId, Upload file) async {
+    final path = _uploadPath(workspaceId, file.name);
+    await _client.storage
+        .from('files')
+        .uploadBinary(
+          path,
+          file.bytes,
+          fileOptions: FileOptions(contentType: file.mime),
+        );
+    return path;
+  }
+
+  @override
+  Future<List<Conversation>> conversations(String workspaceId) async => _rows(
+    await _client.rpc('my_conversations', params: {'p_workspace': workspaceId}),
+  ).map(Conversation.fromJson).toList();
+
+  @override
+  Future<String> openDirect(String workspaceId, String userId) async =>
+      await _client.rpc(
+        'open_direct',
+        params: {'p_workspace': workspaceId, 'p_other': userId},
+      ) as String;
+
+  @override
+  Future<String?> projectConversation(String projectId) async =>
+      await _client.rpc(
+        'project_conversation',
+        params: {'p_project': projectId},
+      ) as String?;
+
+  @override
+  Future<List<ChatMessage>> messages(
+    String conversationId, {
+    DateTime? before,
+    DateTime? after,
+    String? projectId,
+    int limit = 50,
+  }) async => _rows(
+    await _client.rpc(
+      'conversation_messages',
+      params: {
+        'p_conversation': conversationId,
+        'p_before': before?.toUtc().toIso8601String(),
+        'p_after': after?.toUtc().toIso8601String(),
+        'p_project': projectId,
+        'p_limit': limit,
+      },
+    ),
+  ).map(ChatMessage.fromJson).toList();
+
+  @override
+  Future<void> sendMessage(
+    String workspaceId,
+    String conversationId, {
+    String? body,
+    String? replyTo,
+    String? projectId,
+    Upload? file,
+  }) async {
+    final path = file == null ? null : await _upload(workspaceId, file);
+    await _client.rpc(
+      'send_message',
+      params: {
+        'p_conversation': conversationId,
+        'p_body': body,
+        'p_reply_to': replyTo,
+        'p_project': projectId,
+        'p_file_path': path,
+        'p_file_name': file?.name,
+        'p_file_mime': file?.mime,
+        'p_file_size': file?.bytes.length,
+      },
+    );
+  }
+
+  @override
+  Future<void> markRead(String conversationId, DateTime until) => _client.rpc(
+    'mark_read',
+    params: {
+      'p_conversation': conversationId,
+      'p_until': until.toUtc().toIso8601String(),
+    },
+  );
+
+  @override
+  Future<void> deleteMessage(String messageId) =>
+      _client.rpc('delete_message', params: {'p_message': messageId});
+
+  @override
+  Future<List<ReadState>> readStates(String conversationId) async => _rows(
+    await _client
+        .from('conversation_reads')
+        .select('user_id, last_read_at')
+        .eq('conversation_id', conversationId),
+  ).map(ReadState.fromJson).toList();
+
+  @override
+  Future<List<MessageHit>> searchMessages(
+    String workspaceId,
+    String query,
+  ) async => _rows(
+    await _client.rpc(
+      'search_messages',
+      params: {'p_workspace': workspaceId, 'p_query': query},
+    ),
+  ).map(MessageHit.fromJson).toList();
+
+  @override
+  Stream<ChatEvent> chatEvents(String workspaceId) {
+    late final RealtimeChannel channel;
+    late final StreamController<ChatEvent> controller;
+
+    void forward(PostgresChangePayload payload) {
+      final row = payload.newRecord.isEmpty
+          ? payload.oldRecord
+          : payload.newRecord;
+      final id = row['conversation_id'];
+      if (id is String) controller.add(ChatEvent(id));
+    }
+
+    controller = StreamController<ChatEvent>(
+      onListen: () {
+        channel = _client
+            .channel('chats:$workspaceId:${_random.nextInt(1 << 30)}')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'messages',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'workspace_id',
+                value: workspaceId,
+              ),
+              callback: forward,
+            )
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'conversation_reads',
+              callback: forward,
+            )
+            .subscribe();
+      },
+      onCancel: () => _client.removeChannel(channel),
+    );
+    return controller.stream;
+  }
+
+  // Files
+
+  @override
+  Future<List<ProjectFile>> projectFiles(String projectId) async => _rows(
+    await _client.rpc('project_files', params: {'p_project': projectId}),
+  ).map(ProjectFile.fromJson).toList();
+
+  @override
+  Future<void> addProjectFile(
+    String workspaceId,
+    String projectId,
+    Upload file,
+  ) async {
+    final path = await _upload(workspaceId, file);
+    await _client.rpc(
+      'add_project_file',
+      params: {
+        'p_project': projectId,
+        'p_path': path,
+        'p_name': file.name,
+        'p_mime': file.mime,
+        'p_size': file.bytes.length,
+      },
+    );
+  }
+
+  @override
+  Future<void> setFilePinned(String fileId, bool pinned) => _client.rpc(
+    'set_file_pinned',
+    params: {'p_file': fileId, 'p_pinned': pinned},
+  );
+
+  @override
+  Future<void> deleteFile(String fileId) =>
+      _client.rpc('delete_file', params: {'p_file': fileId});
+
+  @override
+  Future<String> fileUrl(String path) =>
+      _client.storage.from('files').createSignedUrl(path, 3600);
+
+  // Announcements
+
+  @override
+  Future<List<Announcement>> announcements(
+    String workspaceId, {
+    String? projectId,
+  }) async => _rows(
+    await _client.rpc(
+      'announcements_for',
+      params: {'p_workspace': workspaceId, 'p_project': projectId},
+    ),
+  ).map(Announcement.fromJson).toList();
+
+  @override
+  Future<List<UnreadAnnouncement>> unreadAnnouncements(
+    String workspaceId,
+  ) async => _rows(
+    await _client.rpc(
+      'unread_announcements',
+      params: {'p_workspace': workspaceId},
+    ),
+  ).map(UnreadAnnouncement.fromJson).toList();
+
+  @override
+  Future<void> postAnnouncement(
+    String workspaceId, {
+    String? projectId,
+    required String body,
+    bool pinned = false,
+  }) => _client.rpc(
+    'post_announcement',
+    params: {
+      'p_workspace': workspaceId,
+      'p_project': projectId,
+      'p_body': body,
+      'p_pinned': pinned,
+    },
+  );
+
+  @override
+  Future<void> markAnnouncementsRead(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await _client.rpc('mark_announcements_read', params: {'p_ids': ids});
+  }
+
+  @override
+  Future<void> setAnnouncementPinned(String id, bool pinned) => _client.rpc(
+    'set_announcement_pinned',
+    params: {'p_id': id, 'p_pinned': pinned},
+  );
+
+  @override
+  Future<void> deleteAnnouncement(String id) =>
+      _client.rpc('delete_announcement', params: {'p_id': id});
 }

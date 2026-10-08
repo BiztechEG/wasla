@@ -57,10 +57,17 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - `SUPABASE_ACCESS_TOKEN`: a personal access token from supabase.com/dashboard/account/tokens
 - `SUPABASE_DB_PASSWORD`: the database password of the project
 
+## Chats and files
+
+- Every project has a group chat for its members. Private chats are between two people only: workspace owners and admins cannot read them, and a private message can be tagged with a project the two people share so it shows under that project.
+- Photos and files go to the private Storage bucket `files` (50 MB each, counted against the plan's storage). The app opens them through links that expire after an hour. Files sent in a private chat stay visible only to its two people.
+- New messages and read marks arrive live through Supabase Realtime (the `messages` and `conversation_reads` tables are in the `supabase_realtime` publication; what each person receives still follows the database permissions).
+- Push notifications come later, once a Firebase project exists.
+
 ## Plan
 
-1. Foundation: sign-up, workspaces, invites and join requests, roles, projects
-2. Chat and files: realtime chat tagged by project, files, announcements, notifications
+1. Foundation: sign-up, workspaces, invites and join requests, roles, projects (done)
+2. Chat and files: realtime chat tagged by project, files, announcements (done; push notifications pending Firebase)
 3. Tasks and follow-up: tasks, statuses, reminders, public tasks, status and follow-up screens
 4. Subscriptions: plans, exchange rates, company invoices, platform admin
 5. Later: online payments, reports, AI assistant, calls, web app

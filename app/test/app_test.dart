@@ -1,37 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wasla/app.dart';
 import 'package:wasla/data/models.dart';
-import 'package:wasla/state/providers.dart';
-import 'package:wasla/state/settings.dart';
 
 import 'fake_api.dart';
-
-Future<SharedPreferences> _prefs([Map<String, Object> values = const {}]) {
-  SharedPreferences.setMockInitialValues(values);
-  return SharedPreferences.getInstance();
-}
-
-Future<void> _start(
-  WidgetTester tester,
-  FakeApi api, {
-  Map<String, Object> prefs = const {},
-}) async {
-  final p = await _prefs(prefs);
-  await tester.pumpWidget(
-    ProviderScope(
-      retry: (_, _) => null,
-      overrides: [
-        prefsProvider.overrideWithValue(p),
-        apiProvider.overrideWithValue(api),
-      ],
-      child: const WaslaApp(),
-    ),
-  );
-  await tester.pumpAndSettle();
-}
+import 'harness.dart';
 
 void main() {
   testWidgets('new user signs in, names themselves and accepts an invite', (
@@ -57,7 +30,7 @@ void main() {
           memberCount: 3,
         ),
       ];
-    await _start(tester, api);
+    await startApp(tester, api);
 
     // Arabic and right-to-left by default.
     expect(find.text('إرسال رمز الدخول'), findsOneWidget);
@@ -85,8 +58,12 @@ void main() {
     await tester.tap(find.text('قبول'));
     await tester.pumpAndSettle();
 
-    // Lands on the projects tab of the workspace just joined.
+    // Lands on the chats of the workspace just joined.
     expect(find.text('Engineering'), findsOneWidget);
+    expect(find.text('لا توجد محادثات بعد'), findsOneWidget);
+
+    await tester.tap(find.text('المشاريع'));
+    await tester.pumpAndSettle();
     expect(find.text('New Branch'), findsOneWidget);
     expect(find.text('3 أعضاء'), findsOneWidget);
     // Members cannot create projects.
@@ -98,8 +75,10 @@ void main() {
       ..memberships.add(
         FakeApi.membership('ws1', 'Engineering', WorkspaceRole.owner),
       );
-    await _start(tester, api);
+    await startApp(tester, api);
 
+    await tester.tap(find.text('المشاريع'));
+    await tester.pumpAndSettle();
     expect(find.text('لا توجد مشاريع هنا'), findsOneWidget);
     await tester.tap(find.text('مشروع جديد'));
     await tester.pumpAndSettle();
@@ -109,6 +88,11 @@ void main() {
 
     expect(find.text('Warehouse'), findsOneWidget);
     expect(api.projectsByWorkspace['ws1']!.single.name, 'Warehouse');
+
+    // Its group chat is ready in the chats tab.
+    await tester.tap(find.text('المحادثات'));
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد رسائل بعد'), findsOneWidget);
   });
 
   testWidgets('dark mode and English are remembered on the device', (
@@ -118,11 +102,13 @@ void main() {
       ..memberships.add(
         FakeApi.membership('ws1', 'Engineering', WorkspaceRole.member),
       );
-    await _start(tester, api);
+    await startApp(tester, api);
 
     await tester.tap(find.text('المزيد'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('داكن'), 200);
+    await tester.ensureVisible(find.text('داكن'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('داكن'));
     await tester.pumpAndSettle();
     expect(
@@ -144,11 +130,13 @@ void main() {
       ..memberships.add(
         FakeApi.membership('ws1', 'Engineering', WorkspaceRole.member),
       );
-    await _start(tester, api, prefs: {'locale': 'en'});
+    await startApp(tester, api, prefs: {'locale': 'en'});
 
     await tester.tap(find.text('More'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Sign out'), 200);
+    await tester.ensureVisible(find.text('Sign out'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign out'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Sign out'));
@@ -161,7 +149,7 @@ void main() {
     tester,
   ) async {
     final api = FakeApi(signedInAs: 'me', name: 'Amr');
-    await _start(tester, api);
+    await startApp(tester, api);
     expect(find.text('ابدأ مع وصلة'), findsOneWidget);
 
     // An admin accepts the request somewhere else.
@@ -180,7 +168,7 @@ void main() {
       ..memberships.add(
         FakeApi.membership('ws1', 'Engineering', WorkspaceRole.owner),
       );
-    await _start(tester, api);
+    await startApp(tester, api);
 
     await tester.tap(find.text('المزيد'));
     await tester.pumpAndSettle();
@@ -196,9 +184,7 @@ void main() {
   });
 
   testWidgets('member actions fit on a small phone', (tester) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    smallPhone(tester);
 
     final api = FakeApi(signedInAs: 'me', name: 'Amr')
       ..memberships.add(
@@ -213,7 +199,7 @@ void main() {
           email: 'mona@example.com',
         ),
       ];
-    await _start(tester, api);
+    await startApp(tester, api);
 
     await tester.tap(find.text('المزيد'));
     await tester.pumpAndSettle();
