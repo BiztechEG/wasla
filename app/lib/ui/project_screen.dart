@@ -107,6 +107,8 @@ class ProjectScreen extends ConsumerWidget {
               ),
           ],
           bottom: TabBar(
+            // Four tabs share a small phone's width, even with large text.
+            labelPadding: const EdgeInsets.symmetric(horizontal: 4),
             tabs: [
               Tab(text: l.tabChat),
               Tab(text: l.tabFiles),

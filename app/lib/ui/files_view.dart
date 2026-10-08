@@ -120,9 +120,9 @@ class _ProjectFilesViewState extends ConsumerState<ProjectFilesView> {
         f.conversationId == null && (widget.canManage || f.uploadedBy == me);
     final detail = [
       f.uploaderName,
+      if (f.privateChat) l.fromPrivateChat,
       listTime(context, f.createdAt),
       fileSize(l, f.file.size),
-      if (f.privateChat) l.fromPrivateChat,
     ].join(' · ');
 
     return ListTile(

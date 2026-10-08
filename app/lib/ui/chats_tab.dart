@@ -251,6 +251,7 @@ class _ProjectFilter extends StatelessWidget {
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 8),
             child: ChoiceChip(
+              showCheckmark: false,
               label: Text(l.filterAll),
               selected: selected == null,
               onSelected: (_) => onSelected(null),

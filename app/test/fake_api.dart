@@ -255,6 +255,11 @@ class FakeApi implements WaslaApi {
     final list = <Conversation>[];
     for (final c in chats.values) {
       if (chatWorkspace[c.id] != workspaceId) continue;
+      // Like the server, a closed or archived project's chat leaves the list.
+      final project = projectsByWorkspace[workspaceId]
+          ?.where((p) => p.id == c.projectId)
+          .firstOrNull;
+      if (project != null && project.status != ProjectStatus.active) continue;
       final messages = chatMessages[c.id] ?? const <ChatMessage>[];
       if (!c.isProject && messages.isEmpty) continue;
       final last = messages.isEmpty ? null : messages.first;
@@ -268,6 +273,7 @@ class FakeApi implements WaslaApi {
           projectColor: c.projectColor,
           otherId: c.otherId,
           otherName: c.otherName,
+          otherActive: c.otherActive,
           lastAt: last?.createdAt,
           lastSenderId: last?.senderId,
           lastSenderName: last?.senderName,

@@ -223,8 +223,15 @@ void main() {
     api.receive(chat, 'u2', 'Mona Adel', 'تم التسليم');
     await startApp(tester, api);
 
-    await tester.tap(find.text('Mona: تم التسليم'));
+    // It leaves the chats list and stays readable from the project.
+    expect(find.text('Mona: تم التسليم'), findsNothing);
+    await tester.tap(find.text('المشاريع'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('المغلقة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Old Site'));
+    await tester.pumpAndSettle();
+    expect(find.text('تم التسليم'), findsOneWidget);
     expect(
       find.text('المشروع مغلق أو مؤرشف، ومحادثته للقراءة فقط'),
       findsOneWidget,
