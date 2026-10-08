@@ -13,8 +13,28 @@ Internal team communication for companies: project-tagged chat, files, announcem
 
 | Path | What |
 | --- | --- |
+| `app/` | The Flutter app (Arabic first, right to left, light and dark) |
 | `supabase/migrations/` | Database schema, permissions (RLS) and actions (RPC), applied in order |
 | `supabase/tests/` | Permission tests that run on a throwaway local PostgreSQL |
+| `.github/workflows/` | Checks on every pull request, and the database deploy |
+
+## Run the app
+
+```sh
+cd app
+flutter pub get
+flutter run
+```
+
+It talks to the hosted Supabase project by default. To point it at another server (for example the future self-hosted one):
+
+```sh
+flutter run --dart-define=SUPABASE_URL=https://... --dart-define=SUPABASE_KEY=...
+```
+
+Checks: `flutter analyze` and `flutter test` inside `app/`.
+
+Sign-in uses a 6-digit email code. In the Supabase dashboard, the **Magic Link** email template must include `{{ .Token }}` so the code is in the email.
 
 ## Run the database tests
 
@@ -23,6 +43,15 @@ supabase/tests/run.sh
 ```
 
 Needs PostgreSQL 15+ server binaries. The script starts a temporary server, stubs the bits of Supabase auth the migrations use, applies every migration and runs every `*_test.sql`.
+
+## Deploy the database
+
+When a change to `supabase/migrations/` lands on `main`, the **Deploy database** workflow runs the tests and then applies the new migrations to the hosted project with the Supabase CLI. It can also be started by hand from the Actions tab.
+
+It needs two repository secrets under Settings > Secrets and variables > Actions:
+
+- `SUPABASE_ACCESS_TOKEN`: a personal access token from supabase.com/dashboard/account/tokens
+- `SUPABASE_DB_PASSWORD`: the database password of the project
 
 ## Plan
 
