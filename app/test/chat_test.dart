@@ -175,7 +175,7 @@ void main() {
     expect(api.announcementList.single.projectId, isNull);
   });
 
-  testWidgets('a project has chat, files, announcements and members tabs', (
+  testWidgets('a project has status, chat, files, tasks and announcements', (
     tester,
   ) async {
     smallPhone(tester);
@@ -189,19 +189,29 @@ void main() {
     await tester.tap(find.text('New Branch'));
     await tester.pumpAndSettle();
 
-    expect(find.text('وصلت الخامات'), findsOneWidget);
+    // It opens on how the project is going.
+    expect(find.text('لا توجد مهام عامة مفتوحة'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('المحادثة'));
+    await tester.pumpAndSettle();
+    expect(find.text('وصلت الخامات'), findsOneWidget);
 
     await tester.tap(find.text('الملفات'));
     await tester.pumpAndSettle();
     expect(find.text('لا توجد ملفات بعد'), findsOneWidget);
 
+    await tester.tap(find.text('المهام'));
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد مهام في هذا المشروع'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('النشرات'));
     await tester.tap(find.text('النشرات'));
     await tester.pumpAndSettle();
     expect(find.text('لا توجد نشرات'), findsOneWidget);
     expect(find.text('نشرة جديدة'), findsOneWidget);
 
-    await tester.tap(find.text('الأعضاء'));
+    await tester.tap(find.byTooltip('أعضاء المشروع'));
     await tester.pumpAndSettle();
     expect(find.text('Amr (أنت)'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -230,6 +240,8 @@ void main() {
     await tester.tap(find.text('المغلقة'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Old Site'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المحادثة'));
     await tester.pumpAndSettle();
     expect(find.text('تم التسليم'), findsOneWidget);
     expect(

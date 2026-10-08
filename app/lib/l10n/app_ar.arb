@@ -97,8 +97,6 @@
   "tabProjects": "المشاريع",
   "tabMyTasks": "مهامي",
   "tabMore": "المزيد",
-  "comingSoonTitle": "قريباً",
-  "tasksComingSoon": "المهام ومواعيد التسليم والتذكيرات.",
   "switchWorkspace": "مساحات العمل",
   "addWorkspace": "إضافة مساحة عمل",
   "projectsEmpty": "لا توجد مشاريع هنا",
@@ -401,5 +399,258 @@
   "errorInvalidProject": "هذا المشروع لا يضم الطرف الآخر في المحادثة",
   "errorChatClosed": "لم يعد الإرسال هنا ممكناً",
   "errorStorageFull": "امتلأت مساحة التخزين في خطة مساحة العمل",
-  "errorUploadRefused": "تعذّر رفع الملف: امتلأت مساحة التخزين أو وصلت لحد الرفع اليومي."
+  "errorUploadRefused": "تعذّر رفع الملف: امتلأت مساحة التخزين أو وصلت لحد الرفع اليومي.",
+  "tabStatus": "الحالة",
+  "tabTasks": "المهام",
+  "assignedToMe": "المسندة لي",
+  "createdByMe": "أنشأتها",
+  "newTask": "مهمة جديدة",
+  "editTask": "تعديل المهمة",
+  "groupLate": "متأخرة",
+  "groupWeek": "خلال أسبوع",
+  "groupLater": "لاحقاً",
+  "groupNoDate": "بدون موعد",
+  "groupDone": "انتهت مؤخراً",
+  "groupCount": "{label} · {count}",
+  "@groupCount": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myTasksEmpty": "لا توجد مهام مسندة إليك",
+  "myTasksEmptyBody": "مهامك من كل المشاريع تظهر هنا مرتبة بموعد التسليم",
+  "createdEmpty": "لم تنشئ مهام بعد",
+  "createdEmptyBody": "المهام التي تطلبها من زملائك تظهر هنا لتتابعها",
+  "projectTasksEmpty": "لا توجد مهام في هذا المشروع",
+  "taskStatusNew": "جديدة",
+  "taskStatusInProgress": "قيد التنفيذ",
+  "taskStatusOnHold": "متوقفة",
+  "taskStatusReview": "للمراجعة",
+  "taskStatusDone": "منتهية",
+  "priorityLabel": "الأولوية",
+  "priorityNormal": "عادية",
+  "priorityHigh": "عالية",
+  "priorityUrgent": "عاجلة",
+  "publicTask": "مهمة عامة",
+  "publicTaskHint": "يراها كل أعضاء المشروع، والتعليقات لأطرافها فقط",
+  "privateTaskHint": "يراها من أنشأها والمسند إليهم وقادة المشروع فقط",
+  "taskTitleLabel": "عنوان المهمة",
+  "taskDetailsLabel": "التفاصيل (اختياري)",
+  "projectLabel": "المشروع",
+  "pickProject": "اختر المشروع",
+  "assigneesLabel": "المسند إليه",
+  "pickAssignees": "اختر المسند إليهم",
+  "onlyYourself": "في هذا المشروع يمكنك إنشاء مهام لنفسك فقط",
+  "createdByLabel": "أنشأها",
+  "dueLabel": "موعد التسليم",
+  "setDue": "حدد موعداً",
+  "clearDue": "إزالة الموعد",
+  "reminderLabel": "التذكير",
+  "remindDayBefore": "قبلها بيوم",
+  "remindHourBefore": "قبلها بساعة",
+  "remindDayAndHour": "قبلها بيوم وبساعة",
+  "remindNone": "بدون تذكير",
+  "tomorrow": "غداً",
+  "wasDue": "كان موعدها {when}",
+  "@wasDue": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "taskSaved": "تم حفظ المهمة",
+  "holdReasonTitle": "سبب التوقف",
+  "holdReasonHint": "مثلاً: في انتظار المخططات",
+  "onHoldBecause": "متوقفة: {reason}",
+  "@onHoldBecause": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "attachments": "المرفقات",
+  "updates": "التحديثات",
+  "addUpdateHint": "أضف تحديثاً أو تعليقاً",
+  "commentsPrivateNote": "الكل يرى المهمة وحالتها، والتعليقات لأطرافها فقط",
+  "actCreated": "أُنشئت المهمة",
+  "actCreatedFromMessage": "أُنشئت المهمة من رسالة في المحادثة",
+  "actStatus": "تغيّرت الحالة إلى {status}",
+  "@actStatus": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "actDue": "تغيّر موعد التسليم إلى {when}",
+  "@actDue": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "actDueRemoved": "أُزيل موعد التسليم",
+  "actPriority": "تغيّرت الأولوية إلى {priority}",
+  "@actPriority": {
+    "placeholders": {
+      "priority": {
+        "type": "String"
+      }
+    }
+  },
+  "actTitle": "تغيّر العنوان إلى «{title}»",
+  "@actTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "actMadePublic": "أصبحت المهمة عامة",
+  "actMadePrivate": "أصبحت المهمة خاصة",
+  "actAssigned": "أُسندت إلى {names}",
+  "@actAssigned": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "actAttached": "أُرفق {name}",
+  "@actAttached": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "remindNow": "ذكّر الآن",
+  "remindShort": "ذكّر",
+  "reminderSent": "تم إرسال التذكير",
+  "addReminder": "إضافة تذكير",
+  "extraReminders": "تذكيرات إضافية",
+  "deleteTask": "حذف المهمة",
+  "confirmDeleteTask": "حذف المهمة «{title}»؟",
+  "@confirmDeleteTask": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "makeTask": "تحويل إلى مهمة",
+  "openChat": "فتح المحادثة",
+  "reviewAction": "راجِع",
+  "followUp": "المتابعة",
+  "allProjects": "كل المشاريع",
+  "needsYou": "تحتاج تدخلك",
+  "nothingNeedsYou": "لا شيء يحتاج تدخلك الآن",
+  "workload": "حمل العمل (مهام مفتوحة)",
+  "lateDays": "{count, plural, =0{متأخرة اليوم} =1{متأخرة يوماً} =2{متأخرة يومين} few{متأخرة {count} أيام} many{متأخرة {count} يوماً} other{متأخرة {count} يوم}}",
+  "@lateDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "waitingReview": "تنتظر مراجعتك",
+  "followUpEmpty": "لا توجد مهام في مشاريعك بعد",
+  "statOpen": "مفتوحة",
+  "statDueWeek": "خلال أسبوع",
+  "publicTasks": "المهام العامة",
+  "noPublicTasks": "لا توجد مهام عامة مفتوحة",
+  "pinnedFiles": "الملفات المثبتة",
+  "seeAll": "عرض الكل",
+  "pinnedAnnouncement": "نشرة مثبتة · {name}",
+  "@pinnedAnnouncement": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "latestAnnouncement": "آخر نشرة · {name}",
+  "@latestAnnouncement": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "leadIs": "قائد المشروع: {name}",
+  "@leadIs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationsTitle": "الإشعارات",
+  "notificationsEmpty": "لا توجد إشعارات",
+  "markAllRead": "تعليم الكل كمقروء",
+  "noteAssigned": "مهمة جديدة لك من {name}",
+  "@noteAssigned": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteStatus": "تغيّرت الحالة إلى {status} · {name}",
+  "@noteStatus": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteComment": "تعليق جديد من {name}",
+  "@noteComment": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteDueChanged": "تغيّر موعد التسليم · {name}",
+  "@noteDueChanged": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteNudge": "تذكير من {name}",
+  "@noteNudge": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteDueSoon": "موعد التسليم يقترب",
+  "noteOverdue": "تجاوزت موعد التسليم",
+  "noteReminder": "تذكير بالمهمة",
+  "errorProjectClosed": "المشروع مؤرشف أو مغلق، فلا يمكن تعديل مهامه",
+  "errorReasonRequired": "اكتب سبب التوقف",
+  "errorInvalidAssignee": "أحد المختارين ليس في المشروع",
+  "errorTaskGone": "هذه المهمة لم تعد متاحة",
+  "errorInvalidReminder": "اختر وقتاً في المستقبل",
+  "projectMembersAction": "أعضاء المشروع",
+  "privateTask": "مهمة خاصة",
+  "taskDetailsTitle": "التفاصيل",
+  "errorTooManyAssignees": "يمكن إسناد المهمة إلى 20 شخصاً على الأكثر",
+  "errorTooManyReminders": "يمكن إضافة 10 تذكيرات على الأكثر للمهمة"
 }

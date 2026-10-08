@@ -8,40 +8,33 @@ import 'announcements_view.dart';
 import 'chat_screen.dart';
 import 'chats_tab.dart';
 import 'files_view.dart';
+import 'followup_screen.dart';
+import 'project_overview.dart';
 import 'widgets.dart';
 
-/// A project: its chat, files, announcements and people.
+/// The project screen's tabs, in order.
+enum ProjectTab { status, chat, files, tasks, announcements }
+
+/// A project: how it is going, its chat, files, tasks and announcements.
+/// Its people are one tap away in the top bar.
 class ProjectScreen extends ConsumerWidget {
-  const ProjectScreen({super.key, required this.project, this.initialTab = 0});
+  const ProjectScreen({
+    super.key,
+    required this.project,
+    this.initialTab = ProjectTab.status,
+  });
 
   final Project project;
-
-  /// 0 chat, 1 files, 2 announcements, 3 members.
-  final int initialTab;
+  final ProjectTab initialTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final me = ref.watch(authProvider).value;
     final membership = ref.watch(currentMembershipProvider);
     final isAdmin = membership?.role.canManage ?? false;
-
-    // Show the latest copy of the project once the list refreshes.
-    final latest = ref
-        .watch(projectsProvider(project.workspaceId))
-        .value
-        ?.where((p) => p.id == project.id)
-        .firstOrNull;
-    final current = latest ?? project;
+    final current = _latest(ref, project);
     final active = current.status == ProjectStatus.active;
-
-    final members = ref.watch(projectMembersProvider(project.id));
-    final isLead =
-        members.value?.any(
-          (m) => m.userId == me && m.role == ProjectRole.lead,
-        ) ??
-        false;
-    final canEdit = isAdmin || isLead;
+    final canEdit = _canEdit(ref, current);
 
     Future<void> setStatus(ProjectStatus status) async {
       final question = switch (status) {
@@ -70,8 +63,8 @@ class ProjectScreen extends ConsumerWidget {
     final conversation = ref.watch(projectConversationProvider(project.id));
 
     return DefaultTabController(
-      length: 4,
-      initialIndex: initialTab,
+      length: ProjectTab.values.length,
+      initialIndex: initialTab.index,
       child: Scaffold(
         appBar: AppBar(
           title: Row(
@@ -84,6 +77,28 @@ class ProjectScreen extends ConsumerWidget {
             ],
           ),
           actions: [
+            if (canEdit && active)
+              IconButton(
+                tooltip: l.followUp,
+                icon: const Icon(Icons.insights_outlined),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => FollowUpScreen(
+                      workspaceId: current.workspaceId,
+                      projectId: current.id,
+                    ),
+                  ),
+                ),
+              ),
+            IconButton(
+              tooltip: l.projectMembersAction,
+              icon: const Icon(Icons.group_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => _MembersScreen(project: current),
+                ),
+              ),
+            ),
             if (isAdmin)
               PopupMenuButton<ProjectStatus>(
                 onSelected: setStatus,
@@ -107,13 +122,20 @@ class ProjectScreen extends ConsumerWidget {
               ),
           ],
           bottom: TabBar(
-            // Four tabs share a small phone's width, even with large text.
-            labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+            // Five tabs don't fit a small phone with large text: they scroll.
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
-              Tab(text: l.tabChat),
-              Tab(text: l.tabFiles),
-              Tab(text: l.tabAnnouncements),
-              Tab(text: l.members),
+              for (final tab in ProjectTab.values)
+                Tab(
+                  text: switch (tab) {
+                    ProjectTab.status => l.tabStatus,
+                    ProjectTab.chat => l.tabChat,
+                    ProjectTab.files => l.tabFiles,
+                    ProjectTab.tasks => l.tabTasks,
+                    ProjectTab.announcements => l.tabAnnouncements,
+                  },
+                ),
             ],
           ),
         ),
@@ -123,6 +145,7 @@ class ProjectScreen extends ConsumerWidget {
             Expanded(
               child: TabBarView(
                 children: [
+                  ProjectStatusView(project: current),
                   if (membership == null)
                     const SizedBox()
                   else
@@ -152,23 +175,58 @@ class ProjectScreen extends ConsumerWidget {
                     canManage: canEdit,
                     canAdd: active,
                   ),
+                  ProjectTasksView(project: current),
                   AnnouncementsView(
                     workspaceId: current.workspaceId,
                     projectId: current.id,
                     canPost: canEdit,
                     readOnly: !active,
                   ),
-                  _MembersTab(
-                    project: current,
-                    members: members,
-                    me: me,
-                    canEdit: canEdit,
-                  ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The latest copy of [project] once the list refreshes.
+Project _latest(WidgetRef ref, Project project) =>
+    ref
+        .watch(projectsProvider(project.workspaceId))
+        .value
+        ?.where((p) => p.id == project.id)
+        .firstOrNull ??
+    project;
+
+/// Admins and the project's leads change its people, files and
+/// announcements.
+bool _canEdit(WidgetRef ref, Project project) {
+  final me = ref.watch(authProvider).value;
+  final isAdmin = ref.watch(currentMembershipProvider)?.role.canManage ?? false;
+  final members = ref.watch(projectMembersProvider(project.id)).value;
+  return isAdmin ||
+      (members?.any((m) => m.userId == me && m.role == ProjectRole.lead) ??
+          false);
+}
+
+class _MembersScreen extends ConsumerWidget {
+  const _MembersScreen({required this.project});
+
+  final Project project;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = _latest(ref, project);
+    return Scaffold(
+      appBar: AppBar(title: Text(context.l10n.projectMembers)),
+      body: _MembersTab(
+        project: current,
+        members: ref.watch(projectMembersProvider(project.id)),
+        me: ref.watch(authProvider).value,
+        canEdit: _canEdit(ref, current),
       ),
     );
   }

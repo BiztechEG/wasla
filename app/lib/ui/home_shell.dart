@@ -4,13 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models.dart';
 import '../state/chat_providers.dart';
 import '../state/providers.dart';
+import '../state/task_providers.dart';
 import 'chats_tab.dart';
 import 'more_tab.dart';
+import 'my_tasks_tab.dart';
+import 'notifications_screen.dart';
 import 'projects_tab.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
 
-/// The four tabs from the design. My tasks arrives in phase 3.
+/// The four tabs from the design, with notifications in the top bar.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -30,9 +33,32 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     }
 
     final unread = ref.watch(chatBadgeProvider(membership.workspaceId));
+    final notes = ref.watch(unreadNotificationsProvider);
+    final me = ref.watch(authProvider).value;
+    final now = DateTime.now();
+    final late = (ref.watch(myTasksProvider).value ?? const [])
+        .where((t) => t.isAssignedTo(me) && t.isLate(now))
+        .length;
 
     return Scaffold(
-      appBar: AppBar(title: _WorkspaceTitle(membership: membership)),
+      appBar: AppBar(
+        title: _WorkspaceTitle(membership: membership),
+        actions: [
+          IconButton(
+            tooltip: l.notificationsTitle,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const NotificationsScreen(),
+              ),
+            ),
+            icon: Badge(
+              isLabelVisible: notes > 0,
+              label: Text('$notes'),
+              child: const Icon(Icons.notifications_none),
+            ),
+          ),
+        ],
+      ),
       body: IndexedStack(
         index: _tab,
         children: [
@@ -41,7 +67,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             membership: membership,
           ),
           ProjectsTab(membership: membership),
-          _ComingSoon(icon: Icons.task_alt, body: l.tasksComingSoon),
+          MyTasksTab(membership: membership),
           MoreTab(membership: membership),
         ],
       ),
@@ -68,8 +94,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             label: l.tabProjects,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.task_alt_outlined),
-            selectedIcon: const Icon(Icons.task_alt),
+            icon: Badge(
+              isLabelVisible: late > 0,
+              label: Text('$late'),
+              child: const Icon(Icons.task_alt_outlined),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: late > 0,
+              label: Text('$late'),
+              child: const Icon(Icons.task_alt),
+            ),
             label: l.tabMyTasks,
           ),
           NavigationDestination(
@@ -188,22 +222,6 @@ class _WorkspaceSwitcher extends ConsumerWidget {
           const SizedBox(height: 8),
         ],
       ),
-    );
-  }
-}
-
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.icon, required this.body});
-
-  final IconData icon;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return EmptyState(
-      icon: icon,
-      title: context.l10n.comingSoonTitle,
-      body: body,
     );
   }
 }

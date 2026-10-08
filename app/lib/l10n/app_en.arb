@@ -59,8 +59,6 @@
   "tabProjects": "Projects",
   "tabMyTasks": "My tasks",
   "tabMore": "More",
-  "comingSoonTitle": "Coming soon",
-  "tasksComingSoon": "Tasks, due dates and reminders.",
   "switchWorkspace": "Workspaces",
   "addWorkspace": "Add a workspace",
   "projectsEmpty": "No projects here",
@@ -219,5 +217,258 @@
   "errorInvalidProject": "The other person isn't in this project",
   "errorChatClosed": "You can't send here anymore",
   "errorStorageFull": "The workspace's storage is full",
-  "errorUploadRefused": "The file couldn't be uploaded: storage is full or you've reached today's upload limit."
+  "errorUploadRefused": "The file couldn't be uploaded: storage is full or you've reached today's upload limit.",
+  "tabStatus": "Status",
+  "tabTasks": "Tasks",
+  "assignedToMe": "Assigned to me",
+  "createdByMe": "Created by me",
+  "newTask": "New task",
+  "editTask": "Edit task",
+  "groupLate": "Late",
+  "groupWeek": "Within a week",
+  "groupLater": "Later",
+  "groupNoDate": "No due date",
+  "groupDone": "Recently done",
+  "groupCount": "{label} · {count}",
+  "@groupCount": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myTasksEmpty": "No tasks assigned to you",
+  "myTasksEmptyBody": "Your tasks from every project show here, sorted by due date",
+  "createdEmpty": "You haven't created any tasks",
+  "createdEmptyBody": "Tasks you give others show here so you can follow them",
+  "projectTasksEmpty": "No tasks in this project",
+  "taskStatusNew": "New",
+  "taskStatusInProgress": "In progress",
+  "taskStatusOnHold": "On hold",
+  "taskStatusReview": "In review",
+  "taskStatusDone": "Done",
+  "priorityLabel": "Priority",
+  "priorityNormal": "Normal",
+  "priorityHigh": "High",
+  "priorityUrgent": "Urgent",
+  "publicTask": "Public task",
+  "publicTaskHint": "Everyone in the project sees it; comments stay with the people on it",
+  "privateTaskHint": "Only its creator, its assignees and the project's leads see it",
+  "taskTitleLabel": "Task title",
+  "taskDetailsLabel": "Details (optional)",
+  "projectLabel": "Project",
+  "pickProject": "Choose a project",
+  "assigneesLabel": "Assigned to",
+  "pickAssignees": "Choose who it's for",
+  "onlyYourself": "In this project you can only create tasks for yourself",
+  "createdByLabel": "Created by",
+  "dueLabel": "Due",
+  "setDue": "Set a due date",
+  "clearDue": "Remove due date",
+  "reminderLabel": "Reminder",
+  "remindDayBefore": "A day before",
+  "remindHourBefore": "An hour before",
+  "remindDayAndHour": "A day and an hour before",
+  "remindNone": "No reminder",
+  "tomorrow": "Tomorrow",
+  "wasDue": "Was due {when}",
+  "@wasDue": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "taskSaved": "Task saved",
+  "holdReasonTitle": "Why is it on hold?",
+  "holdReasonHint": "For example: waiting for the drawings",
+  "onHoldBecause": "On hold: {reason}",
+  "@onHoldBecause": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "attachments": "Attachments",
+  "updates": "Updates",
+  "addUpdateHint": "Add an update or comment",
+  "commentsPrivateNote": "Everyone sees the task and its status; comments stay with the people on it",
+  "actCreated": "Task created",
+  "actCreatedFromMessage": "Created from a chat message",
+  "actStatus": "Status changed to {status}",
+  "@actStatus": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "actDue": "Due date changed to {when}",
+  "@actDue": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "actDueRemoved": "Due date removed",
+  "actPriority": "Priority changed to {priority}",
+  "@actPriority": {
+    "placeholders": {
+      "priority": {
+        "type": "String"
+      }
+    }
+  },
+  "actTitle": "Title changed to “{title}”",
+  "@actTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "actMadePublic": "Made public",
+  "actMadePrivate": "Made private",
+  "actAssigned": "Assigned to {names}",
+  "@actAssigned": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "actAttached": "Attached {name}",
+  "@actAttached": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "remindNow": "Remind now",
+  "remindShort": "Remind",
+  "reminderSent": "Reminder sent",
+  "addReminder": "Add a reminder",
+  "extraReminders": "Extra reminders",
+  "deleteTask": "Delete task",
+  "confirmDeleteTask": "Delete the task “{title}”?",
+  "@confirmDeleteTask": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "makeTask": "Make a task",
+  "openChat": "Open chat",
+  "reviewAction": "Review",
+  "followUp": "Follow-up",
+  "allProjects": "All projects",
+  "needsYou": "Needs you",
+  "nothingNeedsYou": "Nothing needs you right now",
+  "workload": "Workload (open tasks)",
+  "lateDays": "{count, plural, =0{Late today} =1{1 day late} other{{count} days late}}",
+  "@lateDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "waitingReview": "Waiting for your review",
+  "followUpEmpty": "No tasks in your projects yet",
+  "statOpen": "Open",
+  "statDueWeek": "Due this week",
+  "publicTasks": "Public tasks",
+  "noPublicTasks": "No open public tasks",
+  "pinnedFiles": "Pinned files",
+  "seeAll": "See all",
+  "pinnedAnnouncement": "Pinned · {name}",
+  "@pinnedAnnouncement": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "latestAnnouncement": "Latest · {name}",
+  "@latestAnnouncement": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "leadIs": "Lead: {name}",
+  "@leadIs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationsTitle": "Notifications",
+  "notificationsEmpty": "No notifications",
+  "markAllRead": "Mark all read",
+  "noteAssigned": "New task for you from {name}",
+  "@noteAssigned": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteStatus": "Status changed to {status} · {name}",
+  "@noteStatus": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteComment": "New comment from {name}",
+  "@noteComment": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteDueChanged": "Due date changed · {name}",
+  "@noteDueChanged": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteNudge": "Reminder from {name}",
+  "@noteNudge": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteDueSoon": "Due soon",
+  "noteOverdue": "Past its due date",
+  "noteReminder": "Task reminder",
+  "errorProjectClosed": "This project is archived or closed, so its tasks can't change",
+  "errorReasonRequired": "Write why it's on hold",
+  "errorInvalidAssignee": "Someone you chose isn't in the project",
+  "errorTaskGone": "This task is no longer available",
+  "errorInvalidReminder": "Choose a time in the future",
+  "projectMembersAction": "Project members",
+  "privateTask": "Private task",
+  "taskDetailsTitle": "Details",
+  "errorTooManyAssignees": "A task can be for 20 people at most",
+  "errorTooManyReminders": "A task can have 10 extra reminders at most"
 }

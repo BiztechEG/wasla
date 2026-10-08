@@ -64,10 +64,19 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - New messages and read marks arrive live through Supabase Realtime (the `messages` and `conversation_reads` tables are in the `supabase_realtime` publication; what each person receives still follows the database permissions).
 - Push notifications come later, once a Firebase project exists.
 
+## Tasks and follow-up
+
+- A task belongs to one project and goes to one or more of its members. Leads and admins assign anyone in the project; other members create tasks for themselves.
+- Tasks are private by default: only their creator, assignees and the project's leads and admins see them. A public task is visible to the whole project, but its comments stay with those people.
+- Assignees move a task between new, in progress, on hold (with a reason) and review; only its creator or a lead closes or reopens it.
+- Reminders go out a day and an hour before the due time by default, plus once when it passes and at any extra times the creator adds. They are sent by the `pg_cron` job `wasla-task-reminders`, which runs `process_task_reminders()` every minute. The migration creates the job where `pg_cron` is available (hosted Supabase) and skips it elsewhere.
+- Notifications are in-app for now (the bell on the home screen); they become push notifications once Firebase is set up.
+- Tasks in an archived or closed project are read-only, leave My tasks and stop reminding.
+
 ## Plan
 
 1. Foundation: sign-up, workspaces, invites and join requests, roles, projects (done)
 2. Chat and files: realtime chat tagged by project, files, announcements (done; push notifications pending Firebase)
-3. Tasks and follow-up: tasks, statuses, reminders, public tasks, status and follow-up screens
+3. Tasks and follow-up: tasks, statuses, reminders, public tasks, status and follow-up screens (done; push notifications pending Firebase)
 4. Subscriptions: plans, exchange rates, company invoices, platform admin
 5. Later: online payments, reports, AI assistant, calls, web app
