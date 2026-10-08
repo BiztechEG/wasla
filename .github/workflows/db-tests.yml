@@ -1,0 +1,14 @@
+name: Database tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  db-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run migrations and permission tests
+        run: supabase/tests/run.sh
