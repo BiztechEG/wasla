@@ -13,13 +13,28 @@ class WaslaColors {
     return value == null ? accent : Color(0xFF000000 | value);
   }
 
-  /// Project colors read better a little lighter on the dark background.
+  /// Lighter versions of the project colors for the dark theme (teal is the
+  /// dark accent from the design).
+  static const _dark = {
+    '#0F6E6A': Color(0xFF4CC2B7),
+    '#C2660A': Color(0xFFF0A35E),
+    '#2F5BD3': Color(0xFF8AA7F2),
+    '#7247B8': Color(0xFFB79BE6),
+  };
+
   static Color project(String hex, Brightness brightness) {
-    final color = parse(hex);
-    return brightness == Brightness.dark
-        ? Color.lerp(color, Colors.white, 0.3)!
-        : color;
+    if (brightness == Brightness.dark) {
+      return _dark[hex.toUpperCase()] ??
+          Color.lerp(parse(hex), Colors.white, 0.4)!;
+    }
+    return parse(hex);
   }
+
+  /// Text drawn on a 16% tint of [color] needs a deeper shade to stay legible.
+  static Color onTint(Color color, Brightness brightness) =>
+      brightness == Brightness.dark
+      ? Color.lerp(color, Colors.white, 0.35)!
+      : Color.lerp(color, Colors.black, 0.25)!;
 }
 
 const _font = 'IBMPlexSansArabic';
@@ -40,8 +55,14 @@ ThemeData buildTheme(Brightness brightness) {
     surface: dark ? const Color(0xFF1A2129) : Colors.white,
     onSurface: dark ? const Color(0xFFE8ECEF) : const Color(0xFF14202B),
     onSurfaceVariant: dark ? const Color(0xFFA3AEB9) : const Color(0xFF4A5868),
-    outline: dark ? const Color(0xFF2E3842) : const Color(0xFFE2E6EA),
+    // Edges of inputs and switches need 3:1 contrast; cards and dividers use
+    // the lighter design border (outlineVariant).
+    outline: dark ? const Color(0xFF6E7C89) : const Color(0xFF8A96A3),
     outlineVariant: dark ? const Color(0xFF2E3842) : const Color(0xFFE2E6EA),
+    secondaryContainer: dark
+        ? const Color(0xFF17403E)
+        : const Color(0xFFDCEFEE),
+    onSecondaryContainer: dark ? WaslaColors.accentDark : WaslaColors.accent,
     surfaceContainerHighest: dark
         ? const Color(0xFF232C36)
         : const Color(0xFFEEF1F4),
@@ -67,7 +88,7 @@ ThemeData buildTheme(Brightness brightness) {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      shape: Border(bottom: BorderSide(color: scheme.outline)),
+      shape: Border(bottom: BorderSide(color: scheme.outlineVariant)),
       titleTextStyle: base.textTheme.titleLarge?.copyWith(
         fontFamily: _font,
         fontWeight: FontWeight.w600,
@@ -107,10 +128,10 @@ ThemeData buildTheme(Brightness brightness) {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: scheme.outline),
+        side: BorderSide(color: scheme.outlineVariant),
       ),
     ),
-    dividerTheme: DividerThemeData(color: scheme.outline, space: 1),
+    dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: scheme.surface,
@@ -161,7 +182,7 @@ ThemeData buildTheme(Brightness brightness) {
       surfaceTintColor: Colors.transparent,
     ),
     chipTheme: ChipThemeData(
-      side: BorderSide(color: scheme.outline),
+      side: BorderSide(color: scheme.outlineVariant),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     listTileTheme: ListTileThemeData(iconColor: scheme.onSurfaceVariant),

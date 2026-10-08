@@ -158,7 +158,7 @@ class MoreTab extends ConsumerWidget {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.swap_horiz),
+              leading: const Icon(Icons.add_circle_outline),
               title: Text(l.addWorkspace),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => push(const StartScreen(asPage: true)),

@@ -224,60 +224,68 @@ class _NewProjectSheetState extends ConsumerState<NewProjectSheet> {
       ),
       child: Form(
         key: _form,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              l.newProject,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l.newProject,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              key: const Key('projectName'),
-              controller: _name,
-              autofocus: true,
-              decoration: InputDecoration(labelText: l.projectNameLabel),
-              validator: (v) =>
-                  (v?.trim().isEmpty ?? true) ? l.fieldRequired : null,
-              onFieldSubmitted: (_) => _create(),
-            ),
-            const SizedBox(height: 16),
-            Text(l.projectColorLabel, style: theme.textTheme.labelLarge),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (final hex in WaslaColors.projectColors)
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 12),
-                    child: InkResponse(
-                      onTap: () => setState(() => _color = hex),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: WaslaColors.project(hex, theme.brightness),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _color == hex
-                                ? theme.colorScheme.onSurface
-                                : Colors.transparent,
-                            width: 3,
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('projectName'),
+                controller: _name,
+                inputFormatters: nameLimit,
+                autofocus: true,
+                decoration: InputDecoration(labelText: l.projectNameLabel),
+                validator: (v) =>
+                    (v?.trim().isEmpty ?? true) ? l.fieldRequired : null,
+                onFieldSubmitted: (_) => _create(),
+              ),
+              const SizedBox(height: 16),
+              Text(l.projectColorLabel, style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (final hex in WaslaColors.projectColors)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 12),
+                      child: InkResponse(
+                        onTap: () => setState(() => _color = hex),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: WaslaColors.project(hex, theme.brightness),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _color == hex
+                                  ? theme.colorScheme.onSurface
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
                           ),
+                          child: _color == hex
+                              ? Icon(
+                                  Icons.check,
+                                  color: theme.brightness == Brightness.dark
+                                      ? const Color(0xFF0F1419)
+                                      : Colors.white,
+                                )
+                              : null,
                         ),
-                        child: _color == hex
-                            ? const Icon(Icons.check, color: Colors.white)
-                            : null,
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            BusyButton(label: l.create, onPressed: _create),
-          ],
+                ],
+              ),
+              const SizedBox(height: 24),
+              BusyButton(label: l.create, onPressed: _create),
+            ],
+          ),
         ),
       ),
     );

@@ -73,6 +73,27 @@ void main() {
       errorText(l, AuthException('Token has expired', code: 'otp_expired')),
       l.errorWrongCode,
     );
+    expect(
+      errorText(
+        l,
+        const PostgrestException(message: 'too_many_requests', code: 'P0001'),
+      ),
+      l.errorTooManyToday,
+    );
+    expect(
+      errorText(
+        l,
+        const PostgrestException(message: 'check constraint', code: '23514'),
+      ),
+      l.errorTooLong,
+    );
     expect(errorText(l, Exception('boom')), l.errorGeneric);
+  });
+
+  test('Arabic names get one initial without the article', () {
+    expect(initials('الإدارة الهندسية'), 'إ');
+    expect(initials('خالد العتيبي'), 'خ');
+    expect(initials('Ahmed Hassan'), 'AH');
+    expect(initials('  '), '');
   });
 }

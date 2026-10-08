@@ -64,6 +64,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     TextFormField(
                       key: const Key('fullName'),
                       controller: _name,
+                      inputFormatters: nameLimit,
                       autofocus: true,
                       textCapitalization: TextCapitalization.words,
                       autofillHints: const [AutofillHints.name],

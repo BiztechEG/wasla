@@ -2,42 +2,59 @@
   "@@locale": "ar",
   "appName": "وصلة",
   "tagline": "تواصل فريقك ومهامه في مكان واحد",
-
   "emailLabel": "البريد الإلكتروني",
-  "sendCode": "أرسل رمز الدخول",
+  "sendCode": "إرسال رمز الدخول",
   "codeSentTo": "أرسلنا رمز الدخول إلى {email}",
-  "@codeSentTo": {"placeholders": {"email": {"type": "String"}}},
+  "@codeSentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "codeLabel": "رمز الدخول",
   "signIn": "دخول",
   "changeEmail": "تغيير البريد",
   "resendCode": "إعادة إرسال الرمز",
   "invalidEmail": "اكتب بريداً إلكترونياً صحيحاً",
   "invalidCode": "اكتب الرمز كما وصلك",
-
   "profileTitle": "ما اسمك؟",
   "profileHint": "سيظهر اسمك لزملائك في المحادثات والمهام",
-  "fullNameLabel": "الاسم بالكامل",
+  "fullNameLabel": "الاسم الكامل",
   "continueAction": "متابعة",
   "fieldRequired": "هذا الحقل مطلوب",
-
   "startTitle": "ابدأ مع وصلة",
   "startSubtitle": "انضم إلى فريقك أو أنشئ مساحة عمل لشركتك",
   "invitesSection": "دعوات لك",
   "invitedBy": "دعوة من {name} بدور {role}",
-  "@invitedBy": {"placeholders": {"name": {"type": "String"}, "role": {"type": "String"}}},
+  "@invitedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
   "accept": "قبول",
   "decline": "رفض",
   "myRequestsSection": "طلبات بانتظار الموافقة",
   "waitingForAdmin": "بانتظار موافقة المسؤول",
   "withdraw": "سحب الطلب",
-  "createWorkspaceAction": "أنشئ مساحة عمل لشركتك",
-  "createWorkspaceHint": "ستكون المالك وتدعو فريقك",
-  "findWorkspaceAction": "ابحث عن مساحة عمل",
+  "createWorkspaceAction": "إنشاء مساحة عمل لشركتك",
+  "createWorkspaceHint": "بصفتك المالك يمكنك دعوة فريقك",
+  "findWorkspaceAction": "البحث عن مساحة عمل",
   "findWorkspaceHint": "اطلب الانضمام وانتظر موافقة المسؤول",
-  "noInvitesHint": "إذا دعاك فريقك ستظهر الدعوة هنا. تأكد أنك دخلت بنفس البريد الذي وصلته الدعوة.",
-  "signedInAs": "مسجل الدخول بـ {email}",
-  "@signedInAs": {"placeholders": {"email": {"type": "String"}}},
-
+  "noInvitesHint": "إذا دعاك فريقك فستظهر الدعوة هنا. يجب الدخول بالبريد نفسه الذي أُرسلت إليه الدعوة.",
+  "signedInAs": "الحساب: {email}",
+  "@signedInAs": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "newWorkspaceTitle": "مساحة عمل جديدة",
   "companyNameLabel": "اسم الشركة",
   "workspaceNameLabel": "اسم مساحة العمل",
@@ -52,30 +69,39 @@
   "countryOM": "عُمان",
   "create": "إنشاء",
   "newWorkspaceInCompany": "مساحة عمل جديدة في {company}",
-  "@newWorkspaceInCompany": {"placeholders": {"company": {"type": "String"}}},
-
+  "@newWorkspaceInCompany": {
+    "placeholders": {
+      "company": {
+        "type": "String"
+      }
+    }
+  },
   "searchTitle": "البحث عن مساحة عمل",
   "searchHint": "اكتب اسم مساحة العمل",
   "searchMinChars": "اكتب حرفين على الأقل",
   "noResults": "لا توجد نتائج. تظهر مساحة العمل في البحث فقط إذا سمح المسؤول بذلك.",
   "requestToJoin": "طلب انضمام",
   "requested": "تم الطلب",
-  "alreadyMember": "أنت عضو",
+  "alreadyMember": "انضممت",
   "joinMessageLabel": "رسالة للمسؤول (اختياري)",
   "send": "إرسال",
   "requestSent": "أرسلنا طلبك إلى مسؤولي {workspace}",
-  "@requestSent": {"placeholders": {"workspace": {"type": "String"}}},
-
+  "@requestSent": {
+    "placeholders": {
+      "workspace": {
+        "type": "String"
+      }
+    }
+  },
   "tabChats": "المحادثات",
   "tabProjects": "المشاريع",
   "tabMyTasks": "مهامي",
   "tabMore": "المزيد",
   "comingSoonTitle": "قريباً",
-  "chatsComingSoon": "المحادثات الموحدة مع فلتر المشروع والشخص تصل في المرحلة الثانية.",
-  "tasksComingSoon": "المهام والمواعيد والتذكيرات تصل في المرحلة الثالثة.",
+  "chatsComingSoon": "كل محادثات فريقك في مكان واحد، مع تصفية حسب المشروع أو الشخص.",
+  "tasksComingSoon": "المهام ومواعيد التسليم والتذكيرات.",
   "switchWorkspace": "مساحات العمل",
   "addWorkspace": "إضافة مساحة عمل",
-
   "projectsEmpty": "لا توجد مشاريع هنا",
   "projectsEmptyAdmin": "أنشئ أول مشروع وأضف فريقه.",
   "projectsEmptyMember": "سيظهر هنا كل مشروع تُضاف إليه.",
@@ -86,67 +112,106 @@
   "filterArchived": "المؤرشفة",
   "filterClosed": "المغلقة",
   "memberCount": "{count, plural, =0{بدون أعضاء} =1{عضو واحد} =2{عضوان} few{{count} أعضاء} many{{count} عضواً} other{{count} عضو}}",
-  "@memberCount": {"placeholders": {"count": {"type": "int"}}},
-
+  "@memberCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "projectMembers": "أعضاء المشروع",
   "addMember": "إضافة عضو",
   "removeFromProject": "إزالة من المشروع",
-  "makeLead": "تعيين قائداً للمشروع",
-  "removeLead": "إلغاء دور القائد",
+  "makeLead": "منح دور قائد المشروع",
+  "removeLead": "سحب دور القائد",
   "roleLead": "قائد المشروع",
   "archiveProject": "أرشفة المشروع",
   "closeProject": "إغلاق المشروع",
   "reopenProject": "إعادة فتح المشروع",
   "statusArchived": "هذا المشروع مؤرشف",
   "statusClosed": "هذا المشروع مغلق",
-  "projectExtrasSoon": "ملفات المشروع وإعلاناته تصل مع المحادثات في المرحلة الثانية.",
+  "projectExtrasSoon": "قريباً: ملفات المشروع وإعلاناته.",
   "everyoneAdded": "كل أعضاء مساحة العمل في المشروع بالفعل",
   "you": "أنت",
-
   "workspaceSection": "مساحة العمل",
   "members": "الأعضاء",
-  "seats": "{used} من {max} مقعد · خطة {plan}",
-  "@seats": {"placeholders": {"used": {"type": "int"}, "max": {"type": "int"}, "plan": {"type": "String"}}},
-  "seatsUnlimited": "{used} عضو · خطة {plan}",
-  "@seatsUnlimited": {"placeholders": {"used": {"type": "int"}, "plan": {"type": "String"}}},
+  "seats": "المقاعد: {used} من {max} · الخطة: {plan}",
+  "@seats": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      },
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
+  "seatsUnlimited": "الأعضاء: {used} · الخطة: {plan}",
+  "@seatsUnlimited": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "plan": {
+        "type": "String"
+      }
+    }
+  },
   "inviteMembers": "دعوة أعضاء",
   "joinRequests": "طلبات الانضمام",
   "discoverable": "تظهر في البحث",
   "discoverableHint": "يستطيع أي شخص إيجاد مساحة العمل وطلب الانضمام",
   "settingsSection": "الإعدادات",
   "appearance": "المظهر",
-  "themeSystem": "حسب الجهاز",
+  "themeSystem": "تلقائي",
   "themeLight": "فاتح",
-  "themeDark": "غامق",
+  "themeDark": "داكن",
   "language": "اللغة",
   "signOut": "تسجيل الخروج",
   "signOutConfirm": "تسجيل الخروج من وصلة؟",
   "cancel": "إلغاء",
   "editName": "تعديل الاسم",
   "save": "حفظ",
-
-  "roleOwner": "المالك",
+  "roleOwner": "مالك",
   "roleAdmin": "مسؤول",
   "roleMember": "عضو",
   "changeRole": "تغيير الدور",
   "removeFromWorkspace": "إزالة من مساحة العمل",
-  "removeMemberConfirm": "إزالة {name} من مساحة العمل؟ لن يرى مشاريعها بعد الآن.",
-  "@removeMemberConfirm": {"placeholders": {"name": {"type": "String"}}},
+  "removeMemberConfirm": "إزالة {name} من مساحة العمل؟ سيتوقف وصول {name} إلى مشاريعها.",
+  "@removeMemberConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "remove": "إزالة",
   "pendingInvites": "دعوات لم تُقبل بعد",
   "cancelInvite": "إلغاء الدعوة",
-
   "inviteTitle": "دعوة إلى {workspace}",
-  "@inviteTitle": {"placeholders": {"workspace": {"type": "String"}}},
-  "inviteEmailHint": "سيجد الدعوة في التطبيق عند الدخول بهذا البريد.",
+  "@inviteTitle": {
+    "placeholders": {
+      "workspace": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteEmailHint": "ستظهر الدعوة عند الدخول إلى وصلة بهذا البريد.",
   "roleLabel": "الدور",
   "addToProjects": "إضافة إلى مشاريع (اختياري)",
-  "sendInvite": "إرسال الدعوة",
-  "inviteSent": "أرسلنا الدعوة إلى {email}",
-  "@inviteSent": {"placeholders": {"email": {"type": "String"}}},
-
+  "sendInvite": "إنشاء الدعوة",
+  "inviteSent": "الدعوة جاهزة، وستظهر عند الدخول إلى وصلة بالبريد {email}",
+  "@inviteSent": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "noJoinRequests": "لا توجد طلبات جديدة",
-
   "retry": "إعادة المحاولة",
   "errorGeneric": "حدث خطأ. حاول مرة أخرى.",
   "errorNetwork": "تعذر الاتصال. تأكد من الإنترنت وحاول مجدداً.",
@@ -158,5 +223,46 @@
   "errorDuplicate": "موجود بالفعل.",
   "errorNotAllowed": "ليست لديك صلاحية لهذا الإجراء.",
   "errorWrongCode": "الرمز غير صحيح أو انتهت صلاحيته.",
-  "errorTooManyCodes": "طلبت رموزاً كثيرة. انتظر دقيقة ثم حاول مجدداً."
+  "errorTooManyCodes": "طلبت رموزاً كثيرة. انتظر دقيقة ثم حاول مجدداً.",
+  "errorTooManyToday": "وصلت للحد المسموح اليوم. حاول مرة أخرى غداً.",
+  "errorTooLong": "النص أطول من المسموح.",
+  "confirmMakeOwner": "جعل {name} مالكاً لمساحة العمل؟ سيملك كل الصلاحيات، بما فيها إدارة المالكين.",
+  "@confirmMakeOwner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmArchive": "أرشفة المشروع؟ سيختفي من القائمة الجارية ويمكن إعادة فتحه لاحقاً.",
+  "confirmClose": "إغلاق المشروع؟ يمكن إعادة فتحه لاحقاً.",
+  "confirmRemoveFromProject": "إزالة {name} من المشروع؟",
+  "@confirmRemoveFromProject": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmDecline": "رفض الطلب؟",
+  "confirmDeclineInvite": "رفض الدعوة إلى {workspace}؟",
+  "@confirmDeclineInvite": {
+    "placeholders": {
+      "workspace": {
+        "type": "String"
+      }
+    }
+  },
+  "roleChanged": "أصبح دور {name}: {role}",
+  "@roleChanged": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "codeResent": "أرسلنا رمزاً جديداً"
 }

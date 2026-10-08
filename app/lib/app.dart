@@ -11,13 +11,25 @@ import 'ui/sign_in_screen.dart';
 import 'ui/start_screen.dart';
 import 'ui/widgets.dart';
 
+final _navigatorKey = GlobalKey<NavigatorState>();
+
 class WaslaApp extends ConsumerWidget {
   const WaslaApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+
+    // Signing out (or the session ending) must not leave a members or
+    // project screen open on top of the sign-in screen.
+    ref.listen(authProvider, (previous, next) {
+      if (previous?.value != next.value) {
+        _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+      }
+    });
+
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       onGenerateTitle: (context) => context.l10n.appName,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(Brightness.light),

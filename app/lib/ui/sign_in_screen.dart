@@ -34,9 +34,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   }
 
   Future<void> _send(String email) async {
+    final resend = _sentTo != null;
     final ok = await runAction(
       context,
       () => ref.read(apiProvider).sendEmailCode(email),
+      done: resend ? context.l10n.codeResent : null,
     );
     if (ok && mounted) {
       setState(() {

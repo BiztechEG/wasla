@@ -20,6 +20,16 @@ class JoinRequestsScreen extends ConsumerWidget {
     final localizations = MaterialLocalizations.of(context);
 
     Future<void> decide(JoinRequest r, bool accept) async {
+      if (!accept &&
+          !await confirm(
+            context,
+            message: l.confirmDecline,
+            action: l.decline,
+            destructive: true,
+          )) {
+        return;
+      }
+      if (!context.mounted) return;
       final ok = await runAction(
         context,
         () => ref.read(apiProvider).decideJoinRequest(r.id, accept: accept),
