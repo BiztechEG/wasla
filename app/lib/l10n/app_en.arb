@@ -274,7 +274,7 @@
   "remindDayAndHour": "A day and an hour before",
   "remindNone": "No reminder",
   "tomorrow": "Tomorrow",
-  "wasDue": "Was due {when}",
+  "wasDue": "Overdue · {when}",
   "@wasDue": {
     "placeholders": {
       "when": {
@@ -296,7 +296,7 @@
   "attachments": "Attachments",
   "updates": "Updates",
   "addUpdateHint": "Add an update or comment",
-  "commentsPrivateNote": "Everyone sees the task and its status; comments stay with the people on it",
+  "commentsPrivateNote": "Everyone sees the task, its status and its attachments; comments stay with the people on it",
   "actCreated": "Task created",
   "actCreatedFromMessage": "Created from a chat message",
   "actStatus": "Status changed to {status}",
@@ -380,10 +380,9 @@
       }
     }
   },
-  "waitingReview": "Waiting for your review",
   "followUpEmpty": "No tasks in your projects yet",
   "statOpen": "Open",
-  "statDueWeek": "Due this week",
+  "statDueWeek": "This week",
   "publicTasks": "Public tasks",
   "noPublicTasks": "No open public tasks",
   "pinnedFiles": "Pinned files",
@@ -461,6 +460,23 @@
   "noteDueSoon": "Due soon",
   "noteOverdue": "Past its due date",
   "noteReminder": "Task reminder",
+  "noteUnassigned": "You were taken off this task · {name}",
+  "@noteUnassigned": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteDeleted": "Task deleted · {name}",
+  "@noteDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "filesNotAttached": "The task was created, but some files couldn't be attached. Add them from the task.",
   "errorProjectClosed": "This project is archived or closed, so its tasks can't change",
   "errorReasonRequired": "Write why it's on hold",
   "errorInvalidAssignee": "Someone you chose isn't in the project",

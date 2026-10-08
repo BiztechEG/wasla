@@ -40,11 +40,7 @@ class TaskTile extends StatelessWidget {
       details.add(span);
     }
 
-    if (workspaceName != null) add(TextSpan(text: workspaceName));
-    if (showProject) add(TextSpan(text: task.projectName));
-    if (showAssignees && task.assignees.isNotEmpty) {
-      add(TextSpan(text: task.assigneeNames));
-    }
+    // When it is due comes first, so a narrow row never cuts it off.
     if (task.dueAt != null && !done) {
       add(
         TextSpan(
@@ -56,6 +52,13 @@ class TaskTile extends StatelessWidget {
                 )
               : null,
         ),
+      );
+    }
+    if (workspaceName != null) add(TextSpan(text: workspaceName));
+    if (showProject) add(TextSpan(text: task.projectName));
+    if (showAssignees && task.assignees.isNotEmpty) {
+      add(
+        TextSpan(text: joinNames(context, task.assignees.map((a) => a.name))),
       );
     }
 
@@ -231,7 +234,7 @@ class StatTile extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(

@@ -13,9 +13,49 @@ extension L10nContext on BuildContext {
   AppLocalizations get l10n => AppLocalizations.of(this);
 }
 
+/// Keeps text within [max] characters as the database counts them (code
+/// points, so an emoji made of several counts as several), cutting only
+/// between whole characters.
+class RuneLimit extends TextInputFormatter {
+  const RuneLimit(this.max);
+
+  final int max;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.runes.length <= max) return newValue;
+    final kept = StringBuffer();
+    var count = 0;
+    for (final c in newValue.text.characters) {
+      count += c.runes.length;
+      if (count > max) break;
+      kept.write(c);
+    }
+    final text = kept.toString();
+    final selection = newValue.selection;
+    return TextEditingValue(
+      text: text,
+      selection: selection.isValid
+          ? selection.copyWith(
+              baseOffset: selection.baseOffset.clamp(0, text.length),
+              extentOffset: selection.extentOffset.clamp(0, text.length),
+            )
+          : selection,
+    );
+  }
+}
+
 /// Same limits as the database, so people never hit them as an error.
-final nameLimit = [LengthLimitingTextInputFormatter(100)];
-final messageLimit = [LengthLimitingTextInputFormatter(500)];
+const nameLimit = [RuneLimit(100)];
+const messageLimit = [RuneLimit(500)];
+
+/// Names in a list, with the comma the language uses.
+String joinNames(BuildContext context, Iterable<String> names) => names.join(
+  Localizations.localeOf(context).languageCode == 'ar' ? '، ' : ', ',
+);
 
 /// Keeps an email or phone number reading left to right inside Arabic text.
 String ltr(String text) => '\u2066$text\u2069';
@@ -71,7 +111,7 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('reason_required')) return l.errorReasonRequired;
     if (m.contains('invalid_assignee')) return l.errorInvalidAssignee;
     if (m.contains('invalid_reminder')) return l.errorInvalidReminder;
-    if (m.contains('not_found')) return l.errorTaskGone;
+    if (m == 'not_found') return l.errorTaskGone;
     if (m.contains('invalid_project')) return l.errorInvalidProject;
     if (m.contains('conversation_closed')) return l.errorChatClosed;
     if (m.contains('storage_full')) return l.errorStorageFull;
@@ -225,7 +265,7 @@ class _PromptDialogState extends State<_PromptDialog> {
       content: TextField(
         controller: _controller,
         autofocus: true,
-        inputFormatters: [LengthLimitingTextInputFormatter(widget.maxLength)],
+        inputFormatters: [RuneLimit(widget.maxLength)],
         decoration: InputDecoration(labelText: widget.label),
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => _submit(),

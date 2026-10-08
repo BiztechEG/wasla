@@ -165,7 +165,7 @@ abstract class WaslaApi {
   Future<List<TaskItem>> managedTasks(String workspaceId);
   Future<TaskDetail> task(String taskId);
 
-  /// Creates the task, then attaches [TaskDraft.files]. Returns its id.
+  /// Creates the task and returns its id.
   Future<String> createTask(TaskDraft draft);
   Future<void> updateTask(String taskId, TaskDraft draft);
   Future<void> setTaskAssignees(String taskId, List<String> userIds);
@@ -877,26 +877,20 @@ class SupabaseWaslaApi implements WaslaApi {
   );
 
   @override
-  Future<String> createTask(TaskDraft draft) async {
-    final id = await _client.rpc(
-      'create_task',
-      params: {
-        'p_project': draft.projectId,
-        'p_title': draft.title,
-        'p_description': draft.description,
-        'p_assignees': draft.assigneeIds,
-        'p_due_at': draft.dueAt?.toUtc().toIso8601String(),
-        'p_priority': draft.priority.name,
-        'p_visibility': draft.visibility.name,
-        'p_remind_before': draft.remindBefore,
-        'p_source_message': draft.sourceMessageId,
-      },
-    ) as String;
-    for (final file in draft.files) {
-      await addTaskAttachment(draft.workspaceId, id, file);
-    }
-    return id;
-  }
+  Future<String> createTask(TaskDraft draft) async => await _client.rpc(
+    'create_task',
+    params: {
+      'p_project': draft.projectId,
+      'p_title': draft.title,
+      'p_description': draft.description,
+      'p_assignees': draft.assigneeIds,
+      'p_due_at': draft.dueAt?.toUtc().toIso8601String(),
+      'p_priority': draft.priority.name,
+      'p_visibility': draft.visibility.name,
+      'p_remind_before': draft.remindBefore,
+      'p_source_message': draft.sourceMessageId,
+    },
+  ) as String;
 
   @override
   Future<void> updateTask(String taskId, TaskDraft draft) => _client.rpc(

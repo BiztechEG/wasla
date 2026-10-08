@@ -478,7 +478,7 @@
   "attachments": "المرفقات",
   "updates": "التحديثات",
   "addUpdateHint": "أضف تحديثاً أو تعليقاً",
-  "commentsPrivateNote": "الكل يرى المهمة وحالتها، والتعليقات لأطرافها فقط",
+  "commentsPrivateNote": "الكل يرى المهمة وحالتها ومرفقاتها، والتعليقات لأطرافها فقط",
   "actCreated": "أُنشئت المهمة",
   "actCreatedFromMessage": "أُنشئت المهمة من رسالة في المحادثة",
   "actStatus": "تغيّرت الحالة إلى {status}",
@@ -562,7 +562,6 @@
       }
     }
   },
-  "waitingReview": "تنتظر مراجعتك",
   "followUpEmpty": "لا توجد مهام في مشاريعك بعد",
   "statOpen": "مفتوحة",
   "statDueWeek": "خلال أسبوع",
@@ -643,6 +642,23 @@
   "noteDueSoon": "موعد التسليم يقترب",
   "noteOverdue": "تجاوزت موعد التسليم",
   "noteReminder": "تذكير بالمهمة",
+  "noteUnassigned": "لم تعد مكلّفاً بهذه المهمة · {name}",
+  "@noteUnassigned": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noteDeleted": "حُذفت المهمة · {name}",
+  "@noteDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "filesNotAttached": "أُنشئت المهمة لكن تعذّر إرفاق بعض الملفات، يمكنك إرفاقها من شاشة المهمة",
   "errorProjectClosed": "المشروع مؤرشف أو مغلق، فلا يمكن تعديل مهامه",
   "errorReasonRequired": "اكتب سبب التوقف",
   "errorInvalidAssignee": "أحد المختارين ليس في المشروع",

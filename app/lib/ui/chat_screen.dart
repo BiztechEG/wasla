@@ -1261,7 +1261,7 @@ class _Composer extends StatelessWidget {
                       controller: controller,
                       minLines: 1,
                       maxLines: 5,
-                      inputFormatters: [LengthLimitingTextInputFormatter(4000)],
+                      inputFormatters: const [RuneLimit(4000)],
                       textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
                         hintText: l.typeMessage,

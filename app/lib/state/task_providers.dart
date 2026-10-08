@@ -58,10 +58,13 @@ final myTasksProvider = FutureProvider.autoDispose<List<TaskItem>>((ref) async {
 
 typedef ProjectKey = ({String workspaceId, String projectId});
 
+/// Live task changes only reach those who still see the task, so one taken
+/// off a private task hears of it as a notification.
 final projectTasksProvider = FutureProvider.autoDispose
     .family<List<TaskItem>, ProjectKey>((ref, key) async {
       final api = ref.watch(apiProvider);
       _refreshOn(ref, taskEventsProvider(key.workspaceId), ref.invalidateSelf);
+      _refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
       await ref.watch(authProvider.future);
       return api.projectTasks(key.projectId);
     });
@@ -81,6 +84,7 @@ final taskDetailProvider = FutureProvider.autoDispose
     .family<TaskDetail, TaskKey>((ref, key) async {
       final api = ref.watch(apiProvider);
       _refreshOn(ref, taskEventsProvider(key.workspaceId), ref.invalidateSelf);
+      _refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
       await ref.watch(authProvider.future);
       return api.task(key.taskId);
     });

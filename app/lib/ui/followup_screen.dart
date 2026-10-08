@@ -285,21 +285,19 @@ class _NeedsRow extends ConsumerWidget {
       ).difference(DateTime(due.year, due.month, due.day)).inDays;
       why = l.lateDays(days);
       color = theme.colorScheme.error;
-    } else if (task.status == TaskStatus.review) {
-      why = l.waitingReview;
-      color = statusColor(TaskStatus.review, theme.brightness);
     } else {
       why = statusLabel(l, task.status);
       color = statusColor(task.status, theme.brightness);
     }
     final who = [
       if (showProject) task.projectName,
-      if (task.assignees.isNotEmpty) task.assigneeNames,
+      if (task.assignees.isNotEmpty)
+        joinNames(context, task.assignees.map((a) => a.name)),
     ].join(' · ');
 
     return ListTile(
       onTap: () => openTask(context, task.workspaceId, task.id),
-      title: Text(task.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(task.title, maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Text.rich(
         TextSpan(
           children: [
