@@ -6,7 +6,7 @@ Internal team communication for companies: project-tagged chat, files, announcem
 
 ## Stack
 
-- **App:** Flutter (Android, iOS; web later)
+- **App:** Flutter (Android, iOS, and the web for the admin dashboard and paying)
 - **Backend:** Supabase today (PostgreSQL + Row Level Security, Auth, Realtime, Storage, Edge Functions). Everything is plain PostgreSQL so it can move to a self-hosted server later.
 
 ## Layout
@@ -33,6 +33,8 @@ flutter run --dart-define=SUPABASE_URL=https://... --dart-define=SUPABASE_KEY=..
 ```
 
 Checks: `flutter analyze` and `flutter test` inside `app/`.
+
+The same app runs in a browser: `flutter run -d chrome`, or `flutter build web --release --no-web-resources-cdn` for files any web host can serve (the result is in `app/build/web`; add `--base-href /app/` when it is served from a folder).
 
 ### Try it on an Android phone
 
@@ -75,10 +77,23 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - Deleting a task removes its attachments too and tells the people on it. Someone taken off a task is told as well.
 - Each person can make 60 task changes a minute; saving a task unchanged doesn't count.
 
+## Subscriptions and the admin dashboard
+
+- Each workspace is on a plan (Free, Basic, Business, Enterprise) that sets its seats and storage. Prices are in US dollars a month per workspace. A company pays in its country's currency at the rate a platform admin sets for that country; every invoice keeps the rate it was issued at.
+- Until online payment arrives, payment is by bank transfer: the company owner asks for a plan from **More > Subscription and billing**, a platform admin issues one invoice for the company with a line per workspace, and marks it paid when the money arrives. That puts each workspace on its plan for the months paid (paying again for the same plan adds to the time left; a different plan starts from that day).
+- A week before paid time ends the owner is warned; a week after it ends the workspace goes back to the free plan. Nothing is deleted, but it takes no new members or files beyond the free limits. The `pg_cron` job `wasla-subscriptions` does this daily at 06:00 UTC.
+- A platform admin can also put a workspace on a plan by hand, with or without an end date (a trial, the pilot company, an agreement paid outside the app).
+- Platform admins are the people who run Wasla, not a company's admins. They see **More > Platform admin** in the app, and in a browser the dashboard is their first page. Add the first one in the Supabase SQL editor:
+
+  ```sql
+  insert into public.platform_admins (user_id)
+  select id from auth.users where email = 'you@example.com';
+  ```
+
 ## Plan
 
 1. Foundation: sign-up, workspaces, invites and join requests, roles, projects (done)
 2. Chat and files: realtime chat tagged by project, files, announcements (done; push notifications pending Firebase)
 3. Tasks and follow-up: tasks, statuses, reminders, public tasks, status and follow-up screens (done; push notifications pending Firebase)
-4. Subscriptions: plans, exchange rates, company invoices, platform admin
-5. Later: online payments, reports, AI assistant, calls, web app
+4. Subscriptions: plans, exchange rates, company invoices, platform admin dashboard on the web (in progress); landing page with the download link next
+5. Later: online payments (Paymob, Tap), reports, AI assistant, calls

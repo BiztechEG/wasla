@@ -111,6 +111,16 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('reason_required')) return l.errorReasonRequired;
     if (m.contains('invalid_assignee')) return l.errorInvalidAssignee;
     if (m.contains('invalid_reminder')) return l.errorInvalidReminder;
+    if (m.contains('invalid_plan')) return l.errorInvalidPlan;
+    if (m.contains('invalid_price')) return l.errorInvalidPrice;
+    if (m.contains('invalid_rate')) return l.errorInvalidRate;
+    if (m.contains('invalid_status')) return l.errorInvoiceChanged;
+    if (m.contains('invalid_date')) return l.errorInvalidDate;
+    if (m.contains('invalid_items') ||
+        m.contains('invalid_months') ||
+        m.contains('invalid_discount')) {
+      return l.errorInvalidInvoice;
+    }
     if (m == 'not_found') return l.errorTaskGone;
     if (m.contains('invalid_project')) return l.errorInvalidProject;
     if (m.contains('conversation_closed')) return l.errorChatClosed;

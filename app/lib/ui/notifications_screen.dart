@@ -5,6 +5,9 @@ import '../data/task_models.dart';
 import '../l10n/app_localizations.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
+import 'admin_screen.dart';
+import 'billing_format.dart';
+import 'billing_screen.dart';
 import 'chat_format.dart';
 import 'my_tasks_tab.dart';
 import 'task_format.dart';
@@ -26,6 +29,20 @@ String noteText(AppLocalizations l, AppNotification n) {
     NotificationKind.reminder => l.noteReminder,
     NotificationKind.unassigned => l.noteUnassigned(who),
     NotificationKind.deleted => l.noteDeleted(who),
+    NotificationKind.planRequest => l.notePlanRequest(
+      who,
+      planLabel(l, n.detail ?? ''),
+    ),
+    NotificationKind.invoice => l.noteInvoice(n.detail ?? ''),
+    NotificationKind.planActive => l.notePlanActive(
+      planLabel(l, n.detail ?? ''),
+    ),
+    NotificationKind.planEnding => l.notePlanEnding(
+      planLabel(l, n.detail ?? ''),
+    ),
+    NotificationKind.planExpired => l.notePlanExpired(
+      planLabel(l, n.detail ?? ''),
+    ),
   };
 }
 
@@ -40,6 +57,11 @@ IconData _icon(NotificationKind kind) => switch (kind) {
   NotificationKind.reminder => Icons.alarm,
   NotificationKind.unassigned => Icons.person_remove_outlined,
   NotificationKind.deleted => Icons.delete_outline,
+  NotificationKind.planRequest => Icons.request_quote_outlined,
+  NotificationKind.invoice => Icons.receipt_long_outlined,
+  NotificationKind.planActive => Icons.verified_outlined,
+  NotificationKind.planEnding => Icons.hourglass_bottom,
+  NotificationKind.planExpired => Icons.hourglass_empty,
 };
 
 /// What happened to one's tasks, newest first.
@@ -94,12 +116,21 @@ class NotificationsScreen extends ConsumerWidget {
                     final n = items[i];
                     return _NotificationTile(
                       note: n,
-                      otherWorkspace: n.workspaceId != ws,
+                      // Billing news is about a workspace, so it says which.
+                      otherWorkspace: n.workspaceId != ws || n.kind.isBilling,
                       onTap: () {
                         if (n.unread) markRead([n.id]);
-                        // A deleted task has nothing left to open.
-                        if (n.taskId != null &&
+                        if (n.kind == NotificationKind.planRequest) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AdminScreen(),
+                            ),
+                          );
+                        } else if (n.kind.isBilling) {
+                          openBilling(context, ref, n.workspaceId);
+                        } else if (n.taskId != null &&
                             n.kind != NotificationKind.deleted) {
+                          // A deleted task has nothing left to open.
                           openTask(context, n.workspaceId, n.taskId!);
                         }
                       },
@@ -129,8 +160,13 @@ class _NotificationTile extends StatelessWidget {
     final theme = Theme.of(context);
     final n = note;
     final muted = theme.colorScheme.onSurfaceVariant;
-    final alarm =
-        n.kind == NotificationKind.overdue || n.kind == NotificationKind.nudge;
+    final alarm = switch (n.kind) {
+      NotificationKind.overdue ||
+      NotificationKind.nudge ||
+      NotificationKind.planEnding ||
+      NotificationKind.planExpired => true,
+      _ => false,
+    };
     final where = [
       if (otherWorkspace) n.workspaceName,
       ?n.projectName,

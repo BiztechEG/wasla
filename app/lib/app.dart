@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'l10n/app_localizations.dart';
+import 'state/billing_providers.dart';
 import 'state/providers.dart';
 import 'state/settings.dart';
 import 'theme.dart';
+import 'ui/admin_screen.dart';
 import 'ui/home_shell.dart';
 import 'ui/profile_setup_screen.dart';
 import 'ui/sign_in_screen.dart';
@@ -82,7 +85,20 @@ class AppGate extends ConsumerWidget {
     if (profile.value?.fullName.trim().isEmpty ?? true) {
       return const ProfileSetupScreen();
     }
-    if (memberships.value!.isEmpty) return const StartScreen();
+    final hasWorkspace = memberships.value!.isNotEmpty;
+    // In a browser, the platform admins' first page is their dashboard.
+    if (kIsWeb) {
+      final admin = ref.watch(platformAdminProvider);
+      if (!admin.hasValue && !admin.hasError) return const _Splash();
+      if (admin.value ?? false) {
+        return AdminScreen(
+          app: hasWorkspace
+              ? const HomeShell()
+              : const StartScreen(asPage: true),
+        );
+      }
+    }
+    if (!hasWorkspace) return const StartScreen();
     return const HomeShell();
   }
 }

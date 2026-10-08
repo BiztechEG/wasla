@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'billing_models.dart';
 import 'chat_models.dart';
 import 'models.dart';
 import 'task_models.dart';
@@ -201,6 +202,56 @@ abstract class WaslaApi {
   /// Fires when a notification arrives for the signed-in user, and when
   /// some may have been missed.
   Stream<void> notificationEvents();
+
+  // Subscriptions: company owners see and ask; platform admins invoice.
+
+  /// Whether the signed-in user runs the platform.
+  Future<bool> isPlatformAdmin();
+
+  /// A company's plans, workspaces and invoices, for its owner or a platform
+  /// admin.
+  Future<BillingOverview> billing(String companyId);
+  Future<void> requestPlan(
+    String workspaceId,
+    String planId, {
+    required int months,
+    String? note,
+  });
+  Future<void> cancelPlanRequest(String requestId);
+
+  Future<AdminOverview> adminOverview();
+  Future<List<AdminCompany>> adminCompanies({String? search});
+
+  /// Plan requests waiting for an invoice, oldest first.
+  Future<List<AdminRequest>> adminRequests();
+  Future<List<Invoice>> adminInvoices({InvoiceStatus? status});
+  Future<List<PlanOption>> adminPlans();
+  Future<List<CountryRate>> adminRates();
+  Future<PaymentInfo> adminPaymentInfo();
+  Future<void> adminSetRate(String countryCode, double rate);
+
+  /// Saves [plan]'s name, limits, price and whether companies can ask for it.
+  Future<void> adminUpdatePlan(PlanOption plan);
+  Future<void> adminUpdatePaymentInfo(PaymentInfo info);
+
+  /// Issues an invoice and returns its id.
+  Future<String> adminCreateInvoice(
+    String companyId,
+    List<InvoiceItem> items, {
+    required int months,
+    double discountPct = 0,
+    String? note,
+    int dueDays = 14,
+  });
+  Future<void> adminMarkInvoicePaid(String invoiceId, {String? reference});
+  Future<void> adminVoidInvoice(String invoiceId);
+
+  /// Puts a workspace on a plan by hand; without [until] it never runs out.
+  Future<void> adminSetWorkspacePlan(
+    String workspaceId,
+    String planId, {
+    DateTime? until,
+  });
 }
 
 class SupabaseWaslaApi implements WaslaApi {
@@ -1005,5 +1056,154 @@ class SupabaseWaslaApi implements WaslaApi {
     ),
     event: (_) => true,
     everything: true,
+  );
+
+  // Subscriptions
+
+  Json _object(Object? data) => Json.from(data as Map);
+
+  @override
+  Future<bool> isPlatformAdmin() async =>
+      await _client.rpc('is_platform_admin') as bool? ?? false;
+
+  @override
+  Future<BillingOverview> billing(String companyId) async =>
+      BillingOverview.fromJson(
+        _object(
+          await _client.rpc(
+            'billing_overview',
+            params: {'p_company': companyId},
+          ),
+        ),
+      );
+
+  @override
+  Future<void> requestPlan(
+    String workspaceId,
+    String planId, {
+    required int months,
+    String? note,
+  }) => _client.rpc(
+    'request_plan',
+    params: {
+      'p_workspace': workspaceId,
+      'p_plan': planId,
+      'p_months': months,
+      'p_note': note,
+    },
+  );
+
+  @override
+  Future<void> cancelPlanRequest(String requestId) =>
+      _client.rpc('cancel_plan_request', params: {'p_request': requestId});
+
+  @override
+  Future<AdminOverview> adminOverview() async =>
+      AdminOverview.fromJson(_object(await _client.rpc('admin_overview')));
+
+  @override
+  Future<List<AdminCompany>> adminCompanies({String? search}) async =>
+      _rows(await _client.rpc('admin_companies', params: {'p_search': search}))
+          .map(AdminCompany.fromJson)
+          .toList();
+
+  @override
+  Future<List<AdminRequest>> adminRequests() async =>
+      _rows(await _client.rpc('admin_requests'))
+          .map(AdminRequest.fromJson)
+          .toList();
+
+  @override
+  Future<List<Invoice>> adminInvoices({InvoiceStatus? status}) async => _rows(
+    await _client.rpc('admin_invoices', params: {'p_status': status?.wire}),
+  ).map(Invoice.fromJson).toList();
+
+  @override
+  Future<List<PlanOption>> adminPlans() async =>
+      _rows(await _client.rpc('admin_plans')).map(PlanOption.fromJson).toList();
+
+  @override
+  Future<List<CountryRate>> adminRates() async =>
+      _rows(await _client.rpc('admin_rates'))
+          .map(CountryRate.fromJson)
+          .toList();
+
+  @override
+  Future<PaymentInfo> adminPaymentInfo() async => PaymentInfo.fromJson(
+    _object(await _client.rpc('admin_billing_settings')),
+  );
+
+  @override
+  Future<void> adminSetRate(String countryCode, double rate) => _client.rpc(
+    'admin_set_rate',
+    params: {'p_country': countryCode, 'p_rate': rate},
+  );
+
+  @override
+  Future<void> adminUpdatePlan(PlanOption plan) => _client.rpc(
+    'admin_update_plan',
+    params: {
+      'p_plan': plan.id,
+      'p_name': plan.name,
+      'p_max_members': plan.maxMembers,
+      'p_storage_gb': plan.storageGb,
+      'p_price': plan.priceUsd,
+      'p_offered': plan.offered,
+    },
+  );
+
+  @override
+  Future<void> adminUpdatePaymentInfo(PaymentInfo info) => _client.rpc(
+    'admin_update_billing_settings',
+    params: {
+      'p_instructions': info.instructions,
+      'p_phone': info.phone,
+      'p_email': info.email,
+    },
+  );
+
+  @override
+  Future<String> adminCreateInvoice(
+    String companyId,
+    List<InvoiceItem> items, {
+    required int months,
+    double discountPct = 0,
+    String? note,
+    int dueDays = 14,
+  }) async => await _client.rpc(
+    'admin_create_invoice',
+    params: {
+      'p_company': companyId,
+      'p_items': [for (final i in items) i.toJson()],
+      'p_months': months,
+      'p_discount': discountPct,
+      'p_note': note,
+      'p_due_days': dueDays,
+    },
+  ) as String;
+
+  @override
+  Future<void> adminMarkInvoicePaid(String invoiceId, {String? reference}) =>
+      _client.rpc(
+        'admin_mark_invoice_paid',
+        params: {'p_invoice': invoiceId, 'p_reference': reference},
+      );
+
+  @override
+  Future<void> adminVoidInvoice(String invoiceId) =>
+      _client.rpc('admin_void_invoice', params: {'p_invoice': invoiceId});
+
+  @override
+  Future<void> adminSetWorkspacePlan(
+    String workspaceId,
+    String planId, {
+    DateTime? until,
+  }) => _client.rpc(
+    'admin_set_workspace_plan',
+    params: {
+      'p_workspace': workspaceId,
+      'p_plan': planId,
+      'p_until': until?.toUtc().toIso8601String(),
+    },
   );
 }

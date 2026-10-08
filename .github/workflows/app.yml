@@ -26,3 +26,7 @@ jobs:
         run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test
+      # The admin dashboard and web sign-up run in a browser, so the web
+      # build must keep compiling.
+      - name: Build for the web
+        run: flutter build web --release --no-web-resources-cdn

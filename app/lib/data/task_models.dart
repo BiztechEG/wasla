@@ -339,11 +339,19 @@ enum NotificationKind {
   overdue('overdue'),
   reminder('reminder'),
   unassigned('unassigned'),
-  deleted('deleted');
+  deleted('deleted'),
+  // Subscriptions: detail is the plan's name, or the invoice's number.
+  planRequest('plan_request'),
+  invoice('invoice'),
+  planActive('plan_active'),
+  planEnding('plan_ending'),
+  planExpired('plan_expired');
 
   const NotificationKind(this.wire);
 
   final String wire;
+
+  bool get isBilling => index >= planRequest.index;
 
   static NotificationKind? parse(Object? value) {
     for (final k in values) {

@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/l10n/app_localizations_ar.dart';
+import 'package:wasla/ui/admin_billing.dart';
 import 'package:wasla/ui/widgets.dart';
 
 void main() {
@@ -142,5 +144,128 @@ void main() {
     expect(initials('خالد العتيبي'), 'خ');
     expect(initials('Ahmed Hassan'), 'AH');
     expect(initials('  '), '');
+  });
+
+  test('reads a company\'s billing page, with amounts as text or numbers', () {
+    final b = BillingOverview.fromJson({
+      'company': {
+        'id': 'c1',
+        'name': 'Al Nour',
+        'country_code': 'EG',
+        'currency': 'EGP',
+        'rate': '50.0000',
+      },
+      'plans': [
+        {
+          'id': 'basic',
+          'name': 'Basic',
+          'max_members': 50,
+          'storage_gb': 50,
+          'price_usd': 20,
+          'price_local': '1000.00',
+          'offered': true,
+        },
+        {
+          'id': 'enterprise',
+          'name': 'Enterprise',
+          'max_members': null,
+          'storage_gb': null,
+          'price_usd': 0,
+          'price_local': 0,
+          'offered': false,
+        },
+      ],
+      'workspaces': [
+        {
+          'id': 'ws1',
+          'name': 'HQ',
+          'plan_id': 'basic',
+          'plan_name': 'Basic',
+          'max_members': 50,
+          'storage_gb': 50,
+          'paid_until': '2026-12-01T10:00:00+00:00',
+          'members': 3,
+          'storage_bytes': 1024,
+          'request': {
+            'id': 'r1',
+            'plan_id': 'enterprise',
+            'months': 12,
+            'status': 'invoiced',
+            'created_at': '2026-10-08T10:00:00+00:00',
+          },
+        },
+      ],
+      'invoices': [
+        {
+          'id': 'i1',
+          'number': 'WSL-2026-00001',
+          'company_id': 'c1',
+          'company_name': 'Al Nour',
+          'status': 'void',
+          'months': 3,
+          'currency': 'EGP',
+          'rate': 50,
+          'subtotal_usd': 240,
+          'discount_pct': '10.00',
+          'total_usd': 216,
+          'total_local': 10800,
+          'note': null,
+          'issued_at': '2026-10-08T10:00:00+00:00',
+          'due_at': '2026-10-22T10:00:00+00:00',
+          'paid_at': null,
+          'payment_ref': null,
+          'lines': [
+            {
+              'workspace_id': null,
+              'workspace_name': 'Old branch',
+              'plan_id': 'basic',
+              'plan_name': 'Basic',
+              'members': 3,
+              'unit_usd': 20,
+              'amount_usd': 60,
+              'amount_local': 3000,
+            },
+          ],
+        },
+      ],
+      'payment': {'instructions': '', 'phone': '', 'email': ''},
+    });
+
+    expect(b.company.rate, 50);
+    expect(b.plans.first.priceLocal, 1000);
+    expect(b.plan('enterprise')!.maxMembers, isNull);
+    expect(b.plan('enterprise')!.offered, isFalse);
+    expect(b.workspaces.single.request!.status, RequestStatus.invoiced);
+    expect(b.workspaces.single.paidUntil, DateTime.utc(2026, 12, 1, 10));
+    final invoice = b.invoices.single;
+    expect(invoice.status, InvoiceStatus.void_);
+    expect(invoice.discountPct, 10);
+    expect(invoice.isOverdue(DateTime.utc(2027)), isFalse);
+    expect(invoice.lines.single.workspaceId, isNull);
+    expect(b.payment.isEmpty, isTrue);
+  });
+
+  test('an invoice item sends a price only when one was agreed', () {
+    expect(const InvoiceItem(workspaceId: 'ws1', planId: 'basic').toJson(), {
+      'workspace_id': 'ws1',
+      'plan_id': 'basic',
+    });
+    expect(
+      const InvoiceItem(
+        workspaceId: 'ws1',
+        planId: 'enterprise',
+        priceUsd: 400,
+      ).toJson()['price_usd'],
+      400,
+    );
+    expect(InvoiceStatus.void_.wire, 'void');
+  });
+
+  test('numbers typed with Arabic digits are read', () {
+    expect(parseNumber('٥٢٫٥'), 52.5);
+    expect(parseNumber('۱۲'), 12);
+    expect(parseNumber(' 1,250.75 '), 1250.75);
+    expect(parseNumber('abc'), isNull);
+    expect(parseNumber(''), isNull);
   });
 }

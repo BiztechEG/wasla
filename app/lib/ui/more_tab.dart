@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
+import '../state/billing_providers.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
+import 'admin_screen.dart';
 import 'announcements_view.dart';
+import 'billing_format.dart';
+import 'billing_screen.dart';
 import 'invite_sheet.dart';
 import 'join_requests_screen.dart';
 import 'members_screen.dart';
@@ -33,11 +37,13 @@ class MoreTab extends ConsumerWidget {
         Navigator.of(context)
             .push(MaterialPageRoute<void>(builder: (_) => screen));
 
+    final plan = planLabel(l, membership.planName);
+    final platformAdmin = ref.watch(platformAdminProvider).value ?? false;
     final seats = members == null
         ? null
         : membership.maxMembers == null
-        ? l.seatsUnlimited(members.length, membership.planName)
-        : l.seats(members.length, membership.maxMembers!, membership.planName);
+        ? l.seatsUnlimited(members.length, plan)
+        : l.seats(members.length, membership.maxMembers!, plan);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -141,6 +147,15 @@ class MoreTab extends ConsumerWidget {
             ],
             if (membership.isCompanyOwner)
               ListTile(
+                leading: const Icon(Icons.workspace_premium_outlined),
+                title: Text(l.subscriptionTitle),
+                subtitle: Text(l.subscriptionHint(membership.companyName)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    push(BillingScreen(companyId: membership.companyId)),
+              ),
+            if (membership.isCompanyOwner)
+              ListTile(
                 leading: const Icon(Icons.add_business_outlined),
                 title: Text(l.newWorkspaceInCompany(membership.companyName)),
                 onTap: () async {
@@ -173,6 +188,21 @@ class MoreTab extends ConsumerWidget {
             ),
           ],
         ),
+
+        if (platformAdmin) ...[
+          SectionTitle(l.platformSection),
+          TileGroup(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings_outlined),
+                title: Text(l.adminTitle),
+                subtitle: Text(l.adminHint),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => push(const AdminScreen()),
+              ),
+            ],
+          ),
+        ],
 
         SectionTitle(l.settingsSection),
         Card(
