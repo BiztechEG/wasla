@@ -100,8 +100,6 @@ class TaskItem {
   bool isLate(DateTime now) =>
       status.isOpen && dueAt != null && dueAt!.isBefore(now);
 
-  String get assigneeNames => assignees.map((a) => a.name).join('، ');
-
   factory TaskItem.fromJson(Json json) => TaskItem(
     id: json['id'] as String,
     workspaceId: json['workspace_id'] as String,

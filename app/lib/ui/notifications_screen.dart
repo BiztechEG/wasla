@@ -139,7 +139,7 @@ class _NotificationTile extends StatelessWidget {
         onTap: onTap,
         leading: CircleAvatar(
           backgroundColor: alarm
-              ? theme.colorScheme.errorContainer
+              ? theme.colorScheme.error.withValues(alpha: 0.14)
               : theme.colorScheme.primaryContainer,
           child: Icon(
             _icon(n.kind),

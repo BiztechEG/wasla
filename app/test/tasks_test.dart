@@ -189,7 +189,7 @@ void main() {
 
     expect(find.text('تحتاج تدخلك'), findsOneWidget);
     expect(find.text('متأخرة يومين · Mona Adel'), findsOneWidget);
-    expect(find.text('تنتظر مراجعتك · Mona Adel'), findsOneWidget);
+    expect(find.text('للمراجعة · Mona Adel'), findsOneWidget);
 
     await tester.tap(find.text('ذكّر'));
     await tester.pumpAndSettle();

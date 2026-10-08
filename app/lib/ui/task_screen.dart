@@ -200,10 +200,10 @@ class _TaskBody extends ConsumerWidget {
                   _InfoRow(
                     icon: Icons.person_outline,
                     label: l.assigneesLabel,
-                    value: [
+                    value: joinNames(context, [
                       for (final a in task.assignees)
                         a.id == me ? l.you : a.name,
-                    ].join('، '),
+                    ]),
                   ),
                   _InfoRow(
                     icon: Icons.edit_outlined,
@@ -637,7 +637,9 @@ class _ActivityItem extends StatelessWidget {
             ? (Icons.public, l.actMadePublic)
             : (Icons.lock_outline, l.actMadePrivate);
       case TaskEvent.assignees:
-        return (Icons.person_outline, l.actAssigned(a.newValue ?? ''));
+        // The server joins the names with an Arabic comma.
+        final names = (a.newValue ?? '').split('، ');
+        return (Icons.person_outline, l.actAssigned(joinNames(context, names)));
       case TaskEvent.attachment:
         return (Icons.attach_file, l.actAttached(a.newValue ?? ''));
       case TaskEvent.comment:

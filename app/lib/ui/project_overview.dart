@@ -79,7 +79,8 @@ class ProjectStatusView extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       [
-                        if (leads.isNotEmpty) l.leadIs(leads.join('، ')),
+                        if (leads.isNotEmpty)
+                          l.leadIs(joinNames(context, leads)),
                         l.memberCount(members.length),
                       ].join(' · '),
                       maxLines: 2,

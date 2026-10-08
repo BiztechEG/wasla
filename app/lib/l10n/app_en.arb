@@ -274,7 +274,7 @@
   "remindDayAndHour": "A day and an hour before",
   "remindNone": "No reminder",
   "tomorrow": "Tomorrow",
-  "wasDue": "Was due {when}",
+  "wasDue": "Overdue · {when}",
   "@wasDue": {
     "placeholders": {
       "when": {
@@ -380,10 +380,9 @@
       }
     }
   },
-  "waitingReview": "Waiting for your review",
   "followUpEmpty": "No tasks in your projects yet",
   "statOpen": "Open",
-  "statDueWeek": "Due this week",
+  "statDueWeek": "This week",
   "publicTasks": "Public tasks",
   "noPublicTasks": "No open public tasks",
   "pinnedFiles": "Pinned files",

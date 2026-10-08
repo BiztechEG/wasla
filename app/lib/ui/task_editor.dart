@@ -97,8 +97,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
     super.dispose();
   }
 
-  Future<void> _save(String me, bool manager) async {
-    final projectId = _projectId;
+  Future<void> _save(String? projectId, String me, bool manager) async {
     final title = _title.text.trim();
     if (projectId == null || title.isEmpty) return;
     // Someone who doesn't lead the project only makes tasks for themselves.
@@ -171,7 +170,9 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
           in ref.watch(projectsProvider(ws)).value ?? const <Project>[])
         if (p.status == ProjectStatus.active) p,
     ];
-    final projectId = _projectId;
+    // With a single project to choose from, it is chosen.
+    final projectId =
+        _projectId ?? (projects.length == 1 ? projects.single.id : null);
     final members = projectId == null
         ? null
         : ref.watch(projectMembersProvider(projectId)).value;
@@ -190,7 +191,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 8),
             child: FilledButton(
-              onPressed: canSave ? () => _save(me, manager) : null,
+              onPressed: canSave ? () => _save(projectId, me, manager) : null,
               child: _saving
                   ? const SizedBox(
                       width: 20,
@@ -258,8 +259,10 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                 leading: const Icon(Icons.person_outline),
                 title: Text(l.assigneesLabel),
                 subtitle: Text(
-                  [for (final id in people) id == me ? l.you : names[id] ?? '…']
-                      .join('، '),
+                  joinNames(context, [
+                    for (final id in people)
+                      id == me ? l.you : names[id] ?? '…',
+                  ]),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),

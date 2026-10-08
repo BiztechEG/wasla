@@ -17,6 +17,11 @@ extension L10nContext on BuildContext {
 final nameLimit = [LengthLimitingTextInputFormatter(100)];
 final messageLimit = [LengthLimitingTextInputFormatter(500)];
 
+/// Names in a list, with the comma the language uses.
+String joinNames(BuildContext context, Iterable<String> names) => names.join(
+  Localizations.localeOf(context).languageCode == 'ar' ? '، ' : ', ',
+);
+
 /// Keeps an email or phone number reading left to right inside Arabic text.
 String ltr(String text) => '\u2066$text\u2069';
 
