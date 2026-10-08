@@ -1,0 +1,39 @@
+name: Android test build
+
+# Builds an installable APK for testing on Android phones before the app is
+# in the Play Store. Download it from the run's Artifacts section.
+# It is signed with a throwaway key per build, so uninstall the previous
+# test build before installing a new one.
+
+on:
+  pull_request:
+    paths: ['app/**', '.github/workflows/android-apk.yml']
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release --build-number ${{ github.run_number }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasla-android-${{ github.run_number }}
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
