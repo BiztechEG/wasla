@@ -65,6 +65,10 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('invite_not_for_you')) return l.errorInviteNotForYou;
     if (m.contains('already_member')) return l.errorAlreadyMember;
     if (m.contains('too_many_')) return l.errorTooManyToday;
+    if (m.contains('invalid_project')) return l.errorInvalidProject;
+    if (m.contains('conversation_closed')) return l.errorChatClosed;
+    if (m.contains('storage_full')) return l.errorStorageFull;
+    if (m.contains('file_too_large')) return l.fileTooLarge;
     if (m.contains('not_allowed') ||
         m.contains('not_company_owner') ||
         error.code == '42501') {

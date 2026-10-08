@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
+import 'announcements_view.dart';
 import 'invite_sheet.dart';
 import 'join_requests_screen.dart';
 import 'members_screen.dart';
@@ -94,6 +95,13 @@ class MoreTab extends ConsumerWidget {
               title: Text(l.members),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => push(MembersScreen(membership: membership)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.campaign_outlined),
+              title: Text(l.workspaceAnnouncements),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () =>
+                  push(WorkspaceAnnouncementsScreen(membership: membership)),
             ),
             if (canManage) ...[
               ListTile(

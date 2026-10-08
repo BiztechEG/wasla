@@ -95,8 +95,12 @@ select pg_temp.login(303);
 select pg_temp.check(pg_temp.seen('pc') = 1, 'project member reads the project chat');
 select pg_temp.login(307);
 select pg_temp.check(pg_temp.seen('pc') = 1, 'workspace admin reads every project chat');
+select pg_temp.check(public.project_conversation(pg_temp.v('p')) = pg_temp.v('pc'),
+  'admin finds the project chat from the project');
 select pg_temp.login(304);
 select pg_temp.check(pg_temp.seen('pc') = 0, 'member outside the project cannot read its chat');
+select pg_temp.check(public.project_conversation(pg_temp.v('p')) is null,
+  'member outside the project cannot find its chat');
 select pg_temp.check((select count(*) from public.messages) = 0, 'member outside the project sees no messages directly');
 select pg_temp.fails(format('select public.send_message(%L, %L)', pg_temp.v('pc'), 'hi'),
   'not_allowed', 'member outside the project cannot post in it');

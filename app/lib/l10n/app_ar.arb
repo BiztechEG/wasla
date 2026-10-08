@@ -98,7 +98,6 @@
   "tabMyTasks": "مهامي",
   "tabMore": "المزيد",
   "comingSoonTitle": "قريباً",
-  "chatsComingSoon": "كل محادثات فريقك في مكان واحد، مع تصفية حسب المشروع أو الشخص.",
   "tasksComingSoon": "المهام ومواعيد التسليم والتذكيرات.",
   "switchWorkspace": "مساحات العمل",
   "addWorkspace": "إضافة مساحة عمل",
@@ -130,7 +129,6 @@
   "reopenProject": "إعادة فتح المشروع",
   "statusArchived": "هذا المشروع مؤرشف",
   "statusClosed": "هذا المشروع مغلق",
-  "projectExtrasSoon": "قريباً: ملفات المشروع وإعلاناته.",
   "everyoneAdded": "كل أعضاء مساحة العمل في المشروع بالفعل",
   "you": "أنت",
   "workspaceSection": "مساحة العمل",
@@ -264,5 +262,143 @@
       }
     }
   },
-  "codeResent": "أرسلنا رمزاً جديداً"
+  "codeResent": "أرسلنا رمزاً جديداً",
+  "tabChat": "المحادثة",
+  "tabFiles": "الملفات",
+  "tabAnnouncements": "النشرات",
+  "newMessage": "رسالة جديدة",
+  "chatsSearchHint": "ابحث في الرسائل والملفات",
+  "filterAll": "الكل",
+  "chatsEmptyTitle": "لا توجد محادثات بعد",
+  "chatsEmptyBody": "ابدأ محادثة مع زميل من «رسالة جديدة»، وستظهر هنا أيضاً محادثات مشاريعك.",
+  "chatsFilterEmpty": "لا توجد محادثات عن هذا المشروع",
+  "announcementFor": "نشرة · {project}",
+  "@announcementFor": {
+    "placeholders": {
+      "project": {
+        "type": "String"
+      }
+    }
+  },
+  "announcementForAll": "نشرة لكل مساحة العمل",
+  "previewFrom": "{name}: {text}",
+  "@previewFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "previewDeleted": "تم حذف رسالة",
+  "noMessagesYet": "لا توجد رسائل بعد",
+  "firstMessageHint": "اكتب أول رسالة بالأسفل",
+  "today": "اليوم",
+  "yesterday": "أمس",
+  "leftWorkspace": "خارج مساحة العمل الآن",
+  "searchMembers": "ابحث عن زميل",
+  "noColleagues": "لا يوجد زملاء آخرون في مساحة العمل بعد",
+  "searchPeople": "الزملاء",
+  "searchMessages": "الرسائل",
+  "searchNoResults": "لا توجد نتائج",
+  "typeMessage": "اكتب رسالة",
+  "attach": "إرفاق",
+  "attachPhoto": "صورة من المعرض",
+  "attachCamera": "التقاط صورة",
+  "attachFile": "ملف",
+  "fileTooLarge": "الملف أكبر من 50 ميجا",
+  "sendTo": "تُرسل إلى:",
+  "noProjectTag": "بدون مشروع",
+  "viewing": "عرض:",
+  "showAll": "عرض الكل",
+  "filterByProject": "عرض رسائل مشروع",
+  "reply": "رد",
+  "replyingTo": "رد على {name}",
+  "@replyingTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "copy": "نسخ",
+  "copied": "تم النسخ",
+  "delete": "حذف",
+  "deleteMessage": "حذف الرسالة",
+  "confirmDeleteMessage": "حذف هذه الرسالة عند الجميع؟",
+  "messageDeleted": "تم حذف هذه الرسالة",
+  "seenByTitle": "من قرأ الرسالة",
+  "notSeenYet": "لم يقرأها أحد بعد",
+  "sending": "جارٍ الإرسال",
+  "sendFailed": "لم تُرسل، اضغط لإعادة المحاولة",
+  "chatClosedProject": "المشروع مغلق أو مؤرشف، ومحادثته للقراءة فقط",
+  "chatClosedPerson": "لم تعد عضوية {name} نشطة في مساحة العمل، والمحادثة للقراءة فقط",
+  "@chatClosedPerson": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "openFile": "فتح",
+  "cantOpenFile": "تعذّر فتح الملف",
+  "sizeMb": "{size} ميجا",
+  "@sizeMb": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "sizeKb": "{size} كيلوبايت",
+  "@sizeKb": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "addFile": "إضافة ملف",
+  "uploading": "جارٍ الرفع…",
+  "fileAdded": "تمت إضافة الملف",
+  "filesEmpty": "لا توجد ملفات بعد",
+  "filesEmptyBody": "الملفات المرسلة في محادثات المشروع تظهر هنا تلقائياً",
+  "pinned": "مثبتة",
+  "allFiles": "كل الملفات",
+  "pin": "تثبيت",
+  "unpin": "إلغاء التثبيت",
+  "fromPrivateChat": "من محادثة خاصة",
+  "confirmDeleteFile": "حذف الملف «{name}»؟",
+  "@confirmDeleteFile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "announcementsEmpty": "لا توجد نشرات",
+  "projectAnnouncementsHint": "انشر خبراً يصل لكل أعضاء المشروع",
+  "workspaceAnnouncementsHint": "انشر خبراً يصل لكل من في مساحة العمل",
+  "newAnnouncement": "نشرة جديدة",
+  "announcementHint": "اكتب النشرة هنا",
+  "pinAnnouncement": "تثبيت أعلى النشرات",
+  "publish": "نشر",
+  "readByCount": "قرأها {read} من {total}",
+  "@readByCount": {
+    "placeholders": {
+      "read": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "confirmDeleteAnnouncement": "حذف هذه النشرة؟",
+  "workspaceAnnouncements": "نشرات مساحة العمل",
+  "errorInvalidProject": "هذا المشروع لا يضم الطرف الآخر في المحادثة",
+  "errorChatClosed": "لم يعد الإرسال هنا ممكناً",
+  "errorStorageFull": "امتلأت مساحة التخزين في خطة مساحة العمل"
 }

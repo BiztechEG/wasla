@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
+import '../state/chat_providers.dart';
 import '../state/providers.dart';
+import 'chats_tab.dart';
 import 'more_tab.dart';
 import 'projects_tab.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
 
-/// The four tabs from the design. Chats and My tasks arrive in later phases.
+/// The four tabs from the design. My tasks arrives in phase 3.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -17,7 +19,7 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
-  int _tab = 1;
+  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -27,12 +29,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final unread = ref.watch(chatBadgeProvider(membership.workspaceId));
+
     return Scaffold(
       appBar: AppBar(title: _WorkspaceTitle(membership: membership)),
       body: IndexedStack(
         index: _tab,
         children: [
-          _ComingSoon(icon: Icons.forum_outlined, body: l.chatsComingSoon),
+          ChatsTab(
+            key: ValueKey(membership.workspaceId),
+            membership: membership,
+          ),
           ProjectsTab(membership: membership),
           _ComingSoon(icon: Icons.task_alt, body: l.tasksComingSoon),
           MoreTab(membership: membership),
@@ -43,8 +50,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: [
           NavigationDestination(
-            icon: const Icon(Icons.forum_outlined),
-            selectedIcon: const Icon(Icons.forum),
+            icon: Badge(
+              isLabelVisible: unread > 0,
+              label: Text('$unread'),
+              child: const Icon(Icons.forum_outlined),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: unread > 0,
+              label: Text('$unread'),
+              child: const Icon(Icons.forum),
+            ),
             label: l.tabChats,
           ),
           NavigationDestination(

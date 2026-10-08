@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:wasla/data/api.dart';
+import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 
 /// In-memory backend for widget tests. Only what the tests touch is real.
@@ -96,16 +97,16 @@ class FakeApi implements WaslaApi {
   }) async {
     final list = projectsByWorkspace.putIfAbsent(workspaceId, () => []);
     final id = 'p${list.length + 1}';
-    list.add(
-      Project(
-        id: id,
-        workspaceId: workspaceId,
-        name: name,
-        color: color,
-        status: ProjectStatus.active,
-        memberCount: 1,
-      ),
+    final project = Project(
+      id: id,
+      workspaceId: workspaceId,
+      name: name,
+      color: color,
+      status: ProjectStatus.active,
+      memberCount: 1,
     );
+    list.add(project);
+    addProjectChat(workspaceId, project);
     return id;
   }
 
@@ -193,4 +194,360 @@ class FakeApi implements WaslaApi {
     String userId,
     ProjectRole role,
   ) async {}
+
+  // Chats: conversations keep their kind and who/what they are about; the
+  // last message and unread count are worked out from the messages.
+
+  final chats = <String, Conversation>{};
+  final chatWorkspace = <String, String>{};
+
+  /// Newest first, per conversation.
+  final chatMessages = <String, List<ChatMessage>>{};
+  final reads = <String, Map<String, DateTime>>{};
+  final announcementList = <Announcement>[];
+  final readAnnouncements = <String>{};
+  final projectFileList = <String, List<ProjectFile>>{};
+  final _events = StreamController<ChatEvent>.broadcast();
+  int _seq = 0;
+  DateTime _clock = DateTime.utc(2026, 10, 8, 9);
+
+  DateTime _tick() => _clock = _clock.add(const Duration(minutes: 1));
+
+  /// A project's group chat, as the server creates with each project.
+  String addProjectChat(String workspaceId, Project project) {
+    final id = 'c-${project.id}';
+    chats[id] = Conversation(
+      id: id,
+      kind: ConversationKind.project,
+      projectId: project.id,
+      projectName: project.name,
+      projectColor: project.color,
+    );
+    chatWorkspace[id] = workspaceId;
+    chatMessages[id] = [];
+    return id;
+  }
+
+  /// A message from someone else arriving.
+  void receive(
+    String conversationId,
+    String senderId,
+    String senderName,
+    String body, {
+    String? projectId,
+  }) {
+    chatMessages[conversationId]!.insert(
+      0,
+      ChatMessage(
+        id: 'm${_seq++}',
+        senderId: senderId,
+        senderName: senderName,
+        createdAt: _tick(),
+        body: body,
+        projectId: projectId ?? chats[conversationId]!.projectId,
+      ),
+    );
+    _events.add(ChatEvent(conversationId));
+  }
+
+  @override
+  Future<List<Conversation>> conversations(String workspaceId) async {
+    final list = <Conversation>[];
+    for (final c in chats.values) {
+      if (chatWorkspace[c.id] != workspaceId) continue;
+      final messages = chatMessages[c.id] ?? const <ChatMessage>[];
+      if (!c.isProject && messages.isEmpty) continue;
+      final last = messages.isEmpty ? null : messages.first;
+      final myRead = reads[c.id]?['me'];
+      list.add(
+        Conversation(
+          id: c.id,
+          kind: c.kind,
+          projectId: c.projectId,
+          projectName: c.projectName,
+          projectColor: c.projectColor,
+          otherId: c.otherId,
+          otherName: c.otherName,
+          lastAt: last?.createdAt,
+          lastSenderId: last?.senderId,
+          lastSenderName: last?.senderName,
+          lastBody: last?.body,
+          lastFileName: last?.file?.name,
+          lastDeleted: last?.deleted ?? false,
+          unread: messages
+              .where(
+                (m) =>
+                    m.senderId != 'me' &&
+                    !m.deleted &&
+                    (myRead == null || m.createdAt.isAfter(myRead)),
+              )
+              .length,
+          tagProjectIds: c.isProject
+              ? [c.projectId!]
+              : {
+                  for (final m in messages)
+                    if (m.projectId != null) m.projectId!,
+                }.toList(),
+        ),
+      );
+    }
+    list.sort(
+      (a, b) =>
+          (b.lastAt ?? DateTime(2000)).compareTo(a.lastAt ?? DateTime(2000)),
+    );
+    return list;
+  }
+
+  @override
+  Future<String?> projectConversation(String projectId) async {
+    for (final c in chats.values) {
+      if (c.projectId == projectId) return c.id;
+    }
+    return null;
+  }
+
+  @override
+  Future<String> openDirect(String workspaceId, String userId) async {
+    for (final c in chats.values) {
+      if (chatWorkspace[c.id] == workspaceId && c.otherId == userId) {
+        return c.id;
+      }
+    }
+    final other = (membersByWorkspace[workspaceId] ?? const <Member>[])
+        .firstWhere((m) => m.userId == userId);
+    final id = 'd-$userId';
+    chats[id] = Conversation(
+      id: id,
+      kind: ConversationKind.direct,
+      otherId: userId,
+      otherName: other.fullName,
+    );
+    chatWorkspace[id] = workspaceId;
+    chatMessages[id] = [];
+    return id;
+  }
+
+  @override
+  Future<List<ChatMessage>> messages(
+    String conversationId, {
+    DateTime? before,
+    DateTime? after,
+    String? projectId,
+    int limit = 50,
+  }) async => (chatMessages[conversationId] ?? const <ChatMessage>[])
+      .where(
+        (m) =>
+            (projectId == null || m.projectId == projectId) &&
+            (before == null || m.createdAt.isBefore(before)) &&
+            (after == null || m.createdAt.isAfter(after)),
+      )
+      .take(limit)
+      .toList();
+
+  @override
+  Future<void> sendMessage(
+    String workspaceId,
+    String conversationId, {
+    String? body,
+    String? replyTo,
+    String? projectId,
+    Upload? file,
+  }) async {
+    final list = chatMessages[conversationId]!;
+    final quoted = replyTo == null
+        ? null
+        : list.firstWhere((m) => m.id == replyTo);
+    final sent = ChatMessage(
+      id: 'm${_seq++}',
+      senderId: 'me',
+      senderName: name,
+      createdAt: _tick(),
+      body: body,
+      projectId: chats[conversationId]!.projectId ?? projectId,
+      replyTo: replyTo,
+      replySenderName: quoted?.senderName,
+      replyBody: quoted?.body,
+      file: file == null
+          ? null
+          : ChatFile(
+              id: 'f${_seq++}',
+              name: file.name,
+              mime: file.mime,
+              size: file.bytes.length,
+              path: 'ws/me/${file.name}',
+            ),
+    );
+    list.insert(0, sent);
+    reads.putIfAbsent(conversationId, () => {})['me'] = sent.createdAt;
+    _events.add(ChatEvent(conversationId));
+  }
+
+  @override
+  Future<void> markRead(String conversationId, DateTime until) async {
+    final mine = reads.putIfAbsent(conversationId, () => {});
+    final was = mine['me'];
+    if (was == null || until.isAfter(was)) mine['me'] = until;
+  }
+
+  @override
+  Future<void> deleteMessage(String messageId) async {
+    for (final entry in chatMessages.entries) {
+      final i = entry.value.indexWhere((m) => m.id == messageId);
+      if (i < 0) continue;
+      final m = entry.value[i];
+      entry.value[i] = ChatMessage(
+        id: m.id,
+        senderId: m.senderId,
+        senderName: m.senderName,
+        createdAt: m.createdAt,
+        projectId: m.projectId,
+        deleted: true,
+      );
+      _events.add(ChatEvent(entry.key));
+    }
+  }
+
+  @override
+  Future<List<ReadState>> readStates(String conversationId) async => [
+    for (final e
+        in (reads[conversationId] ?? const <String, DateTime>{}).entries)
+      ReadState(userId: e.key, lastReadAt: e.value),
+  ];
+
+  @override
+  Future<List<MessageHit>> searchMessages(
+    String workspaceId,
+    String query,
+  ) async => [
+    for (final e in chatMessages.entries)
+      if (chatWorkspace[e.key] == workspaceId)
+        for (final m in e.value)
+          if (!m.deleted && (m.body ?? '').contains(query))
+            MessageHit(
+              messageId: m.id,
+              conversationId: e.key,
+              createdAt: m.createdAt,
+              senderName: m.senderName,
+              body: m.body,
+            ),
+  ];
+
+  @override
+  Stream<ChatEvent> chatEvents(String workspaceId) => _events.stream;
+
+  @override
+  Future<List<ProjectFile>> projectFiles(String projectId) async =>
+      List.of(projectFileList[projectId] ?? const []);
+
+  @override
+  Future<void> addProjectFile(
+    String workspaceId,
+    String projectId,
+    Upload file,
+  ) async {
+    projectFileList
+        .putIfAbsent(projectId, () => [])
+        .insert(
+          0,
+          ProjectFile(
+            file: ChatFile(
+              id: 'f${_seq++}',
+              name: file.name,
+              mime: file.mime,
+              size: file.bytes.length,
+              path: 'ws/me/${file.name}',
+            ),
+            pinned: false,
+            uploadedBy: 'me',
+            uploaderName: name,
+            createdAt: _tick(),
+          ),
+        );
+  }
+
+  @override
+  Future<void> setFilePinned(String fileId, bool pinned) async {}
+
+  @override
+  Future<void> deleteFile(String fileId) async {
+    for (final list in projectFileList.values) {
+      list.removeWhere((f) => f.file.id == fileId);
+    }
+  }
+
+  /// Tests have no network, so files show their placeholder.
+  @override
+  Future<String> fileUrl(String path) async => '';
+
+  @override
+  Future<List<Announcement>> announcements(
+    String workspaceId, {
+    String? projectId,
+  }) async => [
+    for (final a in announcementList)
+      if (a.projectId == projectId)
+        Announcement(
+          id: a.id,
+          projectId: a.projectId,
+          body: a.body,
+          pinned: a.pinned,
+          authorId: a.authorId,
+          authorName: a.authorName,
+          createdAt: a.createdAt,
+          readByMe: readAnnouncements.contains(a.id),
+          readCount: a.readCount,
+          audience: a.audience,
+        ),
+  ];
+
+  @override
+  Future<List<UnreadAnnouncement>> unreadAnnouncements(
+    String workspaceId,
+  ) async => [
+    for (final a in announcementList)
+      if (a.authorId != 'me' && !readAnnouncements.contains(a.id))
+        UnreadAnnouncement(
+          id: a.id,
+          projectId: a.projectId,
+          projectName: a.projectId == null
+              ? null
+              : projectsByWorkspace[workspaceId]
+                    ?.firstWhere((p) => p.id == a.projectId)
+                    .name,
+          body: a.body,
+          authorName: a.authorName,
+          createdAt: a.createdAt,
+        ),
+  ];
+
+  @override
+  Future<void> postAnnouncement(
+    String workspaceId, {
+    String? projectId,
+    required String body,
+    bool pinned = false,
+  }) async => announcementList.insert(
+    0,
+    Announcement(
+      id: 'a${_seq++}',
+      projectId: projectId,
+      body: body,
+      pinned: pinned,
+      authorId: 'me',
+      authorName: name,
+      createdAt: _tick(),
+      audience: 3,
+    ),
+  );
+
+  @override
+  Future<void> markAnnouncementsRead(List<String> ids) async =>
+      readAnnouncements.addAll(ids);
+
+  @override
+  Future<void> setAnnouncementPinned(String id, bool pinned) async {}
+
+  @override
+  Future<void> deleteAnnouncement(String id) async =>
+      announcementList.removeWhere((a) => a.id == id);
 }

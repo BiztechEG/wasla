@@ -238,6 +238,14 @@ begin
 end;
 $$;
 
+-- A project's group chat, for anyone who sees the project.
+create function public.project_conversation(p_project uuid)
+returns uuid
+language sql stable security definer set search_path = public, pg_temp as $$
+  select id from conversations
+  where project_id = p_project and public.can_see_project(p_project);
+$$;
+
 -- Records an uploaded file. Used by send_message and add_project_file.
 create function public.store_file(
   p_workspace uuid, p_project uuid, p_conversation uuid,
@@ -804,6 +812,7 @@ revoke execute on function
   public.normalize_ar(text),
   public.add_project_conversation(),
   public.open_direct(uuid, uuid),
+  public.project_conversation(uuid),
   public.store_file(uuid, uuid, uuid, text, text, text, bigint),
   public.send_message(uuid, text, uuid, uuid, text, text, text, bigint),
   public.conversation_messages(uuid, timestamptz, timestamptz, uuid, integer),
@@ -833,6 +842,7 @@ grant execute on function
   public.can_upload_object(text),
   public.can_read_object(text),
   public.open_direct(uuid, uuid),
+  public.project_conversation(uuid),
   public.send_message(uuid, text, uuid, uuid, text, text, text, bigint),
   public.conversation_messages(uuid, timestamptz, timestamptz, uuid, integer),
   public.mark_read(uuid, timestamptz),
