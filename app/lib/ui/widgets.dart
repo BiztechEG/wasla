@@ -1,0 +1,433 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../data/models.dart';
+import '../l10n/app_localizations.dart';
+import '../theme.dart';
+
+extension L10nContext on BuildContext {
+  AppLocalizations get l10n => AppLocalizations.of(this);
+}
+
+/// Keeps an email or phone number reading left to right inside Arabic text.
+String ltr(String text) => '\u2066$text\u2069';
+
+String roleLabel(AppLocalizations l, WorkspaceRole role) => switch (role) {
+  WorkspaceRole.owner => l.roleOwner,
+  WorkspaceRole.admin => l.roleAdmin,
+  WorkspaceRole.member => l.roleMember,
+};
+
+/// Turns backend errors into something a person can act on.
+String errorText(AppLocalizations l, Object error) {
+  if (error is AuthException) {
+    if (error is AuthRetryableFetchException) return l.errorNetwork;
+    if (error.code == 'over_email_send_rate_limit' ||
+        error.statusCode == '429') {
+      return l.errorTooManyCodes;
+    }
+    if (error.code == 'otp_expired' || error.statusCode == '403') {
+      return l.errorWrongCode;
+    }
+    return l.errorGeneric;
+  }
+  if (error is PostgrestException) {
+    final m = error.message;
+    if (m.contains('seat_limit_reached')) return l.errorSeatLimit;
+    if (m.contains('last_owner')) return l.errorLastOwner;
+    if (m.contains('invite_invalid')) return l.errorInviteInvalid;
+    if (m.contains('invite_not_for_you')) return l.errorInviteNotForYou;
+    if (m.contains('already_member')) return l.errorAlreadyMember;
+    if (m.contains('not_allowed') ||
+        m.contains('not_company_owner') ||
+        error.code == '42501') {
+      return l.errorNotAllowed;
+    }
+    if (error.code == '23505') return l.errorDuplicate;
+    return l.errorGeneric;
+  }
+  final text = error.toString();
+  if (error is TimeoutException ||
+      text.contains('SocketException') ||
+      text.contains('ClientException') ||
+      text.contains('Failed host lookup')) {
+    return l.errorNetwork;
+  }
+  return l.errorGeneric;
+}
+
+void showMessage(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Runs a change, shows what went wrong if it fails, and returns whether it
+/// worked.
+Future<bool> runAction(
+  BuildContext context,
+  Future<void> Function() action, {
+  String? done,
+}) async {
+  final l = context.l10n;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await action();
+    if (done != null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(done)));
+    }
+    return true;
+  } catch (e) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(errorText(l, e))));
+    return false;
+  }
+}
+
+Future<bool> confirm(
+  BuildContext context, {
+  required String message,
+  required String action,
+  bool destructive = false,
+}) async {
+  final l = context.l10n;
+  final scheme = Theme.of(context).colorScheme;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(l.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: destructive
+              ? TextButton.styleFrom(foregroundColor: scheme.error)
+              : null,
+          child: Text(action),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
+
+/// Asks for one line of text; returns null when cancelled.
+Future<String?> promptText(
+  BuildContext context, {
+  required String title,
+  required String label,
+  String initial = '',
+  String? action,
+}) {
+  final l = context.l10n;
+  final controller = TextEditingController(text: initial);
+  return showDialog<String>(
+    context: context,
+    builder: (context) {
+      void submit() {
+        final value = controller.text.trim();
+        if (value.isNotEmpty) Navigator.pop(context, value);
+      }
+
+      return AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(labelText: label),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => submit(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l.cancel),
+          ),
+          TextButton(onPressed: submit, child: Text(action ?? l.save)),
+        ],
+      );
+    },
+  ).whenComplete(controller.dispose);
+}
+
+/// Shows loading, error (with retry) or the data of an async value.
+class AsyncView<T> extends StatelessWidget {
+  const AsyncView({
+    super.key,
+    required this.value,
+    required this.onRetry,
+    required this.builder,
+  });
+
+  final AsyncValue<T> value;
+  final VoidCallback onRetry;
+  final Widget Function(T data) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return value.when(
+      data: builder,
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => ErrorView(error: error, onRetry: onRetry),
+    );
+  }
+}
+
+class ErrorView extends StatelessWidget {
+  const ErrorView({super.key, required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 40,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(errorText(l, error), textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: onRetry, child: Text(l.retry)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EmptyState extends StatelessWidget {
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 32,
+              backgroundColor: theme.colorScheme.primaryContainer,
+              child: Icon(icon, size: 30, color: theme.colorScheme.primary),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (body != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                body!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SectionTitle extends StatelessWidget {
+  const SectionTitle(this.text, {super.key, this.trailing});
+
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(4, 20, 4, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// Initials in a circle, colored by name so people are easy to tell apart.
+class Avatar extends StatelessWidget {
+  const Avatar({super.key, required this.name, this.radius = 20});
+
+  final String name;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+    final initials = words.take(2).map((w) => w.characters.first).join();
+    final hex = WaslaColors
+        .projectColors[name.hashCode.abs() % WaslaColors.projectColors.length];
+    final color = WaslaColors.project(hex, brightness);
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: color.withValues(alpha: 0.16),
+      child: Text(
+        initials.isEmpty ? '؟' : initials,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w600,
+          fontSize: radius * 0.7,
+        ),
+      ),
+    );
+  }
+}
+
+class ColorDot extends StatelessWidget {
+  const ColorDot({super.key, required this.hex, this.size = 12});
+
+  final String hex;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: WaslaColors.project(hex, Theme.of(context).brightness),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+/// A small rounded label such as a role.
+class Tag extends StatelessWidget {
+  const Tag(this.text, {super.key, this.strong = false});
+
+  final String text;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: strong
+            ? scheme.primaryContainer
+            : scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: strong ? scheme.primary : scheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+/// A white card holding a column of list tiles separated by thin lines.
+class TileGroup extends StatelessWidget {
+  const TileGroup({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A button that shows a spinner while its action runs.
+class BusyButton extends StatefulWidget {
+  const BusyButton({super.key, required this.label, required this.onPressed});
+
+  final String label;
+  final Future<void> Function()? onPressed;
+
+  @override
+  State<BusyButton> createState() => _BusyButtonState();
+}
+
+class _BusyButtonState extends State<BusyButton> {
+  bool _busy = false;
+
+  Future<void> _run() async {
+    setState(() => _busy = true);
+    try {
+      await widget.onPressed!();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: widget.onPressed == null || _busy ? null : _run,
+      child: _busy
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
+          : Text(widget.label),
+    );
+  }
+}
