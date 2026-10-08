@@ -698,16 +698,19 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    '${_chatTitle(h.conversationId)} · '
+                    '${h.chat.title} · '
                     '${h.senderName} · ${listTime(context, h.createdAt)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   onTap: () {
-                    final chat = widget.chats
-                        .where((c) => c.id == h.conversationId)
-                        .firstOrNull;
-                    if (chat == null) return;
+                    // Chats outside the list (a closed project, or one an
+                    // admin is not part of) open from the hit itself.
+                    final chat =
+                        widget.chats
+                            .where((c) => c.id == h.conversationId)
+                            .firstOrNull ??
+                        h.chat;
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => ChatScreen(
@@ -723,7 +726,4 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
       },
     );
   }
-
-  String _chatTitle(String id) =>
-      widget.chats.where((c) => c.id == id).firstOrNull?.title ?? '';
 }

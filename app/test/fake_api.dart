@@ -247,7 +247,7 @@ class FakeApi implements WaslaApi {
         projectId: projectId ?? chats[conversationId]!.projectId,
       ),
     );
-    _events.add(ChatEvent(conversationId));
+    _events.add(ChatEvent(conversationId: conversationId));
   }
 
   @override
@@ -385,7 +385,7 @@ class FakeApi implements WaslaApi {
     );
     list.insert(0, sent);
     reads.putIfAbsent(conversationId, () => {})['me'] = sent.createdAt;
-    _events.add(ChatEvent(conversationId));
+    _events.add(ChatEvent(conversationId: conversationId));
   }
 
   @override
@@ -396,7 +396,7 @@ class FakeApi implements WaslaApi {
   }
 
   @override
-  Future<void> deleteMessage(String messageId) async {
+  Future<void> deleteMessage(String messageId, {String? filePath}) async {
     for (final entry in chatMessages.entries) {
       final i = entry.value.indexWhere((m) => m.id == messageId);
       if (i < 0) continue;
@@ -409,7 +409,7 @@ class FakeApi implements WaslaApi {
         projectId: m.projectId,
         deleted: true,
       );
-      _events.add(ChatEvent(entry.key));
+      _events.add(ChatEvent(conversationId: entry.key));
     }
   }
 
@@ -431,12 +431,23 @@ class FakeApi implements WaslaApi {
           if (!m.deleted && (m.body ?? '').contains(query))
             MessageHit(
               messageId: m.id,
-              conversationId: e.key,
+              chat: chats[e.key]!,
               createdAt: m.createdAt,
               senderName: m.senderName,
               body: m.body,
             ),
   ];
+
+  @override
+  Future<List<String>> sharedProjects(String conversationId) async => [
+    for (final p
+        in projectsByWorkspace[chatWorkspace[conversationId]] ??
+            const <Project>[])
+      if (p.status == ProjectStatus.active) p.id,
+  ];
+
+  /// What the phone would hear after being offline.
+  void reconnect() => _events.add(const ChatEvent.everything());
 
   @override
   Stream<ChatEvent> chatEvents(String workspaceId) => _events.stream;
@@ -475,7 +486,7 @@ class FakeApi implements WaslaApi {
   Future<void> setFilePinned(String fileId, bool pinned) async {}
 
   @override
-  Future<void> deleteFile(String fileId) async {
+  Future<void> deleteFile(String fileId, {String? filePath}) async {
     for (final list in projectFileList.values) {
       list.removeWhere((f) => f.file.id == fileId);
     }

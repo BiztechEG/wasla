@@ -32,16 +32,18 @@ create table storage.buckets (
 );
 
 create table storage.objects (
-  id        uuid primary key default gen_random_uuid(),
-  bucket_id text references storage.buckets (id),
-  name      text not null,
-  owner_id  text default auth.uid()::text,
+  id         uuid primary key default gen_random_uuid(),
+  bucket_id  text references storage.buckets (id),
+  name       text not null,
+  owner_id   text default auth.uid()::text,
+  metadata   jsonb,
+  created_at timestamptz default now(),
   unique (bucket_id, name)
 );
 
 alter table storage.objects enable row level security;
 grant usage on schema storage to anon, authenticated;
-grant select, insert on storage.objects to authenticated;
+grant select, insert, delete on storage.objects to authenticated;
 
 -- Realtime's publication, empty as on a new Supabase project.
 create publication supabase_realtime;

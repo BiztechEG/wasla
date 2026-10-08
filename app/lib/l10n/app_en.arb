@@ -133,7 +133,7 @@
   "errorNotAllowed": "You don't have permission to do that.",
   "errorWrongCode": "The code is wrong or expired.",
   "errorTooManyCodes": "Too many codes requested. Wait a minute and try again.",
-  "errorTooManyToday": "You've reached today's limit. Please try again tomorrow.",
+  "errorTooMany": "You've reached the limit for now. Please try again later.",
   "errorTooLong": "That text is too long.",
   "confirmMakeOwner": "Make {name} an owner of the workspace? They will have every permission, including managing owners.",
   "confirmArchive": "Archive the project? It leaves the active list and can be reopened later.",
@@ -218,5 +218,6 @@
   "workspaceAnnouncements": "Workspace announcements",
   "errorInvalidProject": "The other person isn't in this project",
   "errorChatClosed": "You can't send here anymore",
-  "errorStorageFull": "The workspace's storage is full"
+  "errorStorageFull": "The workspace's storage is full",
+  "errorUploadRefused": "The file couldn't be uploaded: storage is full or you've reached today's upload limit."
 }

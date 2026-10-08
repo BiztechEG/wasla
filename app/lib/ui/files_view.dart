@@ -159,12 +159,13 @@ class _ProjectFilesViewState extends ConsumerState<ProjectFilesView> {
       return;
     }
     if (!context.mounted) return;
+    final mine = f.uploadedBy == ref.read(authProvider).value;
     final ok = await runAction(
       context,
       () => action == 'pin'
           ? api.setFilePinned(f.file.id, !f.pinned)
-          : api.deleteFile(f.file.id),
+          : api.deleteFile(f.file.id, filePath: mine ? f.file.path : null),
     );
-    if (ok) ref.invalidate(projectFilesProvider(widget.projectId));
+    if (ok && mounted) ref.invalidate(projectFilesProvider(widget.projectId));
   }
 }

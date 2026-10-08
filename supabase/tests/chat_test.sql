@@ -195,9 +195,11 @@ select public.send_message(pg_temp.v('pc'), 'site photo',
 select pg_temp.fails(format('select public.send_message(%L, p_file_path => %L, p_file_size => 1)',
     pg_temp.v('pc'), pg_temp.path(303, 'x.pdf')),
   'invalid_file', 'cannot attach someone else''s upload');
-select pg_temp.fails(format('select public.send_message(%L, p_file_path => %L, p_file_size => 60000000)',
+insert into storage.objects (bucket_id, name, metadata) values
+  ('files', pg_temp.path(302, 'big.zip'), '{"size": 60000000}');
+select pg_temp.fails(format('select public.send_message(%L, p_file_path => %L, p_file_size => 1)',
     pg_temp.v('pc'), pg_temp.path(302, 'big.zip')),
-  'file_too_large', 'files over 50 MB are refused');
+  'file_too_large', 'files over 50 MB are refused, whatever size the app claims');
 
 select pg_temp.login(303);
 select pg_temp.check((select count(*) from public.project_files(pg_temp.v('p'))) = 2,

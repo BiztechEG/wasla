@@ -86,20 +86,27 @@ class StoredImage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final placeholder = Container(
+    Widget box(IconData icon) => Container(
       height: placeholderHeight,
       color: scheme.surfaceContainerHighest,
       alignment: Alignment.center,
-      child: Icon(Icons.image_outlined, color: scheme.onSurfaceVariant),
+      child: Icon(icon, color: scheme.onSurfaceVariant),
     );
-    final url = ref.watch(fileUrlProvider(path)).value;
-    if (url == null || url.isEmpty) return placeholder;
+    // Offline or an expired link: tap to load it again.
+    final failed = GestureDetector(
+      onTap: () => ref.invalidate(fileUrlProvider(path)),
+      child: box(Icons.refresh),
+    );
+    final link = ref.watch(fileUrlProvider(path));
+    if (link.hasError) return failed;
+    final url = link.value;
+    if (url == null || url.isEmpty) return box(Icons.image_outlined);
     return Image.network(
       url,
       fit: fit,
       loadingBuilder: (context, child, progress) =>
-          progress == null ? child : placeholder,
-      errorBuilder: (_, _, _) => placeholder,
+          progress == null ? child : box(Icons.image_outlined),
+      errorBuilder: (_, _, _) => failed,
     );
   }
 }

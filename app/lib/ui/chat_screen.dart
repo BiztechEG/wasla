@@ -292,6 +292,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
   Future<void> _send({Upload? file}) async {
     final body = _text.text.trim();
     if (body.isEmpty && file == null) return;
+    // Keep what was typed until the chat has loaded.
+    if (!ref.read(chatProvider(_key)).hasValue) return;
     final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     final reply = _replyTo;
@@ -314,6 +316,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
   }
 
   Future<void> _attach() async {
+    if (!ref.read(chatProvider(_key)).hasValue) return;
     final upload = await pickUpload(context, ref);
     if (upload != null && mounted) await _send(file: upload);
   }
@@ -394,13 +397,20 @@ class _ChatViewState extends ConsumerState<ChatView> {
             onCancelReply: () => setState(() => _replyTo = null),
             tagChoices: target.isProject
                 ? null
-                : projects
-                      .where((p) => p.status == ProjectStatus.active)
-                      .toList(),
+                : [
+                    for (final id
+                        in ref
+                                .watch(
+                                  sharedProjectsProvider(target.conversationId),
+                                )
+                                .value ??
+                            const <String>[])
+                      ?projects.where((p) => p.id == id).firstOrNull,
+                  ],
             tag: _tag,
             onTag: (id) => setState(() => _tag = id),
-            onAttach: _attach,
-            onSend: () => _send(),
+            onAttach: chat.hasValue ? _attach : null,
+            onSend: chat.hasValue ? () => _send() : null,
           ),
       ],
     );
@@ -1064,8 +1074,10 @@ class _Composer extends StatelessWidget {
   final List<Project>? tagChoices;
   final String? tag;
   final void Function(String?) onTag;
-  final VoidCallback onAttach;
-  final VoidCallback onSend;
+
+  /// Null until the chat has loaded.
+  final VoidCallback? onAttach;
+  final VoidCallback? onSend;
 
   @override
   Widget build(BuildContext context) {
