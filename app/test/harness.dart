@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wasla/app.dart';
+import 'package:wasla/data/chat_models.dart';
+import 'package:wasla/data/picker.dart';
+import 'package:wasla/state/chat_providers.dart';
 import 'package:wasla/state/providers.dart';
 import 'package:wasla/state/settings.dart';
 
@@ -13,6 +16,7 @@ Future<void> startApp(
   WidgetTester tester,
   FakeApi api, {
   Map<String, Object> prefs = const {},
+  Picker? picker,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -22,6 +26,7 @@ Future<void> startApp(
       overrides: [
         prefsProvider.overrideWithValue(p),
         apiProvider.overrideWithValue(api),
+        if (picker != null) pickerProvider.overrideWithValue(picker),
       ],
       child: const WaslaApp(),
     ),
@@ -34,4 +39,17 @@ void smallPhone(WidgetTester tester) {
   tester.view.physicalSize = const Size(360, 640);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+}
+
+/// Hands over [file] whatever one picks.
+class FakePicker implements Picker {
+  FakePicker(this.file);
+
+  final Upload file;
+
+  @override
+  Future<Upload?> pickImage({required bool camera}) async => file;
+
+  @override
+  Future<Upload?> pickFile() async => file;
 }

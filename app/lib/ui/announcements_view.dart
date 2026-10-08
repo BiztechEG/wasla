@@ -357,7 +357,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
               autofocus: true,
               minLines: 3,
               maxLines: 8,
-              inputFormatters: [LengthLimitingTextInputFormatter(2000)],
+              inputFormatters: const [RuneLimit(2000)],
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(hintText: l.announcementHint),
             ),

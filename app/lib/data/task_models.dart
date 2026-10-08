@@ -229,6 +229,7 @@ class TaskDetail {
     this.isParty = false,
     this.canEdit = false,
     this.canClose = false,
+    this.canAssign = false,
     this.isAssignee = false,
     this.sourceConversationId,
     this.files = const [],
@@ -252,6 +253,10 @@ class TaskDetail {
 
   /// Creator, lead or admin: marks it done or reopens it.
   final bool canClose;
+
+  /// Lead or admin: gives it to anyone in the project. Anyone else who edits
+  /// it only adds or removes themselves.
+  final bool canAssign;
   final bool isAssignee;
 
   /// The chat of the message it was made from, when one can read it.
@@ -279,6 +284,7 @@ class TaskDetail {
     isParty: json['is_party'] as bool? ?? false,
     canEdit: json['can_edit'] as bool? ?? false,
     canClose: json['can_close'] as bool? ?? false,
+    canAssign: json['can_assign'] as bool? ?? false,
     isAssignee: json['is_assignee'] as bool? ?? false,
     sourceConversationId: json['source_conversation_id'] as String?,
     files: [
@@ -309,7 +315,6 @@ class TaskDraft {
     this.visibility = TaskVisibility.private,
     this.remindBefore = const [1440, 60],
     this.sourceMessageId,
-    this.files = const [],
   });
 
   final String workspaceId;
@@ -322,9 +327,6 @@ class TaskDraft {
   final TaskVisibility visibility;
   final List<int> remindBefore;
   final String? sourceMessageId;
-
-  /// Attached once the task exists.
-  final List<Upload> files;
 }
 
 enum NotificationKind {
@@ -335,7 +337,9 @@ enum NotificationKind {
   nudge('nudge'),
   dueSoon('due_soon'),
   overdue('overdue'),
-  reminder('reminder');
+  reminder('reminder'),
+  unassigned('unassigned'),
+  deleted('deleted');
 
   const NotificationKind(this.wire);
 
@@ -377,7 +381,8 @@ class AppNotification {
   /// Who caused it; null for reminders.
   final String? actorName;
 
-  /// For a status change: the new status.
+  /// For a status change: the new status. For a task one was taken off or
+  /// that was deleted: its title then.
   final String? detail;
   final DateTime createdAt;
   final DateTime? readAt;

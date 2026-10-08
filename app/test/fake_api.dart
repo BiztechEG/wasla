@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:wasla/data/api.dart';
 import 'package:wasla/data/chat_models.dart';
@@ -582,8 +583,11 @@ class FakeApi implements WaslaApi {
   final taskDetails = <String, TaskDetail>{};
   final taskCalls = <String>[];
 
-  /// What the last new task was made from.
+  /// What the last new or changed task was made from.
   TaskDraft? lastDraft;
+
+  /// Names of attachments whose upload fails, as on a bad connection.
+  final failingUploads = <String>{};
   final notificationList = <AppNotification>[];
   final _taskEvents = StreamController<void>.broadcast();
   final _noteEvents = StreamController<void>.broadcast();
@@ -788,6 +792,7 @@ class FakeApi implements WaslaApi {
       isParty: editor || assignee,
       canEdit: editor,
       canClose: editor,
+      canAssign: _manages(task.projectId),
       isAssignee: assignee,
       files: d.files,
       activity: [
@@ -814,15 +819,13 @@ class FakeApi implements WaslaApi {
       taskDetails[task.id]!,
       remindBefore: draft.remindBefore,
     );
-    for (final f in draft.files) {
-      await addTaskAttachment(draft.workspaceId, task.id, f);
-    }
     return task.id;
   }
 
   @override
   Future<void> updateTask(String taskId, TaskDraft draft) async {
     taskCalls.add('update $taskId');
+    lastDraft = draft;
     final t = taskById(taskId);
     _replace(
       TaskItem(
@@ -910,6 +913,9 @@ class FakeApi implements WaslaApi {
     Upload file,
   ) async {
     taskCalls.add('attach $taskId ${file.name}');
+    if (failingUploads.contains(file.name)) {
+      throw const SocketException('Connection reset');
+    }
     final d = taskDetails[taskId]!;
     taskDetails[taskId] = _detail(
       d,

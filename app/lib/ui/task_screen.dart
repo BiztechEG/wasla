@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chat_models.dart';
@@ -75,7 +74,8 @@ class _TaskMenu extends ConsumerWidget {
     final editable = detail.canEdit && detail.projectOpen;
     final others = task.assignees.any((a) => a.id != me);
     final open = task.status.isOpen;
-    if (!detail.canEdit) return const SizedBox();
+    // An archived or closed project's tasks can't change at all.
+    if (!editable) return const SizedBox();
 
     Future<void> run(_MenuAction action) async {
       final api = ref.read(apiProvider);
@@ -127,14 +127,13 @@ class _TaskMenu extends ConsumerWidget {
     return PopupMenuButton<_MenuAction>(
       onSelected: run,
       itemBuilder: (_) => [
-        if (editable)
-          PopupMenuItem(value: _MenuAction.edit, child: Text(l.editTask)),
-        if (editable && open)
+        PopupMenuItem(value: _MenuAction.edit, child: Text(l.editTask)),
+        if (open)
           PopupMenuItem(
             value: _MenuAction.reminder,
             child: Text(l.addReminder),
           ),
-        if (editable && open && others)
+        if (open && others)
           PopupMenuItem(value: _MenuAction.nudge, child: Text(l.remindNow)),
         PopupMenuItem(value: _MenuAction.delete, child: Text(l.deleteTask)),
       ],
@@ -349,15 +348,29 @@ class _TaskBody extends ConsumerWidget {
       return;
     }
     final chat = chats.where((c) => c.id == id).firstOrNull;
+    ChatTarget? target = chat == null ? null : ChatTarget.of(chat);
+    // The project's own chat may not be in the list yet.
+    if (target == null) {
+      final projectChat = await ref
+          .read(projectConversationProvider(task.projectId).future)
+          .catchError((_) => null);
+      if (projectChat == id) {
+        target = ChatTarget(
+          conversationId: id,
+          title: task.projectName,
+          projectId: task.projectId,
+          projectColor: task.projectColor,
+        );
+      }
+    }
     if (!context.mounted) return;
-    if (chat == null) {
+    if (target == null) {
       showMessage(context, l.errorNotAllowed);
       return;
     }
     navigator.push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            ChatScreen(membership: membership, target: ChatTarget.of(chat)),
+        builder: (_) => ChatScreen(membership: membership, target: target!),
       ),
     );
   }
@@ -727,7 +740,7 @@ class _UpdateComposerState extends ConsumerState<_UpdateComposer> {
                   minLines: 1,
                   maxLines: 5,
                   textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: [LengthLimitingTextInputFormatter(2000)],
+                  inputFormatters: const [RuneLimit(2000)],
                   decoration: InputDecoration(
                     hintText: l.addUpdateHint,
                     isDense: true,

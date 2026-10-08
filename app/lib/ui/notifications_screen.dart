@@ -24,6 +24,8 @@ String noteText(AppLocalizations l, AppNotification n) {
     NotificationKind.dueSoon => l.noteDueSoon,
     NotificationKind.overdue => l.noteOverdue,
     NotificationKind.reminder => l.noteReminder,
+    NotificationKind.unassigned => l.noteUnassigned(who),
+    NotificationKind.deleted => l.noteDeleted(who),
   };
 }
 
@@ -36,6 +38,8 @@ IconData _icon(NotificationKind kind) => switch (kind) {
   NotificationKind.dueSoon => Icons.alarm,
   NotificationKind.overdue => Icons.alarm,
   NotificationKind.reminder => Icons.alarm,
+  NotificationKind.unassigned => Icons.person_remove_outlined,
+  NotificationKind.deleted => Icons.delete_outline,
 };
 
 /// What happened to one's tasks, newest first.
@@ -93,7 +97,9 @@ class NotificationsScreen extends ConsumerWidget {
                       otherWorkspace: n.workspaceId != ws,
                       onTap: () {
                         if (n.unread) markRead([n.id]);
-                        if (n.taskId != null) {
+                        // A deleted task has nothing left to open.
+                        if (n.taskId != null &&
+                            n.kind != NotificationKind.deleted) {
                           openTask(context, n.workspaceId, n.taskId!);
                         }
                       },

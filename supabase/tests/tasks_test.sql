@@ -379,8 +379,9 @@ select pg_temp.login(503);
 select pg_temp.check(not exists (select 1 from public.my_tasks() where id = pg_temp.v('t4')),
   'a deleted task leaves my tasks');
 select pg_temp.fails($$ select public.task_detail(pg_temp.v('t4')) $$, 'not_found', 'and cannot be opened');
-select pg_temp.check(not exists (select 1 from public.my_notifications() where task_id = pg_temp.v('t4')),
-  'nor its notifications');
+select pg_temp.check(
+  (select array_agg(kind) from public.my_notifications() where task_id = pg_temp.v('t4')) = array['deleted'],
+  'its notifications give way to one saying it was deleted');
 
 -- 14. Someone who leaves the project loses its tasks.
 select pg_temp.login(501);

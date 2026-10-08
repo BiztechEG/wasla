@@ -66,12 +66,14 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 ## Tasks and follow-up
 
-- A task belongs to one project and goes to one or more of its members. Leads and admins assign anyone in the project; other members create tasks for themselves.
+- A task belongs to one project and goes to one or more of its members. Leads and admins assign anyone in the project; other members create tasks for themselves, and on an existing task only add or remove themselves.
 - Tasks are private by default: only their creator, assignees and the project's leads and admins see them. A public task is visible to the whole project, but its comments stay with those people.
 - Assignees move a task between new, in progress, on hold (with a reason) and review; only its creator or a lead closes or reopens it.
 - Reminders go out a day and an hour before the due time by default, plus once when it passes and at any extra times the creator adds. They are sent by the `pg_cron` job `wasla-task-reminders`, which runs `process_task_reminders()` every minute. The migration creates the job where `pg_cron` is available (hosted Supabase) and skips it elsewhere.
 - Notifications are in-app for now (the bell on the home screen); they become push notifications once Firebase is set up.
-- Tasks in an archived or closed project are read-only, leave My tasks and stop reminding.
+- Tasks in an archived or closed project are read-only, leave My tasks and stop reminding; reopening the project schedules their reminders again.
+- Deleting a task removes its attachments too and tells the people on it. Someone taken off a task is told as well.
+- Each person can make 60 task changes a minute; saving a task unchanged doesn't count.
 
 ## Plan
 

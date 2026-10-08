@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/api.dart';
 import '../data/chat_models.dart';
 import '../data/models.dart';
 import '../data/task_models.dart';
@@ -74,6 +74,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
     ...?_existing?.task.assignees.map((a) => a.id),
     if (_existing == null) ...?widget.assigneeIds,
   ];
+  bool _assigneesPicked = false;
   late DateTime? _due = _existing?.task.dueAt?.toLocal();
   late final Set<int> _remind = {
     ...(_existing?.remindBefore ?? const [1440, 60]),
@@ -97,61 +98,124 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
     super.dispose();
   }
 
-  Future<void> _save(String? projectId, String me, bool manager) async {
+  Future<void> _save(String? projectId, List<String> people) async {
     final title = _title.text.trim();
     if (projectId == null || title.isEmpty) return;
-    // Someone who doesn't lead the project only makes tasks for themselves.
-    final people = manager && _assignees.isNotEmpty ? _assignees : [me];
-    final draft = TaskDraft(
-      workspaceId: widget.workspaceId,
-      projectId: projectId,
-      title: title,
-      description: _details.text.trim(),
-      assigneeIds: people,
-      dueAt: _due,
-      priority: _priority,
-      visibility: _visibility,
-      remindBefore: _due == null ? const [] : (_remind.toList()..sort()),
-      sourceMessageId: widget.sourceMessageId,
-      files: List.of(_files),
-    );
+    final l = context.l10n;
     final api = ref.read(apiProvider);
     final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     String? id;
     final ok = await runAction(context, () async {
       final existing = _existing;
       if (existing == null) {
-        id = await api.createTask(draft);
+        id = await api.createTask(
+          TaskDraft(
+            workspaceId: widget.workspaceId,
+            projectId: projectId,
+            title: title,
+            description: _details.text.trim(),
+            assigneeIds: people,
+            dueAt: _due,
+            priority: _priority,
+            visibility: _visibility,
+            remindBefore: _remind.toList()..sort(),
+            sourceMessageId: widget.sourceMessageId,
+          ),
+        );
       } else {
         id = existing.task.id;
-        await api.updateTask(existing.task.id, draft);
-        final before = existing.task.assignees.map((a) => a.id).toSet();
-        if (before.length != people.length || !before.containsAll(people)) {
-          await api.setTaskAssignees(existing.task.id, people);
-        }
+        await _saveChanges(api, existing, title, people);
       }
     });
+    // Once the task exists it opens, even when a file fails to attach, so
+    // saving again can't make it twice.
+    var attached = true;
+    if (ok) {
+      for (final file in _files) {
+        try {
+          await api.addTaskAttachment(widget.workspaceId, id!, file);
+        } catch (_) {
+          attached = false;
+        }
+      }
+    }
+    if (!attached) {
+      messenger.showSnackBar(SnackBar(content: Text(l.filesNotAttached)));
+    }
     if (!mounted) return;
     setState(() => _saving = false);
-    if (ok) {
-      refreshTasks(ref);
-      navigator.pop(id);
+    if (!ok) return;
+    refreshTasks(ref);
+    navigator.pop(id);
+  }
+
+  /// Applies only what was changed here to the task as it is now, so
+  /// someone else's change made meanwhile stays.
+  Future<void> _saveChanges(
+    WaslaApi api,
+    TaskDetail before,
+    String title,
+    List<String> people,
+  ) async {
+    final now = await api.task(before.task.id);
+    final details = _details.text.trim();
+    final remind = _remind.toList()..sort();
+    await api.updateTask(
+      before.task.id,
+      TaskDraft(
+        workspaceId: widget.workspaceId,
+        projectId: now.task.projectId,
+        title: title == before.task.title ? now.task.title : title,
+        description: details == (before.description ?? '')
+            ? now.description
+            : details,
+        dueAt: _sameTime(_due, before.task.dueAt) ? now.task.dueAt : _due,
+        priority: _priority == before.task.priority
+            ? now.task.priority
+            : _priority,
+        visibility: _visibility == before.task.visibility
+            ? now.task.visibility
+            : _visibility,
+        remindBefore: _sameSet(remind, before.remindBefore)
+            ? now.remindBefore
+            : remind,
+      ),
+    );
+    if (!_assigneesPicked) return;
+    final was = {for (final a in before.task.assignees) a.id};
+    final current = {for (final a in now.task.assignees) a.id};
+    final wanted = {
+      ...current.where((id) => !was.contains(id) || people.contains(id)),
+      ...people.where((id) => !was.contains(id)),
+    };
+    if (!_sameSet(wanted, current)) {
+      await api.setTaskAssignees(before.task.id, wanted.toList());
     }
   }
 
-  Future<void> _pickAssignees(List<ProjectMember> members) async {
+  Future<void> _pickAssignees(List<TaskPerson> people) async {
     final picked = await showModalBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _AssigneeSheet(members: members, selected: _assignees),
+      builder: (_) => _AssigneeSheet(people: people, selected: _assignees),
     );
-    if (picked != null) setState(() => _assignees = picked);
+    if (picked == null || _sameSet(picked, _assignees)) return;
+    setState(() {
+      _assignees = picked;
+      _assigneesPicked = true;
+    });
   }
 
   Future<void> _pickDue() async {
     final picked = await pickDateTime(context, initial: _due);
-    if (picked != null) setState(() => _due = picked);
+    if (picked == null) return;
+    setState(() {
+      // A first due date gets the usual reminders, unless some are chosen.
+      if (_due == null && _remind.isEmpty) _remind.addAll(const [1440, 60]);
+      _due = picked;
+    });
   }
 
   Future<void> _attach() async {
@@ -176,11 +240,26 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
     final members = projectId == null
         ? null
         : ref.watch(projectMembersProvider(projectId)).value;
-    final manager = managesProject(ref, ws, members);
+    final existing = _existing;
+    final manager = existing?.canAssign ?? managesProject(ref, ws, members);
     final names = {
+      for (final a in existing?.task.assignees ?? const <TaskPerson>[])
+        a.id: a.name,
       for (final m in members ?? const <ProjectMember>[]) m.userId: m.fullName,
     };
-    final people = manager && _assignees.isNotEmpty ? _assignees : [me];
+    // Someone who doesn't lead the project makes tasks only for themselves,
+    // and leaves an existing task's people as they are.
+    final people = _assignees.isNotEmpty && (manager || existing != null)
+        ? _assignees
+        : [me];
+    // The project's members, and anyone on the task who has since left it.
+    final choices = [
+      for (final m in members ?? const <ProjectMember>[])
+        TaskPerson(id: m.userId, name: m.fullName),
+      for (final id in _assignees)
+        if (!(members?.any((m) => m.userId == id) ?? false))
+          TaskPerson(id: id, name: names[id] ?? '…'),
+    ];
     final canSave =
         !_saving && projectId != null && _title.text.trim().isNotEmpty;
 
@@ -191,7 +270,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 8),
             child: FilledButton(
-              onPressed: canSave ? () => _save(projectId, me, manager) : null,
+              onPressed: canSave ? () => _save(projectId, people) : null,
               child: _saving
                   ? const SizedBox(
                       width: 20,
@@ -210,7 +289,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
             controller: _title,
             autofocus: _existing == null && widget.title == null,
             textCapitalization: TextCapitalization.sentences,
-            inputFormatters: [LengthLimitingTextInputFormatter(200)],
+            inputFormatters: const [RuneLimit(200)],
             decoration: InputDecoration(labelText: l.taskTitleLabel),
           ),
           const SizedBox(height: 12),
@@ -218,7 +297,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
             controller: _details,
             minLines: 2,
             maxLines: 6,
-            inputFormatters: [LengthLimitingTextInputFormatter(4000)],
+            inputFormatters: const [RuneLimit(4000)],
             decoration: InputDecoration(labelText: l.taskDetailsLabel),
           ),
           const SizedBox(height: 12),
@@ -268,7 +347,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                 ),
                 trailing: manager ? const Icon(Icons.chevron_right) : null,
                 onTap: manager && members != null
-                    ? () => _pickAssignees(members)
+                    ? () => _pickAssignees(choices)
                     : null,
               ),
               ListTile(
@@ -322,7 +401,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                 ),
             ],
           ),
-          if (!manager && projectId != null && members != null)
+          if (!manager && existing == null && members != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
               child: Text(
@@ -388,9 +467,9 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
 }
 
 class _AssigneeSheet extends StatefulWidget {
-  const _AssigneeSheet({required this.members, required this.selected});
+  const _AssigneeSheet({required this.people, required this.selected});
 
-  final List<ProjectMember> members;
+  final List<TaskPerson> people;
   final List<String> selected;
 
   @override
@@ -424,8 +503,8 @@ class _AssigneeSheetState extends State<_AssigneeSheet> {
                   ),
                   FilledButton(
                     onPressed: () => Navigator.pop(context, [
-                      for (final m in widget.members)
-                        if (_picked.contains(m.userId)) m.userId,
+                      for (final p in widget.people)
+                        if (_picked.contains(p.id)) p.id,
                     ]),
                     child: Text(l.save),
                   ),
@@ -435,17 +514,17 @@ class _AssigneeSheetState extends State<_AssigneeSheet> {
             Expanded(
               child: ListView(
                 children: [
-                  for (final m in widget.members)
+                  for (final p in widget.people)
                     CheckboxListTile(
-                      value: _picked.contains(m.userId),
+                      value: _picked.contains(p.id),
                       onChanged: (on) => setState(
                         () => on == true
-                            ? _picked.add(m.userId)
-                            : _picked.remove(m.userId),
+                            ? _picked.add(p.id)
+                            : _picked.remove(p.id),
                       ),
-                      secondary: Avatar(name: m.fullName),
+                      secondary: Avatar(name: p.name),
                       title: Text(
-                        m.fullName,
+                        p.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -458,4 +537,13 @@ class _AssigneeSheetState extends State<_AssigneeSheet> {
       ),
     );
   }
+}
+
+bool _sameTime(DateTime? a, DateTime? b) =>
+    a == null || b == null ? a == b : a.isAtSameMomentAs(b);
+
+bool _sameSet<T>(Iterable<T> a, Iterable<T> b) {
+  final x = a.toSet();
+  final y = b.toSet();
+  return x.length == y.length && x.containsAll(y);
 }

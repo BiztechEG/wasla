@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/task_models.dart';
+import 'package:wasla/ui/widgets.dart';
 
 import 'fake_api.dart';
 import 'harness.dart';
@@ -137,7 +141,7 @@ void main() {
 
     // Closing is for whoever gave the task.
     expect(_chip(tester, 'منتهية').onSelected, isNull);
-    expect(find.byType(PopupMenuButton<Object?>), findsNothing);
+    expect(find.byIcon(Icons.more_vert), findsNothing);
 
     await tester.tap(find.text('قيد التنفيذ'));
     await tester.pumpAndSettle();
@@ -258,6 +262,137 @@ void main() {
     await tester.pumpAndSettle();
     expect(badge().isLabelVisible, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a task whose file fails to upload is still made once', (
+    tester,
+  ) async {
+    final api = _company()..failingUploads.add('plan.pdf');
+    final plan = Upload(
+      bytes: Uint8List(10),
+      name: 'plan.pdf',
+      mime: 'application/pdf',
+    );
+    await startApp(tester, api, picker: FakePicker(plan));
+    await _openMyTasks(tester);
+    await tester.tap(find.text('مهمة جديدة'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Send the plan');
+    // Done typing, so the field stops keeping itself on screen.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('إرفاق'),
+      find.byType(ListView).last,
+      const Offset(0, -200),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إرفاق'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ملف'));
+    await tester.pumpAndSettle();
+    expect(find.text('plan.pdf'), findsOneWidget);
+
+    await tester.tap(find.text('إنشاء'));
+    await tester.pumpAndSettle();
+    final id = api.taskList.single.id;
+    expect(api.taskCalls, ['create Send the plan', 'attach $id plan.pdf']);
+    expect(
+      find.text(
+        'أُنشئت المهمة لكن تعذّر إرفاق بعض الملفات، يمكنك إرفاقها من شاشة المهمة',
+      ),
+      findsOneWidget,
+    );
+    // The task opens, so it isn't saved a second time.
+    expect(_chip(tester, 'جديدة').selected, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('editing a task keeps what others changed meanwhile', (
+    tester,
+  ) async {
+    final api = _member();
+    final task = api.addTask(
+      projectId: 'p1',
+      title: 'Paint the hall',
+      assignees: ['me', 'u2'],
+    );
+    await startApp(tester, api);
+    await _openMyTasks(tester);
+    await tester.tap(find.text('Paint the hall'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تعديل المهمة'));
+    await tester.pumpAndSettle();
+
+    // Mona is on the task too; Amr doesn't lead the project, so he can't
+    // change who it is for, and isn't told he makes tasks only for himself.
+    expect(find.text('أنت، Mona Adel'), findsOneWidget);
+    expect(
+      find.text('في هذا المشروع يمكنك إنشاء مهام لنفسك فقط'),
+      findsNothing,
+    );
+
+    // Meanwhile Mona makes it urgent from her phone.
+    await api.updateTask(
+      task.id,
+      TaskDraft(
+        workspaceId: 'ws1',
+        projectId: 'p1',
+        title: 'Paint the hall',
+        priority: TaskPriority.urgent,
+      ),
+    );
+    api.taskCalls.clear();
+
+    await tester.enterText(find.byType(TextField).first, 'Paint the big hall');
+    await tester.tap(find.text('حفظ'));
+    await tester.pumpAndSettle();
+    expect(api.taskCalls, ['update ${task.id}']);
+    expect(api.lastDraft!.title, 'Paint the big hall');
+    expect(api.lastDraft!.priority, TaskPriority.urgent);
+    expect(api.taskById(task.id).assignees.map((a) => a.id), ['me', 'u2']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a deleted task\'s notification opens nothing', (tester) async {
+    final api = _company();
+    final task = api.addTask(
+      projectId: 'p1',
+      title: 'Old job',
+      createdBy: 'u2',
+    );
+    api
+      ..notify(NotificationKind.deleted, task, actor: 'Mona Adel')
+      ..taskList.remove(task);
+    await startApp(tester, api);
+    await tester.tap(find.byTooltip('الإشعارات'));
+    await tester.pumpAndSettle();
+    expect(find.text('حُذفت المهمة · Mona Adel'), findsOneWidget);
+
+    await tester.tap(find.text('Old job'));
+    await tester.pumpAndSettle();
+    expect(find.text('حُذفت المهمة · Mona Adel'), findsOneWidget);
+    expect(api.notificationList.single.unread, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('text limits count characters as the database does', () {
+    const limit = RuneLimit(5);
+    String type(String text) => limit
+        .formatEditUpdate(
+          TextEditingValue.empty,
+          TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          ),
+        )
+        .text;
+    expect(type('abcdef'), 'abcde');
+    expect(type('👍👍👍👍👍👍'), '👍👍👍👍👍');
+    // One family on screen, five code points: it doesn't fit after "ab".
+    expect(type('ab👨‍👩‍👧'), 'ab');
   });
 
   test('due groups: late, today, this week, later, undated, done', () {
