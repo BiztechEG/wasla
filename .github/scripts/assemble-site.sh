@@ -9,6 +9,8 @@ mkdir public
 cp -r site/. public/
 mkdir -p public/app
 cp -r app/build/web/. public/app/
+# Debug symbols for the rendering engine: never loaded by browsers.
+find public/app -name '*.symbols' -delete
 
 apk=app/build/app/outputs/flutter-apk/app-release.apk
 if [ -f "$apk" ]; then
