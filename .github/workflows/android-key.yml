@@ -1,0 +1,53 @@
+name: Create Android signing key
+
+# Run once, by hand: Actions > Create Android signing key > Run workflow.
+#
+# Every Android update must be signed with the same key, or phones refuse to
+# install it over the old version. This makes that key:
+#
+# 1. First add the repository secret ANDROID_KEY_PASSWORD: a long password you
+#    make up (at least 16 characters). Keep a copy somewhere safe.
+# 2. Run this workflow. The key, locked with that password, is attached to the
+#    run as "android-signing-key" for one day.
+# 3. Download it, open ANDROID_KEYSTORE.txt and paste everything in it into a
+#    new repository secret named ANDROID_KEYSTORE.
+# 4. Keep wasla.p12 and the password together in a safe place as a backup.
+#    GitHub never shows a secret again, and a lost key means every phone has
+#    to uninstall the app once to move to a new one.
+
+on: workflow_dispatch
+
+permissions: {}
+
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Make the key
+        env:
+          PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXISTING: ${{ secrets.ANDROID_KEYSTORE }}
+        run: |
+          if [ -n "$EXISTING" ]; then
+            echo "::error::ANDROID_KEYSTORE is already set. The app must keep its key, so nothing was made. Only delete that secret first if you really mean to replace the key."
+            exit 1
+          fi
+          if [ ${#PASSWORD} -lt 16 ]; then
+            echo "::error::First add the repository secret ANDROID_KEY_PASSWORD, at least 16 characters long."
+            exit 1
+          fi
+          mkdir key
+          keytool -genkeypair -storetype PKCS12 -keystore key/wasla.p12 -alias wasla \
+            -keyalg RSA -keysize 4096 -validity 10000 -storepass "$PASSWORD" \
+            -dname "CN=Wasla, O=BizTech, C=EG"
+          base64 -w0 key/wasla.p12 > key/ANDROID_KEYSTORE.txt
+          keytool -list -v -keystore key/wasla.p12 -storepass "$PASSWORD" | grep -E 'SHA256:|Valid'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-key
+          path: key/
+          retention-days: 1

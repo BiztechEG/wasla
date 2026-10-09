@@ -1,0 +1,90 @@
+name: Website
+
+# Builds the website and uploads it to the hosting account by FTP:
+#
+#   /           the landing page (site/), in Arabic, and /en/ in English
+#   /app/       the web app
+#   /download/  the Android app (wasla.apk) and its version.json
+#
+# Uploading needs the repository secrets FTP_SERVER, FTP_USERNAME and
+# FTP_PASSWORD. Until they exist, the built site is only attached to the run.
+# Optional repository variables: FTP_DIR, the site's folder as the FTP account
+# sees it (default public_html/), and FTP_PROTOCOL (default ftps; set ftp only
+# if the host has no FTPS).
+# The APK is only published when it can be signed with the app's own key
+# (see android-key.yml); until then the download button says "coming soon".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'app/**'
+      - '.github/workflows/site.yml'
+      - '.github/scripts/**'
+  pull_request:
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+      - '.github/scripts/**'
+  workflow_dispatch:
+
+concurrency:
+  group: website-${{ github.ref }}
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    env:
+      HAS_FTP: ${{ secrets.FTP_SERVER != '' && secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The APK's build number counts commits, so it only ever goes up.
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.6
+          cache: true
+      - run: flutter pub get
+        working-directory: app
+      - name: Build the web app
+        working-directory: app
+        run: flutter build web --release --no-web-resources-cdn --base-href /app/
+      - name: Signing key
+        id: key
+        if: github.event_name != 'pull_request'
+        run: .github/scripts/android-signing.sh
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Build the Android app
+        if: steps.key.outputs.release == 'true'
+        working-directory: app
+        run: flutter build apk --release --build-number $(git rev-list --count HEAD)
+      - name: Put the site together
+        run: .github/scripts/assemble-site.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website
+          path: public/
+          include-hidden-files: true
+          retention-days: 7
+      - name: Upload to the hosting account
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_FTP == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: public/
+          server-dir: ${{ vars.FTP_DIR || 'public_html/' }}
+      - name: Not uploaded
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_FTP != 'true'
+        run: echo "::notice::The site was built but not uploaded. Add the FTP_SERVER, FTP_USERNAME and FTP_PASSWORD secrets to publish it."

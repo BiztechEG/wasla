@@ -1,0 +1,38 @@
+# Wasla website, deployed from GitHub (site/.htaccess in the repo).
+# Edits made on the server are replaced by the next deploy.
+
+DirectoryIndex index.html
+
+# Always use HTTPS.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+AddType application/wasm .wasm
+AddType text/javascript .mjs
+AddType application/vnd.android.package-archive .apk
+
+<IfModule mod_headers.c>
+  # Browsers check for a newer copy on every visit, so a deploy shows up at
+  # once; the server answers "not changed" when nothing changed.
+  Header set Cache-Control "no-cache"
+  <FilesMatch "\.apk$">
+    Header set Content-Disposition "attachment; filename=wasla.apk"
+  </FilesMatch>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json application/wasm image/svg+xml
+</IfModule>
+
+# The deploy keeps its notes on what it uploaded here.
+<Files ".ftp-deploy-sync-state.json">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</Files>

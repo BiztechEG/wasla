@@ -2,15 +2,17 @@ name: Android test build
 
 # Builds an installable APK for testing on Android phones before the app is
 # in the Play Store. Download it from the run's Artifacts section.
-# It is signed with a throwaway key per build, so uninstall the previous
-# test build before installing a new one.
+# Once the app's signing key is set up (see android-key.yml), builds are signed
+# with it and install over each other; until then each build has a throwaway
+# key, so uninstall the previous test build first. The public download on the
+# website is built by site.yml.
 
 on:
   pull_request:
-    paths: ['app/**', '.github/workflows/android-apk.yml']
+    paths: ['app/**', '.github/workflows/android-apk.yml', '.github/scripts/android-signing.sh']
   push:
     branches: [main]
-    paths: ['app/**', '.github/workflows/android-apk.yml']
+    paths: ['app/**', '.github/workflows/android-apk.yml', '.github/scripts/android-signing.sh']
   workflow_dispatch:
 
 jobs:
@@ -21,6 +23,9 @@ jobs:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The build number counts commits, so it only ever goes up.
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -31,7 +36,12 @@ jobs:
           flutter-version: 3.47.6
           cache: true
       - run: flutter pub get
-      - run: flutter build apk --release --build-number ${{ github.run_number }}
+      - name: Signing key
+        run: ../.github/scripts/android-signing.sh
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - run: flutter build apk --release --build-number $(git rev-list --count HEAD)
       - uses: actions/upload-artifact@v4
         with:
           name: wasla-android-${{ github.run_number }}

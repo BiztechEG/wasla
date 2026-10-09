@@ -4,6 +4,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// The release key lives outside the repo: CI passes it in from the
+// ANDROID_KEYSTORE and ANDROID_KEY_PASSWORD secrets. Without it, release
+// builds are signed with the debug key, which differs from machine to machine,
+// so a phone can't update from one build to the next.
+val releaseKeyFile: String? = System.getenv("WASLA_KEYSTORE_FILE")
+val releaseKeyPassword: String? = System.getenv("WASLA_KEY_PASSWORD")
+val hasReleaseKey = !releaseKeyFile.isNullOrEmpty() && !releaseKeyPassword.isNullOrEmpty()
+
 android {
     namespace = "com.biztech.wasla"
     compileSdk = flutter.compileSdkVersion
@@ -29,11 +37,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = file(releaseKeyFile!!)
+                storePassword = releaseKeyPassword
+                keyAlias = "wasla"
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
         }
     }
 }

@@ -332,5 +332,19 @@ select pg_temp.fails($$
   end $do$ $$,
   'too_many_requests', 'plan requests are limited per day');
 
+-- 13. The website lists the offered plans with their prices, signed in or not.
+reset role;
+update public.plans set offered = false where id = 'enterprise';
+set role anon;
+select pg_temp.check(
+  jsonb_array_length(public.public_plans()) = 3
+  and public.public_plans() -> 0 ->> 'id' = 'free'
+  and (public.public_plans() -> 2 ->> 'price_usd')::numeric = 60
+  and public.public_plans() -> 0 ? 'max_members'
+  and not public.public_plans() -> 0 ? 'offered',
+  'visitors see the offered plans in order, with limits and prices');
+reset role;
+update public.plans set offered = true where id = 'enterprise';
+
 reset role;
 select 'all billing tests passed';
