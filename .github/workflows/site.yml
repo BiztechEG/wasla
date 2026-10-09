@@ -6,8 +6,10 @@ name: Website
 #   /app/       the web app
 #   /download/  the Android app (wasla.apk) and its version.json
 #
-# Uploading needs the repository secrets FTP_SERVER, FTP_USERNAME and
-# FTP_PASSWORD. Until they exist, the built site is only attached to the run.
+# Uploading (.github/scripts/ftp-upload.sh, which retries dropped
+# connections) needs the repository secrets FTP_SERVER, FTP_USERNAME and
+# FTP_PASSWORD. FTP_SERVER must reach the hosting server itself, not a
+# Cloudflare-proxied name. Until they exist, the built site is only attached to the run.
 # Optional repository variables: FTP_DIR, the site's folder as the FTP account
 # sees it (default public_html/), and FTP_PROTOCOL (default ftps; set ftp only
 # if the host has no FTPS).
@@ -77,14 +79,15 @@ jobs:
           retention-days: 7
       - name: Upload to the hosting account
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_FTP == 'true'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: public/
-          server-dir: ${{ vars.FTP_DIR || 'public_html/' }}
+        run: |
+          sudo apt-get update -q >/dev/null && sudo apt-get install -y -q lftp >/dev/null
+          .github/scripts/ftp-upload.sh
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR: ${{ vars.FTP_DIR }}
+          FTP_PROTOCOL: ${{ vars.FTP_PROTOCOL }}
       - name: Not uploaded
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && env.HAS_FTP != 'true'
         run: echo "::notice::The site was built but not uploaded. Add the FTP_SERVER, FTP_USERNAME and FTP_PASSWORD secrets to publish it."
