@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/billing_models.dart';
+import '../data/chat_models.dart';
+import '../data/picker.dart';
+import '../state/chat_providers.dart';
 import '../state/billing_providers.dart';
 import '../state/providers.dart';
 import 'admin_billing.dart';
@@ -115,6 +118,8 @@ class _OverviewTab extends ConsumerWidget {
                       _Stat(l.statPaid30d, usd(context, o.paidUsd30d)),
                     ],
                   ),
+                  SectionTitle(l.logoTitle),
+                  const _LogoCard(),
                   SectionTitle(
                     l.planRequests,
                     trailing: o.pendingRequests > 0
@@ -151,6 +156,91 @@ class _OverviewTab extends ConsumerWidget {
                       ),
                     ],
                   },
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Changes Wasla's logo on the sign-in screen and the website.
+class _LogoCard extends ConsumerStatefulWidget {
+  const _LogoCard();
+
+  @override
+  ConsumerState<_LogoCard> createState() => _LogoCardState();
+}
+
+class _LogoCardState extends ConsumerState<_LogoCard> {
+  bool _busy = false;
+
+  Future<void> _save({required bool reset}) async {
+    final l = context.l10n;
+    setState(() => _busy = true);
+    try {
+      Upload? file;
+      if (!reset) {
+        file = await ref
+            .read(pickerProvider)
+            .pickImage(camera: false, maxSide: 512);
+        if (file == null) return;
+      }
+      await ref.read(apiProvider).setLogo(file);
+      ref.invalidate(logoUrlProvider);
+      if (mounted) showMessage(context, l.logoSaved);
+    } on UnsupportedLogo {
+      if (mounted) showMessage(context, l.logoUnsupported);
+    } on FileTooLarge {
+      if (mounted) showMessage(context, l.logoTooLarge);
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(l, e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final custom = ref.watch(logoUrlProvider).value != null;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const BrandLogo(size: 64),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.logoHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: _busy ? null : () => _save(reset: false),
+                        icon: const Icon(Icons.image_outlined),
+                        label: Text(l.changeLogo),
+                      ),
+                      if (custom)
+                        TextButton(
+                          onPressed: _busy ? null : () => _save(reset: true),
+                          child: Text(l.resetLogo),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),

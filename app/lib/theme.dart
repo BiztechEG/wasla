@@ -45,32 +45,41 @@ ThemeData buildTheme(Brightness brightness) {
   final scheme = ColorScheme(
     brightness: brightness,
     primary: dark ? WaslaColors.accentDark : WaslaColors.accent,
-    onPrimary: dark ? const Color(0xFF0F1419) : Colors.white,
-    primaryContainer: dark ? const Color(0xFF17403E) : const Color(0xFFDCEFEE),
+    onPrimary: dark ? const Color(0xFF00201D) : Colors.white,
+    primaryContainer: dark ? const Color(0xFF0F2E2C) : const Color(0xFFDDEFEC),
     onPrimaryContainer: dark ? WaslaColors.accentDark : WaslaColors.accent,
     secondary: dark ? WaslaColors.accentDark : WaslaColors.accent,
-    onSecondary: dark ? const Color(0xFF0F1419) : Colors.white,
-    error: dark ? const Color(0xFFF08A6A) : const Color(0xFFB4441C),
-    onError: dark ? const Color(0xFF0F1419) : Colors.white,
-    surface: dark ? const Color(0xFF1A2129) : Colors.white,
-    onSurface: dark ? const Color(0xFFE8ECEF) : const Color(0xFF14202B),
-    onSurfaceVariant: dark ? const Color(0xFFA3AEB9) : const Color(0xFF4A5868),
-    // Edges of inputs and switches need 3:1 contrast; cards and dividers use
-    // the lighter design border (outlineVariant).
-    outline: dark ? const Color(0xFF6E7C89) : const Color(0xFF8A96A3),
-    outlineVariant: dark ? const Color(0xFF2E3842) : const Color(0xFFE2E6EA),
+    onSecondary: dark ? const Color(0xFF00201D) : Colors.white,
+    error: dark ? const Color(0xFFF2957A) : const Color(0xFFB4441C),
+    onError: dark ? Colors.black : Colors.white,
+    errorContainer: dark ? const Color(0xFF3A211A) : const Color(0xFFFBE9E2),
+    onErrorContainer: dark ? const Color(0xFFF2957A) : const Color(0xFFB4441C),
+    surface: dark ? const Color(0xFF141414) : Colors.white,
+    onSurface: dark ? const Color(0xFFF2F2F2) : const Color(0xFF12201E),
+    onSurfaceVariant: dark ? const Color(0xFFA3A3A3) : const Color(0xFF566664),
+    // Edges of inputs and switches need 3:1 contrast; dividers use the
+    // lighter border (outlineVariant).
+    outline: dark ? const Color(0xFF6B6B6B) : const Color(0xFF86948F),
+    outlineVariant: dark ? const Color(0xFF262626) : const Color(0xFFE1E7E5),
     secondaryContainer: dark
-        ? const Color(0xFF17403E)
-        : const Color(0xFFDCEFEE),
+        ? const Color(0xFF0F2E2C)
+        : const Color(0xFFDDEFEC),
     onSecondaryContainer: dark ? WaslaColors.accentDark : WaslaColors.accent,
     surfaceContainerHighest: dark
-        ? const Color(0xFF232C36)
-        : const Color(0xFFEEF1F4),
+        ? const Color(0xFF222222)
+        : const Color(0xFFE9EEEC),
+    surfaceContainerHigh: dark
+        ? const Color(0xFF1B1B1B)
+        : const Color(0xFFEEF2F1),
+    surfaceContainer: dark ? const Color(0xFF141414) : Colors.white,
+    surfaceContainerLow: dark ? const Color(0xFF141414) : Colors.white,
+    surfaceContainerLowest: dark ? Colors.black : Colors.white,
+    shadow: Colors.black,
   );
 
-  final background = dark ? const Color(0xFF0F1419) : const Color(0xFFF4F6F8);
-  final bar = dark ? const Color(0xFF151B21) : Colors.white;
-  final radius = BorderRadius.circular(12);
+  final background = dark ? Colors.black : const Color(0xFFF2F5F4);
+  final radius = BorderRadius.circular(15);
+  const font = TextStyle(fontFamily: _font);
 
   final base = ThemeData(
     useMaterial3: true,
@@ -82,32 +91,33 @@ ThemeData buildTheme(Brightness brightness) {
 
   return base.copyWith(
     appBarTheme: AppBarTheme(
-      backgroundColor: bar,
+      backgroundColor: background,
       foregroundColor: scheme.onSurface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      shape: Border(bottom: BorderSide(color: scheme.outlineVariant)),
       titleTextStyle: base.textTheme.titleLarge?.copyWith(
         fontFamily: _font,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: scheme.onSurface,
         fontSize: 19,
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: bar,
+      backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,
       indicatorColor: scheme.primaryContainer,
+      indicatorShape: const StadiumBorder(),
+      elevation: 0,
       height: 68,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontFamily: _font,
-          fontSize: 12,
+          fontSize: 11.5,
           fontWeight: states.contains(WidgetState.selected)
-              ? FontWeight.w600
-              : FontWeight.w400,
+              ? FontWeight.w700
+              : FontWeight.w500,
           color: states.contains(WidgetState.selected)
               ? scheme.primary
               : scheme.onSurfaceVariant,
@@ -126,10 +136,7 @@ ThemeData buildTheme(Brightness brightness) {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1),
     inputDecorationTheme: InputDecorationTheme(
@@ -138,11 +145,11 @@ ThemeData buildTheme(Brightness brightness) {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: radius,
-        borderSide: BorderSide(color: scheme.outline),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,
-        borderSide: BorderSide(color: scheme.outline),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: radius,
@@ -151,7 +158,7 @@ ThemeData buildTheme(Brightness brightness) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(64, 48),
+        minimumSize: const Size(64, 50),
         shape: RoundedRectangleBorder(borderRadius: radius),
         textStyle: const TextStyle(
           fontFamily: _font,
@@ -162,30 +169,93 @@ ThemeData buildTheme(Brightness brightness) {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(64, 48),
+        minimumSize: const Size(64, 50),
         shape: RoundedRectangleBorder(borderRadius: radius),
         side: BorderSide(color: scheme.outline),
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        visualDensity: VisualDensity.standard,
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        side: WidgetStatePropertyAll(
+          BorderSide(color: scheme.surfaceContainerHighest, width: 4),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.surface
+              : scheme.surfaceContainerHighest,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.onSurface
+              : scheme.onSurfaceVariant,
+        ),
+        textStyle: WidgetStateProperty.resolveWith(
+          (states) => font.copyWith(
+            fontSize: 14,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w600
+                : FontWeight.w500,
+          ),
+        ),
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: scheme.primary,
       foregroundColor: scheme.onPrimary,
-      elevation: 1,
+      elevation: 2,
+      highlightElevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      extendedTextStyle: const TextStyle(
+        fontFamily: _font,
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
+      ),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,
       showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     ),
     chipTheme: ChipThemeData(
-      side: BorderSide(color: scheme.outlineVariant),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? scheme.onSurface
+            : scheme.surface,
+      ),
+      labelStyle: font.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? background
+              : scheme.onSurfaceVariant,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
     ),
     listTileTheme: ListTileThemeData(iconColor: scheme.onSurfaceVariant),
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    tabBarTheme: TabBarThemeData(
+      dividerColor: scheme.outlineVariant,
+      labelStyle: font.copyWith(fontWeight: FontWeight.w600, fontSize: 14),
+      unselectedLabelStyle: font.copyWith(fontSize: 14),
+    ),
   );
 }

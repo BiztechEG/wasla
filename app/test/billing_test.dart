@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasla/data/billing_models.dart';
+import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/task_models.dart';
 
@@ -346,6 +349,41 @@ void main() {
     await startApp(tester, _owner());
     await _tapText(tester, 'المزيد');
     expect(find.text('إدارة المنصة'), findsNothing);
+  });
+
+  testWidgets('a platform admin changes the app logo', (tester) async {
+    final api = _admin();
+    await startApp(
+      tester,
+      api,
+      picker: FakePicker(
+        Upload(bytes: Uint8List(10), name: 'new-logo.png', mime: 'image/png'),
+      ),
+    );
+    await _openAdmin(tester);
+
+    expect(find.text('استخدام الشعار الأصلي'), findsNothing);
+    await _tapText(tester, 'تغيير الشعار');
+    expect(api.logo, 'new-logo.png');
+    expect(find.text('تم حفظ الشعار'), findsOneWidget);
+
+    await _tapText(tester, 'استخدام الشعار الأصلي');
+    expect(api.logo, isNull);
+  });
+
+  testWidgets('a logo must be a PNG, JPEG or WebP image', (tester) async {
+    final api = _admin();
+    await startApp(
+      tester,
+      api,
+      picker: FakePicker(
+        Upload(bytes: Uint8List(10), name: 'logo.gif', mime: 'image/gif'),
+      ),
+    );
+    await _openAdmin(tester);
+    await _tapText(tester, 'تغيير الشعار');
+    expect(api.logo, isNull);
+    expect(find.text('اختر صورة PNG أو JPG أو WebP'), findsOneWidget);
   });
 
   testWidgets('a platform admin invoices a plan request', (tester) async {

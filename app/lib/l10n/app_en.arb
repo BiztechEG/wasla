@@ -901,5 +901,16 @@
   "errorInvoiceChanged": "This invoice was already paid or cancelled",
   "errorInvalidDate": "Pick a date in the future",
   "errorInvalidInvoice": "Check the invoice's workspaces, period and discount",
-  "specialPrice": "Special price ($)"
+  "specialPrice": "Special price ($)",
+  "logoTitle": "App logo",
+  "logoHint": "Shown on the sign-in screen and the website. PNG, JPG or WebP, up to 2 MB.",
+  "changeLogo": "Change logo",
+  "resetLogo": "Use the original logo",
+  "logoSaved": "Logo saved",
+  "logoUnsupported": "Choose a PNG, JPG or WebP image",
+  "logoTooLarge": "The logo must be 2 MB or less",
+  "tasksDoneOf": "{done} of {total} {total, plural, =1{task} other{tasks}} done",
+  "noTasksYet": "No tasks yet",
+  "lateTasks": "{count, plural, =1{1 late task} other{{count} late tasks}}",
+  "newMessagesCount": "{count} new"
 }

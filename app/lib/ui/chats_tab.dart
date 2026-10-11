@@ -135,7 +135,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                             ],
                           )
                         : ListView(
-                            padding: const EdgeInsets.only(bottom: 96),
+                            padding: const EdgeInsets.fromLTRB(4, 4, 4, 96),
                             children: [
                               for (final n in shownNotes.take(3))
                                 _AnnouncementRow(
@@ -309,18 +309,20 @@ class _ChatRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         child: Row(
           children: [
             if (chat.isProject)
               ProjectAvatar(
                 name: chat.title,
                 hex: chat.projectColor ?? '#0F6E6A',
+                size: 52,
               )
             else
-              Avatar(name: chat.title, radius: 24),
-            const SizedBox(width: 12),
+              Avatar(name: chat.title, radius: 26),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,11 +371,7 @@ class _ChatRow extends StatelessWidget {
                       ),
                       if (unread) ...[
                         const SizedBox(width: 8),
-                        Badge(
-                          label: Text('${chat.unread}'),
-                          backgroundColor: theme.colorScheme.primary,
-                          textColor: theme.colorScheme.onPrimary,
-                        ),
+                        CountPill(count: chat.unread),
                       ],
                     ],
                   ),
@@ -445,61 +443,74 @@ class _AnnouncementRow extends StatelessWidget {
       note.projectColor ?? '#C2660A',
       brightness,
     );
-    return Material(
-      color: color.withValues(alpha: 0.10),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: color,
-                foregroundColor: brightness == Brightness.dark
-                    ? const Color(0xFF0F1419)
-                    : Colors.white,
-                child: const Icon(Icons.campaign_outlined),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            note.projectName == null
-                                ? l.announcementForAll
-                                : l.announcementFor(note.projectName!),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
+      child: Material(
+        color: color.withValues(
+          alpha: brightness == Brightness.dark ? 0.16 : 0.10,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: Icon(
+                    Icons.campaign_outlined,
+                    color: brightness == Brightness.dark
+                        ? Colors.black
+                        : Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              note.projectName == null
+                                  ? l.announcementForAll
+                                  : l.announcementFor(note.projectName!),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          listTime(context, note.createdAt),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          Text(
+                            listTime(context, note.createdAt),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      note.body,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                        ],
                       ),
-                    ),
-                  ],
+                      Text(
+                        note.body,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

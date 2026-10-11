@@ -299,5 +299,38 @@ select pg_temp.fails($$
   end $do$ $$,
   'too_many_requests', 'editing a task is rate limited');
 
+-- 12. Project progress counts the tasks each person may see.
+create function pg_temp.by_rule() returns table (total bigint, done bigint, late bigint)
+language sql security definer as $$
+  select count(*), count(*) filter (where status = 'done'),
+         count(*) filter (where status <> 'done' and due_at < now())
+  from public.tasks t
+  where t.project_id = pg_temp.v('p') and t.deleted_at is null and public.can_see_task(t.id) $$;
+select pg_temp.as_server();
+update public.tasks set due_at = now() - interval '1 day'
+where id = (select id from public.tasks where project_id = pg_temp.v('p')
+              and status <> 'done' and deleted_at is null limit 1);
+do $$
+declare
+  got record;
+  want record;
+begin
+  for n in 601..605 loop
+    perform pg_temp.login(n);
+    select coalesce(sum(c.total), 0) as total, coalesce(sum(c.done), 0) as done,
+           coalesce(sum(c.late), 0) as late
+      into got from public.project_task_counts(pg_temp.v('ws')) c;
+    select * into want from pg_temp.by_rule();
+    perform pg_temp.check(got.total = want.total and got.done = want.done and got.late = want.late,
+      format('user %s sees progress over their own tasks (%s/%s, %s late)', n, got.done, got.total, got.late));
+  end loop;
+end $$;
+select pg_temp.login(601);
+select pg_temp.check((select total > 0 and late = 1 from public.project_task_counts(pg_temp.v('ws'))),
+  'the owner sees every task and the late one');
+select pg_temp.login(605);
+select pg_temp.check(not exists (select 1 from public.project_task_counts(pg_temp.v('ws'))),
+  'someone outside the project gets no counts for it');
+
 reset role;
 select 'all task review tests passed';
