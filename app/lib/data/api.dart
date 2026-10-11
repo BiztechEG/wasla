@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'billing_models.dart';
 import 'chat_models.dart';
 import 'models.dart';
+import 'picker.dart';
 import 'task_models.dart';
 
 /// Everything the app asks of the backend. Screens only talk to this, so
@@ -209,6 +210,13 @@ abstract class WaslaApi {
   /// Fires when a notification arrives for the signed-in user, and when
   /// some may have been missed.
   Stream<void> notificationEvents();
+
+  /// Wasla's logo set from the admin dashboard, or null for the built-in one.
+  Future<String?> logoUrl();
+
+  /// Uploads [file] as the logo, or puts back the built-in one when null.
+  /// Platform admins only.
+  Future<void> setLogo(Upload? file);
 
   // Subscriptions: company owners see and ask; platform admins invoice.
 
@@ -1082,6 +1090,53 @@ class SupabaseWaslaApi implements WaslaApi {
   // Subscriptions
 
   Json _object(Object? data) => Json.from(data as Map);
+
+  @override
+  Future<String?> logoUrl() async {
+    final data = _object(await _client.rpc('public_branding'));
+    final path = data['logo_path'] as String?;
+    if (path == null) return null;
+    return _client.storage.from('branding').getPublicUrl(path);
+  }
+
+  @override
+  Future<void> setLogo(Upload? file) async {
+    String? path;
+    if (file != null) {
+      final ext = logoExtension(file.mime);
+      if (ext == null) throw const UnsupportedLogo();
+      if (file.bytes.length > maxLogoBytes) throw const FileTooLarge();
+      final id = List.generate(
+        16,
+        (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+      ).join();
+      path = 'logo/$id.$ext';
+      await _client.storage
+          .from('branding')
+          .uploadBinary(
+            path,
+            file.bytes,
+            fileOptions: FileOptions(contentType: file.mime),
+          );
+    }
+    final String? old;
+    try {
+      old = await _client.rpc('set_logo', params: {'p_path': path}) as String?;
+    } catch (_) {
+      if (path != null) {
+        await _client.storage
+            .from('branding')
+            .remove([path])
+            .catchError((_) => <FileObject>[]);
+      }
+      rethrow;
+    }
+    if (old != null) {
+      try {
+        await _client.storage.from('branding').remove([old]);
+      } catch (_) {}
+    }
+  }
 
   @override
   Future<bool> isPlatformAdmin() async =>

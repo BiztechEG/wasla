@@ -5,6 +5,7 @@ import 'package:wasla/data/api.dart';
 import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/data/picker.dart';
 import 'package:wasla/data/task_models.dart';
 
 /// In-memory backend for widget tests. Only what the tests touch is real.
@@ -1039,6 +1040,21 @@ class FakeApi implements WaslaApi {
 
   @override
   Future<bool> isPlatformAdmin() async => platformAdmin;
+
+  /// The uploaded logo's name, standing in for its address.
+  String? logo;
+
+  @override
+  Future<String?> logoUrl() async => logo;
+
+  @override
+  Future<void> setLogo(Upload? file) async {
+    if (!platformAdmin) throw Exception('not_allowed');
+    if (file != null && logoExtension(file.mime) == null) {
+      throw const UnsupportedLogo();
+    }
+    logo = file?.name;
+  }
 
   @override
   Future<BillingOverview> billing(String companyId) async =>

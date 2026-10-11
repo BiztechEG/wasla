@@ -1083,5 +1083,12 @@
   "errorInvoiceChanged": "هذه الفاتورة دُفعت أو أُلغيت بالفعل",
   "errorInvalidDate": "اختر تاريخاً في المستقبل",
   "errorInvalidInvoice": "تحقق من مساحات الفاتورة ومدتها والخصم",
-  "specialPrice": "سعر خاص ($)"
+  "specialPrice": "سعر خاص ($)",
+  "logoTitle": "شعار التطبيق",
+  "logoHint": "يظهر في شاشة الدخول وعلى الموقع. صورة PNG أو JPG أو WebP حتى 2 ميجابايت.",
+  "changeLogo": "تغيير الشعار",
+  "resetLogo": "استخدام الشعار الأصلي",
+  "logoSaved": "تم حفظ الشعار",
+  "logoUnsupported": "اختر صورة PNG أو JPG أو WebP",
+  "logoTooLarge": "يجب ألا يتجاوز حجم الشعار 2 ميجابايت"
 }

@@ -157,12 +157,12 @@ select pg_temp.check(
   'profile email follows the account');
 
 -- 11. Guards: nothing in public is open to anonymous callers, except the
--- website's price list.
+-- website's price list and where the logo is.
 select pg_temp.check(
   not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
               where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')
-                and p.proname <> 'public_plans'),
-  'anon cannot execute any public function but the price list');
+                and p.proname not in ('public_plans', 'public_branding')),
+  'anon cannot execute any public function but the price list and logo');
 select pg_temp.check(
   not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
               where n.nspname = 'public' and c.relkind in ('r', 'v', 'm')

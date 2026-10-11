@@ -51,7 +51,8 @@ class FakePicker implements Picker {
   final Upload file;
 
   @override
-  Future<Upload?> pickImage({required bool camera}) async => file;
+  Future<Upload?> pickImage({required bool camera, int maxSide = 2048}) async =>
+      file;
 
   @override
   Future<Upload?> pickFile() async => file;

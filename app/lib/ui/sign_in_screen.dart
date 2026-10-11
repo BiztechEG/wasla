@@ -74,7 +74,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _Logo(),
+                    const Center(child: BrandLogo()),
                     const SizedBox(height: 16),
                     Text(
                       l.appName,
@@ -162,26 +162,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Logo extends StatelessWidget {
-  const _Logo();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          color: scheme.primary,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Icon(Icons.forum_outlined, color: scheme.onPrimary, size: 36),
       ),
     );
   }

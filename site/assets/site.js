@@ -126,6 +126,32 @@
       .catch(function () {});
   }
 
+  // The logo set from the admin dashboard replaces the built-in one.
+  function loadLogo() {
+    if (!window.fetch) return;
+    fetch(SUPABASE_URL + '/rest/v1/rpc/public_branding', {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: '{}'
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (b) {
+        if (!b || typeof b.logo_path !== 'string') return;
+        var url = SUPABASE_URL + '/storage/v1/object/public/branding/' + b.logo_path;
+        var img = new Image();
+        img.onload = function () {
+          document.querySelectorAll('.logo img').forEach(function (i) { i.src = url; });
+          var icon = document.querySelector('link[rel="icon"]');
+          if (icon) icon.href = url;
+        };
+        img.src = url;
+      })
+      .catch(function () {});
+  }
+
   function loadVersion() {
     if (!window.fetch) return;
     fetch(root + 'download/version.json', { cache: 'no-cache' })
@@ -148,5 +174,6 @@
   var year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();
   loadPlans();
+  loadLogo();
   loadVersion();
 })();

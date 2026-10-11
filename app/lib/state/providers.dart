@@ -8,6 +8,11 @@ final apiProvider = Provider<WaslaApi>(
   (ref) => throw UnimplementedError('apiProvider must be overridden'),
 );
 
+/// Wasla's logo from the admin dashboard; null shows the built-in one.
+final logoUrlProvider = FutureProvider<String?>(
+  (ref) => ref.watch(apiProvider).logoUrl(),
+);
+
 /// The signed-in user's id, or null when signed out.
 final authProvider = StreamProvider<String?>(
   (ref) => ref.watch(apiProvider).userIdChanges().distinct(),

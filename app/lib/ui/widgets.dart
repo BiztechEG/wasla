@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/models.dart';
 import '../l10n/app_localizations.dart';
+import '../state/providers.dart';
 import '../theme.dart';
 
 extension L10nContext on BuildContext {
@@ -342,6 +343,60 @@ class ErrorView extends StatelessWidget {
             OutlinedButton(onPressed: onRetry, child: Text(l.retry)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Wasla's logo: the one set from the admin dashboard, or the built-in mark
+/// while it loads, when none is set or when it cannot be fetched.
+class BrandLogo extends ConsumerWidget {
+  const BrandLogo({super.key, this.size = 72});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final url = ref.watch(logoUrlProvider).value;
+    final radius = BorderRadius.circular(size * 0.28);
+    final fallback = BuiltInLogo(size: size);
+    if (url == null) return fallback;
+    return ClipRRect(
+      borderRadius: radius,
+      child: Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        semanticLabel: context.l10n.appName,
+        frameBuilder: (_, child, frame, sync) =>
+            frame == null && !sync ? fallback : child,
+        errorBuilder: (_, _, _) => fallback,
+      ),
+    );
+  }
+}
+
+/// The mark that ships with the app.
+class BuiltInLogo extends StatelessWidget {
+  const BuiltInLogo({super.key, this.size = 72});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(size * 0.28),
+      ),
+      child: Icon(
+        Icons.forum_outlined,
+        color: scheme.onPrimary,
+        size: size / 2,
       ),
     );
   }
