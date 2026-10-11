@@ -10,17 +10,12 @@ class FirebasePush implements PushMessaging {
   FirebasePush._();
 
   /// Null on the web and on iOS (until the Apple developer account exists),
-  /// or while Firebase's settings aren't filled in; the app then runs
-  /// without phone notifications.
+  /// or when Firebase can't start; the app then runs without phone
+  /// notifications.
   static Future<FirebasePush?> start() async {
-    const options = androidFirebaseOptions;
-    if (kIsWeb ||
-        defaultTargetPlatform != TargetPlatform.android ||
-        options == null) {
-      return null;
-    }
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
     try {
-      await Firebase.initializeApp(options: options);
+      await Firebase.initializeApp(options: androidFirebaseOptions);
       return FirebasePush._();
     } catch (e) {
       debugPrint('phone notifications are off: $e');
