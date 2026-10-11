@@ -56,6 +56,16 @@ final myTasksProvider = FutureProvider.autoDispose<List<TaskItem>>((ref) async {
   return api.myTasks();
 });
 
+/// Task counts for the cards on the projects tab, kept up to date as tasks
+/// change.
+final projectProgressProvider = FutureProvider.autoDispose
+    .family<Map<String, ProjectProgress>, String>((ref, workspaceId) async {
+      final api = ref.watch(apiProvider);
+      refreshOn(ref, taskEventsProvider(workspaceId), ref.invalidateSelf);
+      if (await ref.watch(authProvider.future) == null) return const {};
+      return api.projectProgress(workspaceId);
+    });
+
 typedef ProjectKey = ({String workspaceId, String projectId});
 
 /// Live task changes only reach those who still see the task, so one taken

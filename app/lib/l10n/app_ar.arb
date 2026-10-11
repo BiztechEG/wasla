@@ -1090,5 +1090,33 @@
   "resetLogo": "استخدام الشعار الأصلي",
   "logoSaved": "تم حفظ الشعار",
   "logoUnsupported": "اختر صورة PNG أو JPG أو WebP",
-  "logoTooLarge": "يجب ألا يتجاوز حجم الشعار 2 ميجابايت"
+  "logoTooLarge": "يجب ألا يتجاوز حجم الشعار 2 ميجابايت",
+  "tasksDoneOf": "{done} من {total} {total, plural, =1{مهمة منتهية} =2{مهمتين منتهيتين} few{مهام منتهية} other{مهمة منتهية}}",
+  "@tasksDoneOf": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "noTasksYet": "لا توجد مهام بعد",
+  "lateTasks": "{count, plural, =1{مهمة متأخرة} =2{مهمتان متأخرتان} few{{count} مهام متأخرة} many{{count} مهمة متأخرة} other{{count} مهمة متأخرة}}",
+  "@lateTasks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newMessagesCount": "{count, plural, =1{رسالة جديدة} =2{رسالتان جديدتان} few{{count} جديدة} many{{count} جديدة} other{{count} جديدة}}",
+  "@newMessagesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

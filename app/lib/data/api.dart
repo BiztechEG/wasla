@@ -66,6 +66,9 @@ abstract class WaslaApi {
   Future<void> decideJoinRequest(String requestId, {required bool accept});
 
   Future<List<Project>> projects(String workspaceId);
+
+  /// Task counts per project id, for projects with tasks one may see.
+  Future<Map<String, ProjectProgress>> projectProgress(String workspaceId);
   Future<String> createProject(
     String workspaceId, {
     required String name,
@@ -514,6 +517,20 @@ class SupabaseWaslaApi implements WaslaApi {
         .eq('workspace_id', workspaceId)
         .order('created_at');
     return _rows(data).map(Project.fromJson).toList();
+  }
+
+  @override
+  Future<Map<String, ProjectProgress>> projectProgress(
+    String workspaceId,
+  ) async {
+    final data = await _client.rpc(
+      'project_task_counts',
+      params: {'p_workspace': workspaceId},
+    );
+    return {
+      for (final row in _rows(data))
+        row['project_id'] as String: ProjectProgress.fromJson(row),
+    };
   }
 
   @override

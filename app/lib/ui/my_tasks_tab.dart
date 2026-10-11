@@ -5,7 +5,9 @@ import '../data/models.dart';
 import '../data/task_models.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
+import '../theme.dart';
 import 'followup_screen.dart';
+import 'task_format.dart';
 import 'task_editor.dart';
 import 'task_list.dart';
 import 'task_screen.dart';
@@ -146,15 +148,18 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
                           ],
                         )
                       : ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                          children: taskGroups(
-                            context,
-                            shown,
-                            onTap: (TaskItem t) =>
-                                openTask(context, t.workspaceId, t.id),
-                            showAssignees: _created,
-                            currentWorkspaceId: ws,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                          children: [
+                            if (!_created) _Summary(tasks: shown),
+                            ...taskGroups(
+                              context,
+                              shown,
+                              onTap: (TaskItem t) =>
+                                  openTask(context, t.workspaceId, t.id),
+                              showAssignees: _created,
+                              currentWorkspaceId: ws,
+                            ),
+                          ],
                         ),
                 );
               },
@@ -162,6 +167,39 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// What needs doing soon: late, due today and due this week.
+class _Summary extends StatelessWidget {
+  const _Summary({required this.tasks});
+
+  final List<TaskItem> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    int count(DueGroup g) => tasks.where((t) => dueGroup(t, now) == g).length;
+    return StatRow(
+      tiles: [
+        StatTile(
+          label: groupLabel(l, DueGroup.late),
+          value: count(DueGroup.late),
+          color: lateColor(context),
+        ),
+        StatTile(
+          label: groupLabel(l, DueGroup.today),
+          value: count(DueGroup.today),
+          color: WaslaColors.project('#C2660A', theme.brightness),
+        ),
+        StatTile(
+          label: groupLabel(l, DueGroup.week),
+          value: count(DueGroup.week),
+        ),
+      ],
     );
   }
 }

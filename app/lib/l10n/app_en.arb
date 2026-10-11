@@ -908,5 +908,9 @@
   "resetLogo": "Use the original logo",
   "logoSaved": "Logo saved",
   "logoUnsupported": "Choose a PNG, JPG or WebP image",
-  "logoTooLarge": "The logo must be 2 MB or less"
+  "logoTooLarge": "The logo must be 2 MB or less",
+  "tasksDoneOf": "{done} of {total} {total, plural, =1{task} other{tasks}} done",
+  "noTasksYet": "No tasks yet",
+  "lateTasks": "{count, plural, =1{1 late task} other{{count} late tasks}}",
+  "newMessagesCount": "{count} new"
 }

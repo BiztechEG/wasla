@@ -235,17 +235,17 @@ class ProjectAvatar extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(size / 4),
+        color: color.withValues(
+          alpha: brightness == Brightness.dark ? 0.22 : 0.16,
+        ),
+        borderRadius: BorderRadius.circular(size / 3),
       ),
       child: Text(
         initials(name),
         style: TextStyle(
-          color: brightness == Brightness.dark
-              ? const Color(0xFF0F1419)
-              : Colors.white,
+          color: WaslaColors.onTint(color, brightness),
           fontWeight: FontWeight.w700,
-          fontSize: size * 0.34,
+          fontSize: size * 0.38,
         ),
       ),
     );

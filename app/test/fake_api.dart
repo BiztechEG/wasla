@@ -93,6 +93,14 @@ class FakeApi implements WaslaApi {
   Future<List<Project>> projects(String workspaceId) async =>
       List.of(projectsByWorkspace[workspaceId] ?? const []);
 
+  /// Task counts by project id, as the server would count them.
+  final progress = <String, ProjectProgress>{};
+
+  @override
+  Future<Map<String, ProjectProgress>> projectProgress(
+    String workspaceId,
+  ) async => Map.of(progress);
+
   @override
   Future<String> createProject(
     String workspaceId, {

@@ -526,6 +526,37 @@ class Avatar extends StatelessWidget {
   }
 }
 
+/// How many unread items, in an accent pill.
+class CountPill extends StatelessWidget {
+  const CountPill({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22),
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: TextStyle(
+          color: scheme.onPrimary,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
 class ColorDot extends StatelessWidget {
   const ColorDot({super.key, required this.hex, this.size = 12});
 

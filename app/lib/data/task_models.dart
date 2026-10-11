@@ -456,3 +456,20 @@ Map<DueGroup, List<TaskItem>> groupByDue(List<TaskItem> tasks, DateTime now) {
   groups.removeWhere((_, list) => list.isEmpty);
   return groups;
 }
+
+/// How far along a project is, over the tasks one may see in it.
+class ProjectProgress {
+  const ProjectProgress({this.total = 0, this.done = 0, this.late = 0});
+
+  final int total;
+  final int done;
+  final int late;
+
+  double get fraction => total == 0 ? 0 : done / total;
+
+  factory ProjectProgress.fromJson(Json json) => ProjectProgress(
+    total: json['total'] as int? ?? 0,
+    done: json['done'] as int? ?? 0,
+    late: json['late'] as int? ?? 0,
+  );
+}

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
+import '../data/task_models.dart';
+import '../state/chat_providers.dart';
 import '../state/providers.dart';
+import '../state/task_providers.dart';
 import '../theme.dart';
+import 'chat_screen.dart';
 import 'project_screen.dart';
 import 'widgets.dart';
 
@@ -41,25 +45,29 @@ class _ProjectsTabState extends ConsumerState<ProjectsTab> {
           : null,
       body: Column(
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: [
-                for (final (status, label) in [
-                  (ProjectStatus.active, l.filterActive),
-                  (ProjectStatus.archived, l.filterArchived),
-                  (ProjectStatus.closed, l.filterClosed),
-                ])
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 8),
-                    child: ChoiceChip(
-                      label: Text(label),
-                      selected: _filter == status,
-                      onSelected: (_) => setState(() => _filter = status),
-                    ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ProjectStatus>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: ProjectStatus.active,
+                    label: Text(l.filterActive),
                   ),
-              ],
+                  ButtonSegment(
+                    value: ProjectStatus.archived,
+                    label: Text(l.filterArchived),
+                  ),
+                  ButtonSegment(
+                    value: ProjectStatus.closed,
+                    label: Text(l.filterClosed),
+                  ),
+                ],
+                selected: {_filter},
+                onSelectionChanged: (s) => setState(() => _filter = s.first),
+              ),
             ),
           ),
           Expanded(
@@ -69,7 +77,10 @@ class _ProjectsTabState extends ConsumerState<ProjectsTab> {
               builder: (all) {
                 final shown = all.where((p) => p.status == _filter).toList();
                 return RefreshIndicator(
-                  onRefresh: () => ref.refresh(projectsProvider(ws).future),
+                  onRefresh: () {
+                    ref.invalidate(projectProgressProvider(ws));
+                    return ref.refresh(projectsProvider(ws).future);
+                  },
                   child: shown.isEmpty
                       ? ListView(
                           children: [
@@ -103,16 +114,32 @@ class _ProjectsTabState extends ConsumerState<ProjectsTab> {
   }
 }
 
-class _ProjectCard extends StatelessWidget {
+class _ProjectCard extends ConsumerWidget {
   const _ProjectCard({required this.project});
 
   final Project project;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final color = WaslaColors.project(project.color, theme.brightness);
+    final progress =
+        ref
+            .watch(projectProgressProvider(project.workspaceId))
+            .value?[project.id] ??
+        const ProjectProgress();
+    final unread =
+        (ref.watch(conversationsProvider(project.workspaceId)).value ??
+                const [])
+            .where((c) => c.isProject && c.projectId == project.id)
+            .fold(0, (sum, c) => sum + c.unread);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontSize: 13,
+    );
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -121,53 +148,132 @@ class _ProjectCard extends StatelessWidget {
             builder: (_) => ProjectScreen(project: project),
           ),
         ),
-        child: IntrinsicHeight(
-          child: Row(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(width: 5, color: color),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: color.withValues(alpha: 0.14),
-                        child: Icon(Icons.folder_outlined, color: color),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              project.name,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              l.memberCount(project.memberCount),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ],
+              Row(
+                children: [
+                  ProjectAvatar(
+                    name: project.name,
+                    hex: project.color,
+                    size: 46,
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          project.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 17,
+                          ),
+                        ),
+                        Text(l.memberCount(project.memberCount), style: muted),
+                      ],
+                    ),
+                  ),
+                  if (unread > 0)
+                    _Pill(
+                      icon: Icons.chat_bubble_outline,
+                      text: l.newMessagesCount(unread),
+                      color: scheme.primary,
+                      background: scheme.primaryContainer,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      progress.total == 0
+                          ? l.noTasksYet
+                          : l.tasksDoneOf(progress.done, progress.total),
+                      style: muted,
+                    ),
+                  ),
+                  if (progress.total > 0)
+                    Text(
+                      '${(progress.fraction * 100).round()}%',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: progress.fraction,
+                  minHeight: 6,
+                  color: color,
+                  backgroundColor: scheme.surfaceContainerHighest,
                 ),
               ),
+              if (progress.late > 0) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: _Pill(
+                    text: l.lateTasks(progress.late),
+                    color: scheme.error,
+                    background: scheme.errorContainer,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A small rounded label on a project card.
+class _Pill extends StatelessWidget {
+  const _Pill({
+    this.icon,
+    required this.text,
+    required this.color,
+    required this.background,
+  });
+
+  final IconData? icon;
+  final String text;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -273,7 +379,7 @@ class _NewProjectSheetState extends ConsumerState<NewProjectSheet> {
                               ? Icon(
                                   Icons.check,
                                   color: theme.brightness == Brightness.dark
-                                      ? const Color(0xFF0F1419)
+                                      ? Colors.black
                                       : Colors.white,
                                 )
                               : null,

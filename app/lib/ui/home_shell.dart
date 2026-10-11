@@ -61,77 +61,186 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         .where((t) => t.isAssignedTo(me) && t.isLate(now))
         .length;
 
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final titles = [l.tabChats, l.tabProjects, l.tabMyTasks, l.tabMore];
+
     return Scaffold(
-      appBar: AppBar(
-        title: _WorkspaceTitle(membership: membership),
-        actions: [
-          IconButton(
-            tooltip: l.notificationsTitle,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const NotificationsScreen(),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 0),
+              child: Row(
+                children: [
+                  Flexible(child: _WorkspaceTitle(membership: membership)),
+                  const Spacer(),
+                  _BellButton(count: notes),
+                ],
               ),
             ),
-            icon: Badge(
-              isLabelVisible: notes > 0,
-              label: Text('$notes'),
-              child: const Icon(Icons.notifications_none),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 6),
+              child: Semantics(
+                header: true,
+                child: ExcludeSemantics(
+                  // The nav bar already reads out the tab's name.
+                  child: Text(
+                    titles[_tab],
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 28,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: IndexedStack(
+                index: _tab,
+                children: [
+                  ChatsTab(
+                    key: ValueKey(membership.workspaceId),
+                    membership: membership,
+                  ),
+                  ProjectsTab(membership: membership),
+                  MyTasksTab(membership: membership),
+                  MoreTab(membership: membership),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          ChatsTab(
-            key: ValueKey(membership.workspaceId),
-            membership: membership,
+      // A rounded bar that floats a little above the bottom edge.
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              border: dark
+                  ? Border.all(color: theme.colorScheme.outlineVariant)
+                  : null,
+              boxShadow: dark
+                  ? null
+                  : const [
+                      BoxShadow(
+                        color: Color(0x1F0A1E1C),
+                        blurRadius: 28,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: MediaQuery.removePadding(
+                context: context,
+                removeBottom: true,
+                child: NavigationBar(
+                  selectedIndex: _tab,
+                  onDestinationSelected: (i) => setState(() => _tab = i),
+                  destinations: [
+                    NavigationDestination(
+                      icon: _Count(
+                        count: unread,
+                        child: const Icon(Icons.forum_outlined),
+                      ),
+                      selectedIcon: _Count(
+                        count: unread,
+                        child: const Icon(Icons.forum),
+                      ),
+                      label: l.tabChats,
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.folder_outlined),
+                      selectedIcon: const Icon(Icons.folder),
+                      label: l.tabProjects,
+                    ),
+                    NavigationDestination(
+                      icon: _Count(
+                        count: late,
+                        child: const Icon(Icons.task_alt_outlined),
+                      ),
+                      selectedIcon: _Count(
+                        count: late,
+                        child: const Icon(Icons.task_alt),
+                      ),
+                      label: l.tabMyTasks,
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.grid_view_outlined),
+                      selectedIcon: const Icon(Icons.grid_view_rounded),
+                      label: l.tabMore,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          ProjectsTab(membership: membership),
-          MyTasksTab(membership: membership),
-          MoreTab(membership: membership),
-        ],
+        ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: [
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: unread > 0,
-              label: Text('$unread'),
-              child: const Icon(Icons.forum_outlined),
+    );
+  }
+}
+
+/// A red count on a nav icon.
+class _Count extends StatelessWidget {
+  const _Count({required this.count, required this.child});
+
+  final int count;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Badge(
+      isLabelVisible: count > 0,
+      backgroundColor: scheme.error,
+      textColor: scheme.onError,
+      label: Text('$count'),
+      child: child,
+    );
+  }
+}
+
+/// The notifications bell in a soft square, with a dot when there are
+/// unread notifications.
+class _BellButton extends StatelessWidget {
+  const _BellButton({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+        ),
+        child: Tooltip(
+          message: l.notificationsTitle,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: Badge(
+                isLabelVisible: count > 0,
+                backgroundColor: scheme.error,
+                textColor: scheme.onError,
+                label: Text('$count'),
+                child: const Icon(Icons.notifications_none, size: 24),
+              ),
             ),
-            selectedIcon: Badge(
-              isLabelVisible: unread > 0,
-              label: Text('$unread'),
-              child: const Icon(Icons.forum),
-            ),
-            label: l.tabChats,
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.folder_outlined),
-            selectedIcon: const Icon(Icons.folder),
-            label: l.tabProjects,
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: late > 0,
-              label: Text('$late'),
-              child: const Icon(Icons.task_alt_outlined),
-            ),
-            selectedIcon: Badge(
-              isLabelVisible: late > 0,
-              label: Text('$late'),
-              child: const Icon(Icons.task_alt),
-            ),
-            label: l.tabMyTasks,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.more_horiz),
-            label: l.tabMore,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -145,27 +254,55 @@ class _WorkspaceTitle extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        builder: (_) => const _WorkspaceSwitcher(),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                membership.workspaceName,
-                overflow: TextOverflow.ellipsis,
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final name = membership.workspaceName.trim();
+    return Material(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => const _WorkspaceSwitcher(),
+        ),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(6, 6, 8, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  name.isEmpty ? '?' : name.characters.first,
+                  style: TextStyle(
+                    color: scheme.onPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.expand_more, size: 22),
-          ],
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  membership.workspaceName,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.expand_more, size: 18, color: scheme.onSurfaceVariant),
+            ],
+          ),
         ),
       ),
     );
