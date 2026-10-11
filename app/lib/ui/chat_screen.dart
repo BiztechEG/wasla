@@ -90,6 +90,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
+        backgroundColor: theme.colorScheme.surface,
+        shape: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
         title: InkWell(
           onTap: project == null
               ? null
@@ -107,10 +111,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ProjectAvatar(
                   name: target.title,
                   hex: target.projectColor ?? '#0F6E6A',
-                  size: 38,
+                  size: 42,
                 )
               else
-                Avatar(name: target.title, radius: 19),
+                Avatar(name: target.title, radius: 21),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -749,10 +753,10 @@ class _DayLine extends StatelessWidget {
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           dayLabel(context, day),
@@ -768,8 +772,47 @@ class _DayLine extends StatelessWidget {
 Color _bubbleColor(BuildContext context, bool mine) {
   final dark = Theme.of(context).brightness == Brightness.dark;
   if (!mine) return Theme.of(context).colorScheme.surface;
-  return dark ? const Color(0xFF17403E) : const Color(0xFFDCEFEC);
+  return dark ? const Color(0xFF145550) : WaslaColors.accent;
 }
+
+/// Rounded, with a small corner on the side the bubble hangs from.
+BorderRadiusDirectional _bubbleShape(bool mine) => BorderRadiusDirectional.only(
+  topStart: const Radius.circular(18),
+  topEnd: const Radius.circular(18),
+  bottomStart: Radius.circular(mine ? 18 : 6),
+  bottomEnd: Radius.circular(mine ? 6 : 18),
+);
+
+/// My messages sit on solid teal, so what is inside them reads in light
+/// colors.
+ThemeData _bubbleTheme(BuildContext context, bool mine) {
+  final theme = Theme.of(context);
+  if (!mine) return theme;
+  final dark = theme.brightness == Brightness.dark;
+  final fg = dark ? const Color(0xFFEAF6F4) : Colors.white;
+  return theme.copyWith(
+    colorScheme: theme.colorScheme.copyWith(
+      onSurface: fg,
+      onSurfaceVariant: fg.withValues(alpha: 0.78),
+      primary: dark ? const Color(0xFF8FE3DA) : const Color(0xFFB5ECE5),
+      error: const Color(0xFFFFC9B8),
+    ),
+    textTheme: theme.textTheme.apply(bodyColor: fg, displayColor: fg),
+    iconTheme: theme.iconTheme.copyWith(color: fg),
+  );
+}
+
+/// The inside of a bubble, in the bubble's colors.
+Widget _inBubble(ThemeData theme, Widget child) => Theme(
+  data: theme,
+  child: DefaultTextStyle.merge(
+    style: TextStyle(color: theme.colorScheme.onSurface),
+    child: IconTheme.merge(
+      data: IconThemeData(color: theme.colorScheme.onSurface),
+      child: child,
+    ),
+  ),
+);
 
 class _Bubble extends ConsumerWidget {
   const _Bubble({
@@ -791,7 +834,7 @@ class _Bubble extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final theme = Theme.of(context);
+    final theme = _bubbleTheme(context, mine);
     final muted = theme.colorScheme.onSurfaceVariant;
     final m = message;
     final file = m.file;
@@ -853,7 +896,9 @@ class _Bubble extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: theme.scaffoldBackgroundColor.withValues(alpha: 0.7),
+                color: mine
+                    ? Colors.white.withValues(alpha: 0.14)
+                    : theme.scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: FileRow(file: file, detail: fileSize(l, file.size)),
@@ -862,7 +907,10 @@ class _Bubble extends ConsumerWidget {
         if (m.body != null && m.body!.isNotEmpty)
           Padding(
             padding: EdgeInsets.only(top: file != null ? 6 : 0),
-            child: Text(m.body!, style: theme.textTheme.bodyLarge),
+            child: Text(
+              m.body!,
+              style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
+            ),
           ),
       ],
       const SizedBox(height: 4),
@@ -899,16 +947,21 @@ class _Bubble extends ConsumerWidget {
           constraints: BoxConstraints(maxWidth: maxWidth),
           child: Material(
             color: _bubbleColor(context, mine),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: _bubbleShape(mine),
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              customBorder: RoundedRectangleBorder(
+                borderRadius: _bubbleShape(mine),
+              ),
               onLongPress: onLongPress,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: content,
+                child: _inBubble(
+                  theme,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: content,
+                  ),
                 ),
               ),
             ),
@@ -1003,7 +1056,7 @@ class _PendingBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final theme = Theme.of(context);
+    final theme = _bubbleTheme(context, true);
     final muted = theme.colorScheme.onSurfaceVariant;
     final file = message.file;
     return Align(
@@ -1016,65 +1069,72 @@ class _PendingBubble extends StatelessWidget {
           ),
           child: Material(
             color: _bubbleColor(context, true),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: _bubbleShape(true),
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              customBorder: RoundedRectangleBorder(
+                borderRadius: _bubbleShape(true),
+              ),
               onTap: message.failed ? onRetry : null,
               onLongPress: message.failed ? onDiscard : null,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (file != null)
+                child: _inBubble(
+                  theme,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (file != null)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            FileBadge(name: file.name, size: 32),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                file.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      if (message.body != null)
+                        Text(message.body!, style: theme.textTheme.bodyLarge),
+                      const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          FileBadge(name: file.name, size: 32),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              file.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          if (message.failed)
+                            Flexible(
+                              child: Text(
+                                l.sendFailed,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                            )
+                          else
+                            Text(
+                              l.sending,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: muted,
+                              ),
                             ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            message.failed
+                                ? Icons.error_outline
+                                : Icons.schedule,
+                            size: 16,
+                            color: message.failed
+                                ? theme.colorScheme.error
+                                : muted,
                           ),
                         ],
                       ),
-                    if (message.body != null)
-                      Text(message.body!, style: theme.textTheme.bodyLarge),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (message.failed)
-                          Flexible(
-                            child: Text(
-                              l.sendFailed,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.error,
-                              ),
-                            ),
-                          )
-                        else
-                          Text(
-                            l.sending,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: muted,
-                            ),
-                          ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          message.failed ? Icons.error_outline : Icons.schedule,
-                          size: 16,
-                          color: message.failed
-                              ? theme.colorScheme.error
-                              : muted,
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1120,16 +1180,11 @@ class _Composer extends StatelessWidget {
     final canSend = controller.text.trim().isNotEmpty;
 
     return Material(
-      color: theme.appBarTheme.backgroundColor,
+      color: theme.scaffoldBackgroundColor,
       child: SafeArea(
         top: false,
         child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: theme.colorScheme.outlineVariant),
-            ),
-          ),
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1249,45 +1304,63 @@ class _Composer extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  IconButton.filledTonal(
-                    tooltip: l.attach,
-                    onPressed: onAttach,
-                    icon: const Icon(Icons.attach_file),
-                  ),
-                  const SizedBox(width: 6),
                   Expanded(
-                    child: TextField(
-                      key: const Key('messageField'),
-                      controller: controller,
-                      minLines: 1,
-                      maxLines: 5,
-                      inputFormatters: const [RuneLimit(4000)],
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: l.typeMessage,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide(
-                            color: theme.colorScheme.outlineVariant,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 50),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              key: const Key('messageField'),
+                              controller: controller,
+                              minLines: 1,
+                              maxLines: 5,
+                              inputFormatters: const [RuneLimit(4000)],
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(
+                                hintText: l.typeMessage,
+                                isDense: true,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding:
+                                    const EdgeInsetsDirectional.fromSTEB(
+                                      18,
+                                      15,
+                                      4,
+                                      15,
+                                    ),
+                              ),
+                            ),
                           ),
-                        ),
+                          Padding(
+                            padding: const EdgeInsets.all(3),
+                            child: IconButton(
+                              tooltip: l.attach,
+                              onPressed: onAttach,
+                              color: muted,
+                              icon: const Icon(Icons.attach_file),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  IconButton.filled(
-                    key: const Key('sendButton'),
-                    tooltip: l.send,
-                    onPressed: canSend ? onSend : null,
-                    icon: const Icon(Icons.send),
+                  const SizedBox(width: 8),
+                  SizedBox.square(
+                    dimension: 50,
+                    child: IconButton.filled(
+                      key: const Key('sendButton'),
+                      tooltip: l.send,
+                      onPressed: canSend ? onSend : null,
+                      icon: const Icon(Icons.send),
+                    ),
                   ),
                 ],
               ),
