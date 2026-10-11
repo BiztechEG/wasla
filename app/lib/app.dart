@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'l10n/app_localizations.dart';
+import 'push/push.dart';
 import 'state/billing_providers.dart';
 import 'state/providers.dart';
 import 'state/settings.dart';
@@ -22,6 +23,7 @@ class WaslaApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    ref.watch(pushSyncProvider);
 
     // Signing out (or the session ending) must not leave a members or
     // project screen open on top of the sign-in screen.

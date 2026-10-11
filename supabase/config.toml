@@ -1,3 +1,10 @@
 # Supabase CLI settings. Only used to link this folder to the hosted project
 # and push migrations; local Supabase is not needed for the tests.
 project_id = "wasla"
+
+# Called by the database with its own key, not by signed-in users.
+[functions.push]
+verify_jwt = false
+
+[functions.cleanup]
+verify_jwt = false

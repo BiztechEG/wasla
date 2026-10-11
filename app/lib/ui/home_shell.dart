@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
+import '../push/open_push.dart';
+import '../push/push.dart';
 import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
@@ -25,8 +27,27 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _tab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // A notification tapped before this screen was ready, then the one the
+    // app was opened from.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPending());
+    ref.read(pushMessagingProvider).openedAtStart().then((data) {
+      if (data != null) ref.read(pendingPushProvider.notifier).set(data);
+    });
+  }
+
+  void _openPending() {
+    final data = ref.read(pendingPushProvider);
+    if (data == null || !mounted) return;
+    ref.read(pendingPushProvider.notifier).set(null);
+    openFromPush(context, ref, data);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    ref.listen(pendingPushProvider, (_, _) => _openPending());
     final membership = ref.watch(currentMembershipProvider);
     if (membership == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));

@@ -199,6 +199,13 @@ abstract class WaslaApi {
   /// Marks [ids] read, or every notification when null.
   Future<void> markNotificationsRead([List<String>? ids]);
 
+  /// Tells the server this phone gets the signed-in person's notifications,
+  /// written in [locale].
+  Future<void> registerPushToken(String token, String platform, String locale);
+
+  /// This phone stops getting the signed-in person's notifications.
+  Future<void> unregisterPushToken(String token);
+
   /// Fires when a notification arrives for the signed-in user, and when
   /// some may have been missed.
   Stream<void> notificationEvents();
@@ -1044,6 +1051,20 @@ class SupabaseWaslaApi implements WaslaApi {
     if (ids != null && ids.isEmpty) return;
     await _client.rpc('mark_notifications_read', params: {'p_ids': ids});
   }
+
+  @override
+  Future<void> registerPushToken(
+    String token,
+    String platform,
+    String locale,
+  ) => _client.rpc(
+    'register_push_token',
+    params: {'p_token': token, 'p_platform': platform, 'p_locale': locale},
+  );
+
+  @override
+  Future<void> unregisterPushToken(String token) =>
+      _client.rpc('unregister_push_token', params: {'p_token': token});
 
   @override
   Stream<void> notificationEvents() => _follow<bool>(
