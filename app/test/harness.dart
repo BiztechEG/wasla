@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wasla/app.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/picker.dart';
+import 'package:wasla/push/push.dart';
 import 'package:wasla/state/chat_providers.dart';
 import 'package:wasla/state/providers.dart';
 import 'package:wasla/state/settings.dart';
@@ -17,6 +18,7 @@ Future<void> startApp(
   FakeApi api, {
   Map<String, Object> prefs = const {},
   Picker? picker,
+  PushMessaging? push,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -27,6 +29,7 @@ Future<void> startApp(
         prefsProvider.overrideWithValue(p),
         apiProvider.overrideWithValue(api),
         if (picker != null) pickerProvider.overrideWithValue(picker),
+        if (push != null) pushMessagingProvider.overrideWithValue(push),
       ],
       child: const WaslaApp(),
     ),

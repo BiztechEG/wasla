@@ -984,6 +984,20 @@ class FakeApi implements WaslaApi {
   Future<List<AppNotification>> notifications() async =>
       List.of(notificationList);
 
+  /// Phones registered for notifications: token to locale.
+  final pushTokens = <String, String>{};
+
+  @override
+  Future<void> registerPushToken(
+    String token,
+    String platform,
+    String locale,
+  ) async => pushTokens[token] = locale;
+
+  @override
+  Future<void> unregisterPushToken(String token) async =>
+      pushTokens.remove(token);
+
   @override
   Future<void> markNotificationsRead([List<String>? ids]) async {
     for (var i = 0; i < notificationList.length; i++) {

@@ -1,13 +1,16 @@
 name: Deploy database
 
 # Applies new migrations to the hosted Supabase project after they are
-# tested. Needs two repository secrets (Settings > Secrets and variables >
-# Actions): SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD.
+# tested, then deploys the Edge Functions. Needs two repository secrets
+# (Settings > Secrets and variables > Actions): SUPABASE_ACCESS_TOKEN and
+# SUPABASE_DB_PASSWORD. Phone notifications also need FIREBASE_SERVICE_ACCOUNT,
+# the service account JSON file from Firebase (Project settings > Service
+# accounts > Generate new private key), which is handed to the functions.
 
 on:
   push:
     branches: [main]
-    paths: ['supabase/migrations/**']
+    paths: ['supabase/migrations/**', 'supabase/functions/**']
   workflow_dispatch:
 
 concurrency: deploy-db
@@ -26,6 +29,7 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       PROJECT_REF: qbefpiuglhsgcgwsaocn
     steps:
       - uses: actions/checkout@v4
@@ -42,3 +46,16 @@ jobs:
       - name: Show migrations to apply
         run: supabase migration list --password "$SUPABASE_DB_PASSWORD"
       - run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+      # The database calls these itself and checks its own key, so they
+      # don't take a signed-in user's token.
+      - name: Deploy the Edge Functions
+        run: supabase functions deploy push cleanup --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+      - name: Hand Firebase's key to the functions
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::notice::Add the FIREBASE_SERVICE_ACCOUNT secret to send phone notifications."
+            exit 0
+          fi
+          compact="$(printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | jq -c .)"
+          echo "::add-mask::$compact"
+          supabase secrets set --project-ref "$PROJECT_REF" "FIREBASE_SERVICE_ACCOUNT=$compact"

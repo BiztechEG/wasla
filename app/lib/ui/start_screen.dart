@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
+import '../push/push.dart';
 import '../state/providers.dart';
 import 'create_workspace_screen.dart';
 import 'search_screen.dart';
@@ -46,7 +47,7 @@ class StartScreen extends ConsumerWidget {
                   action: l.signOut,
                   destructive: true,
                 )) {
-                  await ref.read(apiProvider).signOut();
+                  await signOut(ref);
                 }
               },
             ),

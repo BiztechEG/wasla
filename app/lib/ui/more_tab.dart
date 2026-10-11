@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import '../state/billing_providers.dart';
+import '../push/push.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
 import 'admin_screen.dart';
@@ -277,7 +278,7 @@ class MoreTab extends ConsumerWidget {
                 action: l.signOut,
                 destructive: true,
               );
-              if (yes) await ref.read(apiProvider).signOut();
+              if (yes) await signOut(ref);
             },
           ),
         ),
