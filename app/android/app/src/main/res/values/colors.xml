@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="notification_color">#0F6E6A</color>
+    <!-- The welcome screen's color, shown from the moment the app is tapped. -->
+    <color name="splash_color">#0F6E6A</color>
 </resources>

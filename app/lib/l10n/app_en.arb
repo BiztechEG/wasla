@@ -912,5 +912,7 @@
   "tasksDoneOf": "{done} of {total} {total, plural, =1{task} other{tasks}} done",
   "noTasksYet": "No tasks yet",
   "lateTasks": "{count, plural, =1{1 late task} other{{count} late tasks}}",
-  "newMessagesCount": "{count} new"
+  "newMessagesCount": "{count} new",
+  "exitAppTitle": "Close Wasla?",
+  "exitApp": "Close"
 }

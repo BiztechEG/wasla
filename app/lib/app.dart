@@ -55,6 +55,7 @@ class AppGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(welcomeShownProvider).hasValue) return const _Splash();
     final auth = ref.watch(authProvider);
     if (auth.value == null) {
       return auth.isLoading ? const _Splash() : const SignInScreen();
@@ -105,11 +106,68 @@ class AppGate extends ConsumerWidget {
   }
 }
 
+/// The welcome screen: Wasla's logo and name on the brand color. It shows
+/// for a moment when the app opens, and while the account loads.
 class _Splash extends StatelessWidget {
   const _Splash();
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final l = context.l10n;
+    return Scaffold(
+      backgroundColor: WaslaColors.accent,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const BrandLogo(size: 72),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  l.appName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l.tagline,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                const SizedBox.square(
+                  dimension: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
+
+/// Keeps the welcome screen up for a moment when the app opens, so it reads
+/// as a welcome rather than a flash.
+final welcomeShownProvider = FutureProvider<void>(
+  (ref) => Future.delayed(const Duration(milliseconds: 1400)),
+);

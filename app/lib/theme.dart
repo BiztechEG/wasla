@@ -110,7 +110,7 @@ ThemeData buildTheme(Brightness brightness) {
       indicatorColor: scheme.primaryContainer,
       indicatorShape: const StadiumBorder(),
       elevation: 0,
-      height: 68,
+      height: 64,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontFamily: _font,
@@ -184,8 +184,10 @@ ThemeData buildTheme(Brightness brightness) {
           BorderSide(color: scheme.surfaceContainerHighest, width: 4),
         ),
         backgroundColor: WidgetStateProperty.resolveWith(
+          // In dark mode the surface is darker than the frame, so the chosen
+          // segment gets a lighter grey to stand out.
           (states) => states.contains(WidgetState.selected)
-              ? scheme.surface
+              ? (dark ? const Color(0xFF3A3A3A) : scheme.surface)
               : scheme.surfaceContainerHighest,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
