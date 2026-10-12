@@ -70,6 +70,31 @@ void main() {
     expect(find.text('مشروع جديد'), findsNothing);
   });
 
+  testWidgets('back goes to the first tab, then asks before closing', (
+    tester,
+  ) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.owner),
+      );
+    await startApp(tester, api);
+
+    await tester.tap(find.text('المشاريع'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('الخروج من وصلة؟'), findsNothing);
+    expect(find.text('المحادثات'), findsNWidgets(2));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('الخروج من وصلة؟'), findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(find.text('الخروج من وصلة؟'), findsNothing);
+    expect(find.text('المحادثات'), findsNWidgets(2));
+  });
+
   testWidgets('owner creates a project', (tester) async {
     final api = FakeApi(signedInAs: 'me', name: 'Amr')
       ..memberships.add(

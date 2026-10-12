@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
@@ -62,127 +64,143 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         .length;
 
     final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
     final titles = [l.tabChats, l.tabProjects, l.tabMyTasks, l.tabMore];
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 0),
-              child: Row(
-                children: [
-                  Flexible(child: _WorkspaceTitle(membership: membership)),
-                  const Spacer(),
-                  _BellButton(count: notes),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 6),
-              child: Semantics(
-                header: true,
-                child: ExcludeSemantics(
-                  // The nav bar already reads out the tab's name.
-                  child: Text(
-                    titles[_tab],
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 28,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: IndexedStack(
-                index: _tab,
-                children: [
-                  ChatsTab(
-                    key: ValueKey(membership.workspaceId),
-                    membership: membership,
-                  ),
-                  ProjectsTab(membership: membership),
-                  MyTasksTab(membership: membership),
-                  MoreTab(membership: membership),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      // A rounded bar that floats a little above the bottom edge.
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              border: dark
-                  ? Border.all(color: theme.colorScheme.outlineVariant)
-                  : null,
-              boxShadow: dark
-                  ? null
-                  : const [
-                      BoxShadow(
-                        color: Color(0x1F0A1E1C),
-                        blurRadius: 28,
-                        offset: Offset(0, 8),
+    return PopScope(
+      // Back on the main screen goes to the first tab, then asks before
+      // closing the app. Browsers keep their own back button.
+      canPop: kIsWeb,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_tab != 0) {
+          setState(() => _tab = 0);
+        } else {
+          _confirmExit();
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 4, 0),
+                child: Row(
+                  children: [
+                    // Not Flexible plus Spacer: those split the free space
+                    // and left a gap past the bell.
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: _WorkspaceTitle(membership: membership),
                       ),
-                    ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: MediaQuery.removePadding(
-                context: context,
-                removeBottom: true,
-                child: NavigationBar(
-                  selectedIndex: _tab,
-                  onDestinationSelected: (i) => setState(() => _tab = i),
-                  destinations: [
-                    NavigationDestination(
-                      icon: _Count(
-                        count: unread,
-                        child: const Icon(Icons.forum_outlined),
-                      ),
-                      selectedIcon: _Count(
-                        count: unread,
-                        child: const Icon(Icons.forum),
-                      ),
-                      label: l.tabChats,
                     ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.folder_outlined),
-                      selectedIcon: const Icon(Icons.folder),
-                      label: l.tabProjects,
-                    ),
-                    NavigationDestination(
-                      icon: _Count(
-                        count: late,
-                        child: const Icon(Icons.task_alt_outlined),
-                      ),
-                      selectedIcon: _Count(
-                        count: late,
-                        child: const Icon(Icons.task_alt),
-                      ),
-                      label: l.tabMyTasks,
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.grid_view_outlined),
-                      selectedIcon: const Icon(Icons.grid_view_rounded),
-                      label: l.tabMore,
-                    ),
+                    _BellButton(count: notes),
                   ],
                 ),
               ),
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 6, 16, 4),
+                child: Semantics(
+                  header: true,
+                  child: ExcludeSemantics(
+                    // The nav bar already reads out the tab's name.
+                    child: Text(
+                      titles[_tab],
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 26,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: IndexedStack(
+                  index: _tab,
+                  children: [
+                    ChatsTab(
+                      key: ValueKey(membership.workspaceId),
+                      membership: membership,
+                    ),
+                    ProjectsTab(membership: membership),
+                    MyTasksTab(membership: membership),
+                    MoreTab(membership: membership),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
+          ),
+          child: NavigationBar(
+            selectedIndex: _tab,
+            onDestinationSelected: (i) => setState(() => _tab = i),
+            destinations: [
+              NavigationDestination(
+                icon: _Count(
+                  count: unread,
+                  child: const Icon(Icons.forum_outlined),
+                ),
+                selectedIcon: _Count(
+                  count: unread,
+                  child: const Icon(Icons.forum),
+                ),
+                label: l.tabChats,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.folder_outlined),
+                selectedIcon: const Icon(Icons.folder),
+                label: l.tabProjects,
+              ),
+              NavigationDestination(
+                icon: _Count(
+                  count: late,
+                  child: const Icon(Icons.task_alt_outlined),
+                ),
+                selectedIcon: _Count(
+                  count: late,
+                  child: const Icon(Icons.task_alt),
+                ),
+                label: l.tabMyTasks,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.grid_view_outlined),
+                selectedIcon: const Icon(Icons.grid_view_rounded),
+                label: l.tabMore,
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _confirmExit() async {
+    final l = context.l10n;
+    final close = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.exitAppTitle),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.exitApp),
+          ),
+        ],
+      ),
+    );
+    if (close ?? false) await SystemNavigator.pop();
   }
 }
 
@@ -206,8 +224,7 @@ class _Count extends StatelessWidget {
   }
 }
 
-/// The notifications bell in a soft square, with a dot when there are
-/// unread notifications.
+/// The notifications bell, with the unread count.
 class _BellButton extends StatelessWidget {
   const _BellButton({required this.count});
 
@@ -215,32 +232,18 @@ class _BellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = context.l10n;
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
-        ),
-        child: Tooltip(
-          message: l.notificationsTitle,
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Center(
-              child: Badge(
-                isLabelVisible: count > 0,
-                backgroundColor: scheme.error,
-                textColor: scheme.onError,
-                label: Text('$count'),
-                child: const Icon(Icons.notifications_none, size: 24),
-              ),
-            ),
-          ),
-        ),
+    return IconButton(
+      tooltip: context.l10n.notificationsTitle,
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+      ),
+      icon: Badge(
+        isLabelVisible: count > 0,
+        backgroundColor: scheme.error,
+        textColor: scheme.onError,
+        label: Text('$count'),
+        child: const Icon(Icons.notifications_none, size: 26),
       ),
     );
   }

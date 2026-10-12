@@ -28,6 +28,7 @@ Future<void> startApp(
       overrides: [
         prefsProvider.overrideWithValue(p),
         apiProvider.overrideWithValue(api),
+        welcomeShownProvider.overrideWith((ref) async {}),
         if (picker != null) pickerProvider.overrideWithValue(picker),
         if (push != null) pushMessagingProvider.overrideWithValue(push),
       ],
