@@ -175,6 +175,8 @@
   "voiceMessage": "Voice message",
   "recordVoice": "Record a voice message",
   "recording": "Recording",
+  "holdToRecord": "Hold the mic to record",
+  "slideToCancel": "Slide to cancel",
   "cancelRecording": "Cancel recording",
   "micDenied": "Allow Wasla to use the microphone in the phone's settings",
   "playVoice": "Play",

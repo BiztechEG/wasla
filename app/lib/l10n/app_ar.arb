@@ -312,6 +312,8 @@
   "voiceMessage": "رسالة صوتية",
   "recordVoice": "تسجيل رسالة صوتية",
   "recording": "جارٍ التسجيل",
+  "holdToRecord": "اضغط مطولًا على المايك للتسجيل",
+  "slideToCancel": "اسحب للإلغاء",
   "cancelRecording": "إلغاء التسجيل",
   "micDenied": "اسمح لوصلة باستخدام الميكروفون من إعدادات الهاتف",
   "playVoice": "تشغيل",
