@@ -8,6 +8,7 @@ import 'billing_models.dart';
 import 'chat_models.dart';
 import 'models.dart';
 import 'picker.dart';
+import 'search_models.dart';
 import 'task_models.dart';
 
 /// Everything the app asks of the backend. Screens only talk to this, so
@@ -117,6 +118,9 @@ abstract class WaslaApi {
   Future<void> deleteMessage(String messageId, {String? filePath});
   Future<List<ReadState>> readStates(String conversationId);
   Future<List<MessageHit>> searchMessages(String workspaceId, String query);
+
+  /// Files, tasks and announcements matching [query] that one can see.
+  Future<WorkspaceSearch> searchWorkspace(String workspaceId, String query);
 
   /// Projects a private chat's messages can be tagged with: active ones both
   /// people are in.
@@ -749,6 +753,20 @@ class SupabaseWaslaApi implements WaslaApi {
       params: {'p_workspace': workspaceId, 'p_query': query},
     ),
   ).map(MessageHit.fromJson).toList();
+
+  @override
+  Future<WorkspaceSearch> searchWorkspace(
+    String workspaceId,
+    String query,
+  ) async {
+    final result = await _client.rpc(
+      'search_workspace',
+      params: {'p_workspace': workspaceId, 'p_query': query},
+    );
+    return result is Map
+        ? WorkspaceSearch.fromJson(Map<String, dynamic>.from(result))
+        : const WorkspaceSearch();
+  }
 
   @override
   Future<List<String>> sharedProjects(String conversationId) async =>

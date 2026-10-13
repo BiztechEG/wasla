@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/data/search_models.dart';
+import 'package:wasla/data/task_models.dart';
 import 'package:wasla/ui/files_common.dart';
 
 import 'fake_api.dart';
@@ -304,5 +306,68 @@ void main() {
     await tester.tap(frames.at(0));
     await tester.pumpAndSettle();
     expect(find.byType(VideoViewerScreen), findsOneWidget);
+  });
+
+  testWidgets('one search finds people, projects, tasks, files and more', (
+    tester,
+  ) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'مخطط الفرع جاهز');
+    api.workspaceSearches['الفرع'] = WorkspaceSearch(
+      tasks: const [
+        TaskHit(
+          id: 't1',
+          title: 'مراجعة مخطط الفرع',
+          status: TaskStatus.inProgress,
+          projectName: 'New Branch',
+        ),
+      ],
+      files: [
+        FileHit(
+          file: const ChatFile(
+            id: 'f1',
+            name: 'الفرع.pdf',
+            mime: 'application/pdf',
+            size: 1000,
+            path: 'ws1/me/a.pdf',
+          ),
+          createdAt: DateTime.now(),
+          projectId: 'p1',
+          projectName: 'New Branch',
+        ),
+      ],
+      announcements: [
+        AnnouncementHit(
+          id: 'a1',
+          body: 'افتتاح الفرع الخميس',
+          createdAt: DateTime.now(),
+          authorName: 'Amr',
+        ),
+      ],
+    );
+    await startApp(tester, api);
+
+    await tester.enterText(find.byKey(const Key('chatSearch')), 'الفرع');
+    await tester.pumpAndSettle();
+    for (final text in [
+      'المهام',
+      'مراجعة مخطط الفرع',
+      'الملفات',
+      'الفرع.pdf',
+      'مخطط الفرع جاهز',
+      'افتتاح الفرع الخميس',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.text(text),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(text), findsOneWidget, reason: text);
+    }
+
+    await tester.enterText(find.byKey(const Key('chatSearch')), 'new');
+    await tester.pumpAndSettle();
+    expect(find.text('New Branch'), findsWidgets);
   });
 }

@@ -6,6 +6,7 @@ import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/picker.dart';
+import 'package:wasla/data/search_models.dart';
 import 'package:wasla/data/task_models.dart';
 
 /// In-memory backend for widget tests. Only what the tests touch is real.
@@ -455,6 +456,15 @@ class FakeApi implements WaslaApi {
               body: m.body,
             ),
   ];
+
+  /// What [searchWorkspace] returns, by query.
+  final workspaceSearches = <String, WorkspaceSearch>{};
+
+  @override
+  Future<WorkspaceSearch> searchWorkspace(
+    String workspaceId,
+    String query,
+  ) async => workspaceSearches[query] ?? const WorkspaceSearch();
 
   @override
   Future<List<String>> sharedProjects(String conversationId) async => [

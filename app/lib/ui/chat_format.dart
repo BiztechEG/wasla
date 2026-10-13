@@ -24,6 +24,22 @@ String clockTime(BuildContext context, DateTime time) => westernDigits(
 );
 
 /// For the chat list: the time today, "yesterday", a weekday, or a date.
+/// Lower-cases and folds Arabic letter variants and marks, like the
+/// server's search, so a name typed either way matches.
+String normalizeSearch(String text) {
+  const from = 'أإآٱىةؤئیک';
+  const to = 'اااايهءءيك';
+  final out = StringBuffer();
+  for (final rune in text.toLowerCase().runes) {
+    final c = String.fromCharCode(rune);
+    // Tatweel and the harakat.
+    if (rune == 0x0640 || (rune >= 0x064B && rune <= 0x0670)) continue;
+    final i = from.indexOf(c);
+    out.write(i < 0 ? c : to[i]);
+  }
+  return out.toString().trim();
+}
+
 String listTime(BuildContext context, DateTime time) {
   final local = time.toLocal();
   final now = DateTime.now();
