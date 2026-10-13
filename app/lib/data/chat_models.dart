@@ -113,6 +113,7 @@ class ChatFile {
 
   bool get isImage => mime.startsWith('image/');
   bool get isVideo => mime.startsWith('video/');
+  bool get isAudio => mime.startsWith('audio/');
 }
 
 class ChatMessage {
@@ -383,6 +384,9 @@ String mimeFor(String name) {
     'mkv' => 'video/x-matroska',
     'mp3' => 'audio/mpeg',
     'm4a' => 'audio/mp4',
+    'aac' => 'audio/aac',
+    'wav' => 'audio/wav',
+    'ogg' || 'opus' => 'audio/ogg',
     _ => 'application/octet-stream',
   };
 }

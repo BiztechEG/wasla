@@ -279,4 +279,16 @@ select pg_temp.check(
   (select purged_at is null from public.files where name = 'kept.pdf'),
   'a file in use is never marked removed');
 
+-- Voice messages say 🎤 and their length instead of a file name.
+select pg_temp.login(804);
+insert into storage.objects (bucket_id, name, metadata) values
+  ('files', pg_temp.v('ws') || '/' || pg_temp.uid(804) || '/voice.m4a', '{"size": 3000}');
+select public.send_message(pg_temp.v('dm'), null,
+  p_file_path => pg_temp.v('ws') || '/' || pg_temp.uid(804) || '/voice.m4a',
+  p_file_name => 'voice_65s.m4a', p_file_mime => 'audio/mp4', p_file_size => 3000);
+select pg_temp.check(
+  (select body from pg_temp.outbox() where user_id = pg_temp.uid(802) and kind = 'message'
+   order by created_at desc limit 1) = '🎤 1:05',
+  'a voice message is announced with its length');
+
 \echo 'all push tests passed'

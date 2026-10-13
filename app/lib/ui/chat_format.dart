@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/chat_models.dart';
+import '../data/voice.dart';
 import '../l10n/app_localizations.dart';
 import 'widgets.dart';
 
@@ -74,6 +75,14 @@ String fileSize(AppLocalizations l, int bytes) {
   return l.sizeKb(((bytes / 1024).ceil()).toString());
 }
 
+/// How a file is named in previews: voice messages by what they are.
+String fileLabel(AppLocalizations l, String name) {
+  final length = voiceLength(name);
+  if (length == null) return name;
+  final s = (length.inSeconds % 60).toString().padLeft(2, '0');
+  return '${l.voiceMessage} (${length.inMinutes}:$s)';
+}
+
 /// What a chat-list row says about its last message.
 String preview(AppLocalizations l, Conversation c, String? me) {
   if (c.lastAt == null) return l.noMessagesYet;
@@ -83,7 +92,7 @@ String preview(AppLocalizations l, Conversation c, String? me) {
   } else if (c.lastBody != null && c.lastBody!.isNotEmpty) {
     text = c.lastBody!;
   } else {
-    text = c.lastFileName ?? '';
+    text = fileLabel(l, c.lastFileName ?? '');
   }
   if (c.lastSenderId == me) return l.previewFrom(l.you, text);
   if (c.isProject) {

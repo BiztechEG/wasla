@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chat_models.dart';
 import '../data/picker.dart';
+import '../data/voice.dart';
 import 'providers.dart';
 
 /// Live changes to the workspace's chats.
@@ -420,6 +421,10 @@ final chatProvider = AsyncNotifierProvider.autoDispose
     .family<ChatController, ChatState, ChatKey>(ChatController.new);
 
 final pickerProvider = Provider<Picker>((ref) => DevicePicker());
+
+final voiceRecorderProvider = Provider<VoiceRecorder>(
+  (ref) => DeviceVoiceRecorder(),
+);
 
 /// Projects a private chat's messages can be tagged with.
 final sharedProjectsProvider = FutureProvider.autoDispose

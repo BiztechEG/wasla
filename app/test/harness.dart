@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wasla/app.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/picker.dart';
+import 'package:wasla/data/voice.dart';
 import 'package:wasla/push/push.dart';
 import 'package:wasla/state/chat_providers.dart';
 import 'package:wasla/state/providers.dart';
@@ -19,6 +21,7 @@ Future<void> startApp(
   Map<String, Object> prefs = const {},
   Picker? picker,
   PushMessaging? push,
+  VoiceRecorder? recorder,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -31,6 +34,7 @@ Future<void> startApp(
         welcomeShownProvider.overrideWith((ref) async {}),
         if (picker != null) pickerProvider.overrideWithValue(picker),
         if (push != null) pushMessagingProvider.overrideWithValue(push),
+        if (recorder != null) voiceRecorderProvider.overrideWithValue(recorder),
       ],
       child: const WaslaApp(),
     ),
@@ -43,6 +47,27 @@ void smallPhone(WidgetTester tester) {
   tester.view.physicalSize = const Size(360, 640);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+}
+
+/// Records nothing; hands over a few bytes as the recording.
+class FakeRecorder implements VoiceRecorder {
+  FakeRecorder({this.allowed = true});
+
+  final bool allowed;
+  int cancelled = 0;
+
+  @override
+  Future<bool> start() async => allowed;
+
+  @override
+  Future<Upload?> stop(Duration length) async => Upload(
+    bytes: Uint8List.fromList([1, 2, 3]),
+    name: voiceName(length, 'm4a'),
+    mime: 'audio/mp4',
+  );
+
+  @override
+  Future<void> cancel() async => cancelled++;
 }
 
 /// Hands over [file] whatever one picks.
