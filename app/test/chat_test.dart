@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasla/data/chat_models.dart';
@@ -442,8 +444,14 @@ void main() {
     // Aside (towards the text, right in Arabic) drops it.
     var gesture = await pressMic(tester);
     await holdFor(tester, const Duration(seconds: 2));
+    // Halfway does nothing yet.
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    final cancelAt = math.max(150.0, width * 0.45);
+    await gesture.moveBy(Offset(cancelAt / 2, 0));
+    await tester.pump();
+    expect(find.text('اسحب للإلغاء'), findsOneWidget);
     for (var i = 0; i < 4; i++) {
-      await gesture.moveBy(const Offset(40, 0));
+      await gesture.moveBy(Offset(cancelAt / 6, 0));
       await tester.pump();
     }
     await gesture.up();
@@ -454,8 +462,11 @@ void main() {
 
     // Up keeps it going without the finger.
     gesture = await pressMic(tester);
+    await gesture.moveBy(const Offset(0, -65));
+    await tester.pump();
+    expect(find.byKey(const Key('lockHint')), findsOneWidget);
     for (var i = 0; i < 4; i++) {
-      await gesture.moveBy(const Offset(0, -30));
+      await gesture.moveBy(const Offset(0, -20));
       await tester.pump();
     }
     await gesture.up();
@@ -471,7 +482,7 @@ void main() {
 
     // Locked, it can still be thrown away.
     gesture = await pressMic(tester);
-    await gesture.moveBy(const Offset(0, -100));
+    await gesture.moveBy(const Offset(0, -140));
     await tester.pump();
     await gesture.up();
     await tester.pump();

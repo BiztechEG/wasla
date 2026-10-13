@@ -381,7 +381,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
         _rec = _Rec.locked;
         _drag = Offset.zero;
       });
-    } else if (inward > _cancelDistance) {
+    } else if (inward > _cancelDistance(context)) {
       HapticFeedback.heavyImpact();
       _finishRecording(send: false);
     } else {
@@ -1360,10 +1360,17 @@ class _PendingBubble extends StatelessWidget {
 
 enum _Rec { off, holding, locked }
 
-/// How far the mic is slid up to lock a recording, or toward the text to
-/// cancel it.
-const _lockDistance = 80.0;
-const _cancelDistance = 110.0;
+/// How far the mic is slid up to lock a recording: all the way to the lock
+/// above it.
+const _lockDistance = 130.0;
+
+/// Where the lock sits above the mic button.
+const _lockHintBottom = 100.0;
+
+/// How far the mic is slid toward the text to cancel: most of the way to
+/// the "slide to cancel" label.
+double _cancelDistance(BuildContext context) =>
+    math.max(150.0, MediaQuery.sizeOf(context).width * 0.45);
 
 String _clockText(Duration t) =>
     '${t.inMinutes}:${(t.inSeconds % 60).toString().padLeft(2, '0')}';
@@ -1516,7 +1523,7 @@ class _HoldingStrip extends StatelessWidget {
     final theme = Theme.of(context);
     final rtl = Directionality.of(context) == TextDirection.rtl;
     final inward = math.max(0.0, rtl ? mic.drag.dx : -mic.drag.dx);
-    final progress = (inward / _cancelDistance).clamp(0.0, 1.0);
+    final progress = (inward / _cancelDistance(context)).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -1605,7 +1612,10 @@ class _MicButtonState extends State<_MicButton>
     // cancel, no further.
     final up = holding ? (-mic.drag.dy).clamp(0.0, _lockDistance) : 0.0;
     final inward = holding
-        ? (rtl ? mic.drag.dx : -mic.drag.dx).clamp(0.0, _cancelDistance)
+        ? (rtl ? mic.drag.dx : -mic.drag.dx).clamp(
+            0.0,
+            _cancelDistance(context),
+          )
         : 0.0;
     final follow = Offset(rtl ? inward : -inward, -up);
     final color = holding ? theme.colorScheme.error : theme.colorScheme.primary;
@@ -1631,56 +1641,62 @@ class _MicButtonState extends State<_MicButton>
           _down = null;
           mic.onCancel();
         },
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            if (holding)
-              Positioned(
-                bottom: 70 + up * 0.4,
-                child: _LockHint(progress: up / _lockDistance),
-              ),
-            Transform.translate(
-              offset: follow,
-              child: AnimatedScale(
-                scale: holding ? 1.45 : 1,
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOut,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (holding)
-                      AnimatedBuilder(
-                        animation: _pulse,
-                        builder: (context, _) => Container(
-                          width: 50 + 24 * _pulse.value,
-                          height: 50 + 24 * _pulse.value,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: color.withValues(
-                              alpha: 0.35 * (1 - _pulse.value),
+        // Claims the drag, so sliding the mic doesn't also swipe the
+        // project's tabs or scroll the page.
+        child: GestureDetector(
+          onPanStart: (_) {},
+          onPanUpdate: (_) {},
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              if (holding)
+                Positioned(
+                  bottom: _lockHintBottom,
+                  child: _LockHint(progress: up / _lockDistance),
+                ),
+              Transform.translate(
+                offset: follow,
+                child: AnimatedScale(
+                  scale: holding ? 1.45 : 1,
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (holding)
+                        AnimatedBuilder(
+                          animation: _pulse,
+                          builder: (context, _) => Container(
+                            width: 50 + 24 * _pulse.value,
+                            height: 50 + 24 * _pulse.value,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color.withValues(
+                                alpha: 0.35 * (1 - _pulse.value),
+                              ),
                             ),
                           ),
                         ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: color,
+                        ),
+                        child: Icon(
+                          Icons.mic,
+                          color: theme.colorScheme.onPrimary,
+                        ),
                       ),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: color,
-                      ),
-                      child: Icon(
-                        Icons.mic,
-                        color: theme.colorScheme.onPrimary,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
