@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/chat_models.dart';
 import '../data/models.dart';
 import '../data/search_models.dart';
+import '../data/voice.dart';
 import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../theme.dart';
@@ -361,7 +362,13 @@ class _ChatRow extends StatelessWidget {
                   Row(
                     children: [
                       if (chat.lastFileName != null && !chat.lastDeleted) ...[
-                        Icon(Icons.attach_file, size: 15, color: muted),
+                        Icon(
+                          voiceLength(chat.lastFileName!) != null
+                              ? Icons.mic
+                              : Icons.attach_file,
+                          size: 15,
+                          color: muted,
+                        ),
                         const SizedBox(width: 2),
                       ],
                       Expanded(

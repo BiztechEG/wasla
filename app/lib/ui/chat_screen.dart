@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chat_models.dart';
 import '../data/models.dart';
+import '../data/voice.dart';
 import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../theme.dart';
@@ -324,6 +326,39 @@ class _ChatViewState extends ConsumerState<ChatView> {
     }
   }
 
+  bool _recording = false;
+
+  Future<void> _record() async {
+    final l = context.l10n;
+    try {
+      final started = await ref.read(voiceRecorderProvider).start();
+      if (!mounted) return;
+      if (!started) {
+        showMessage(context, l.micDenied);
+        return;
+      }
+      setState(() => _recording = true);
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(l, e));
+    }
+  }
+
+  Future<void> _stopRecording({required bool send, Duration? length}) async {
+    final recorder = ref.read(voiceRecorderProvider);
+    setState(() => _recording = false);
+    // Under a second is a slip of the finger, not a message.
+    if (!send || length == null || length < const Duration(seconds: 1)) {
+      await recorder.cancel();
+      return;
+    }
+    try {
+      final voice = await recorder.stop(length);
+      if (voice != null && mounted) await _send(file: voice);
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(context.l10n, e));
+    }
+  }
+
   Future<void> _attach() async {
     if (!ref.read(chatProvider(_key)).hasValue) return;
     final upload = await pickUpload(context, ref);
@@ -394,7 +429,12 @@ class _ChatViewState extends ConsumerState<ChatView> {
             ),
           ),
         ),
-        if (closed)
+        if (_recording && !closed)
+          _RecordingBar(
+            onCancel: () => _stopRecording(send: false),
+            onSend: (length) => _stopRecording(send: true, length: length),
+          )
+        else if (closed)
           _ClosedNote(
             text: target.isProject
                 ? l.chatClosedProject
@@ -421,6 +461,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
             onTag: (id) => setState(() => _tag = id),
             onAttach: chat.hasValue ? _attach : null,
             onSend: chat.hasValue ? () => _send() : null,
+            onRecord: chat.hasValue ? _record : null,
           ),
       ],
     );
@@ -890,6 +931,8 @@ class _Bubble extends ConsumerWidget {
             width: math.min(maxWidth - 8, 260),
             onTap: () => openFile(context, ref, file),
           )
+        else if (file != null && file.isAudio)
+          VoicePlayer(file: file, width: math.min(maxWidth - 24, 240))
         else if (file != null)
           InkWell(
             onTap: () => openFile(context, ref, file),
@@ -989,7 +1032,11 @@ class _Quote extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
-    final text = message.replyBody ?? message.replyFileName ?? l.messageDeleted;
+    final file = message.replyFileName;
+    final text =
+        message.replyBody ??
+        (file == null ? null : fileLabel(l, file)) ??
+        l.messageDeleted;
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 10, 6),
@@ -1100,7 +1147,7 @@ class _PendingBubble extends StatelessWidget {
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
-                                file.name,
+                                fileLabel(l, file.name),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1153,6 +1200,108 @@ class _PendingBubble extends StatelessWidget {
   }
 }
 
+/// Shown instead of the composer while a voice message records.
+class _RecordingBar extends StatefulWidget {
+  const _RecordingBar({required this.onCancel, required this.onSend});
+
+  final VoidCallback onCancel;
+  final void Function(Duration length) onSend;
+
+  @override
+  State<_RecordingBar> createState() => _RecordingBarState();
+}
+
+class _RecordingBarState extends State<_RecordingBar> {
+  final _clock = Stopwatch()..start();
+  late final Timer _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (_clock.elapsed >= maxVoiceLength) {
+        _tick.cancel();
+        widget.onSend(_clock.elapsed);
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final t = _clock.elapsed;
+    final shown =
+        '${t.inMinutes}:${(t.inSeconds % 60).toString().padLeft(2, '0')}';
+    return Material(
+      color: theme.scaffoldBackgroundColor,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+          child: Row(
+            children: [
+              IconButton(
+                key: const Key('cancelRecording'),
+                tooltip: l.cancelRecording,
+                onPressed: widget.onCancel,
+                color: theme.colorScheme.error,
+                icon: const Icon(Icons.delete_outline),
+              ),
+              Expanded(
+                child: Container(
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.fiber_manual_record,
+                        size: 14,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(l.recording)),
+                      Text(
+                        shown,
+                        textDirection: TextDirection.ltr,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox.square(
+                dimension: 50,
+                child: IconButton.filled(
+                  key: const Key('sendVoice'),
+                  tooltip: l.send,
+                  onPressed: () => widget.onSend(_clock.elapsed),
+                  icon: const Icon(Icons.send),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
@@ -1163,6 +1312,7 @@ class _Composer extends StatelessWidget {
     required this.onTag,
     required this.onAttach,
     required this.onSend,
+    required this.onRecord,
   });
 
   final TextEditingController controller;
@@ -1177,6 +1327,7 @@ class _Composer extends StatelessWidget {
   /// Null until the chat has loaded.
   final VoidCallback? onAttach;
   final VoidCallback? onSend;
+  final VoidCallback? onRecord;
 
   @override
   Widget build(BuildContext context) {
@@ -1363,12 +1514,19 @@ class _Composer extends StatelessWidget {
                   const SizedBox(width: 8),
                   SizedBox.square(
                     dimension: 50,
-                    child: IconButton.filled(
-                      key: const Key('sendButton'),
-                      tooltip: l.send,
-                      onPressed: canSend ? onSend : null,
-                      icon: const Icon(Icons.send),
-                    ),
+                    child: canSend || onRecord == null
+                        ? IconButton.filled(
+                            key: const Key('sendButton'),
+                            tooltip: l.send,
+                            onPressed: canSend ? onSend : null,
+                            icon: const Icon(Icons.send),
+                          )
+                        : IconButton.filled(
+                            key: const Key('micButton'),
+                            tooltip: l.recordVoice,
+                            onPressed: onRecord,
+                            icon: const Icon(Icons.mic),
+                          ),
                   ),
                 ],
               ),

@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
 import '../data/chat_models.dart';
 import '../data/picker.dart';
+import '../data/voice.dart';
 import '../state/chat_providers.dart';
 import 'chat_format.dart';
 import 'widgets.dart';
@@ -536,4 +540,176 @@ String _clock(Duration d) {
   final m = d.inMinutes;
   final s = (d.inSeconds % 60).toString().padLeft(2, '0');
   return '$m:$s';
+}
+
+/// A voice message or an audio file inside a chat bubble: play, pause and
+/// seek, with its length. One plays at a time.
+class VoicePlayer extends ConsumerStatefulWidget {
+  const VoicePlayer({super.key, required this.file, required this.width});
+
+  final ChatFile file;
+  final double width;
+
+  @override
+  ConsumerState<VoicePlayer> createState() => _VoicePlayerState();
+}
+
+class _VoicePlayerState extends ConsumerState<VoicePlayer> {
+  static _VoicePlayerState? _playing;
+
+  AudioPlayer? _player;
+  final _subscriptions = <StreamSubscription<Object?>>[];
+  PlayerState _state = PlayerState.stopped;
+  Duration _position = Duration.zero;
+  Duration? _length;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _length = voiceLength(widget.file.name);
+  }
+
+  @override
+  void dispose() {
+    if (_playing == this) _playing = null;
+    for (final s in _subscriptions) {
+      s.cancel();
+    }
+    _player?.dispose();
+    super.dispose();
+  }
+
+  /// The player is made on first play, so a long chat doesn't hold dozens.
+  AudioPlayer _make() {
+    final player = AudioPlayer();
+    _subscriptions.addAll([
+      player.onPlayerStateChanged.listen((s) {
+        if (mounted) setState(() => _state = s);
+      }),
+      player.onPositionChanged.listen((p) {
+        if (mounted) setState(() => _position = p);
+      }),
+      player.onDurationChanged.listen((d) {
+        if (mounted && d > Duration.zero) setState(() => _length = d);
+      }),
+      player.onPlayerComplete.listen((_) {
+        if (mounted) setState(() => _position = Duration.zero);
+      }),
+    ]);
+    return player;
+  }
+
+  Future<void> _toggle() async {
+    final l = context.l10n;
+    if (_state == PlayerState.playing) {
+      await _player?.pause();
+      return;
+    }
+    final other = _playing;
+    if (other != null && other != this) await other._player?.pause();
+    _playing = this;
+    try {
+      final player = _player ??= _make();
+      if (_state == PlayerState.paused) {
+        await player.resume();
+        return;
+      }
+      setState(() => _loading = true);
+      final url = await ref.read(fileUrlProvider(widget.file.path).future);
+      await player.play(UrlSource(url, mimeType: widget.file.mime));
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(l, e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final playing = _state == PlayerState.playing;
+    final length = _length;
+    final max = (length?.inMilliseconds ?? 0).toDouble();
+    final at = _position.inMilliseconds.toDouble().clamp(0.0, max);
+    return SizedBox(
+      width: widget.width,
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: 40,
+            child: _loading
+                ? const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : IconButton(
+                    key: const Key('voicePlay'),
+                    tooltip: playing ? l.pauseVoice : l.playVoice,
+                    padding: EdgeInsets.zero,
+                    onPressed: _toggle,
+                    icon: Icon(
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      size: 32,
+                    ),
+                  ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    overlayShape: SliderComponentShape.noOverlay,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 6,
+                    ),
+                    activeTrackColor: theme.colorScheme.onSurface,
+                    inactiveTrackColor: theme.colorScheme.onSurface.withValues(
+                      alpha: 0.25,
+                    ),
+                    thumbColor: theme.colorScheme.onSurface,
+                  ),
+                  child: Slider(
+                    value: max == 0 ? 0 : at,
+                    max: max == 0 ? 1 : max,
+                    onChanged: _player == null || max == 0
+                        ? null
+                        : (v) =>
+                              _player!.seek(Duration(milliseconds: v.round())),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      voiceLength(widget.file.name) != null
+                          ? Icons.mic
+                          : Icons.audiotrack,
+                      size: 14,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      playing || _position > Duration.zero
+                          ? _clock(_position)
+                          : length == null
+                          ? l.voiceMessage
+                          : _clock(length),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

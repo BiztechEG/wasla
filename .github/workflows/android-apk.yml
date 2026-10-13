@@ -41,6 +41,12 @@ jobs:
         env:
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # Google Sign-In needs these fingerprints in the app's Android OAuth
+      # client. They are public (anyone can read them from the APK).
+      - name: Key fingerprints
+        run: |
+          keytool -list -v -keystore "$WASLA_KEYSTORE_FILE" -storepass "$WASLA_KEY_PASSWORD" -alias wasla \
+            | grep -E 'SHA1:|SHA256:' | tee -a "$GITHUB_STEP_SUMMARY"
       - run: flutter build apk --release --build-number $(git rev-list --count HEAD)
       - uses: actions/upload-artifact@v4
         with:
