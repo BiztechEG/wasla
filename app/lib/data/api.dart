@@ -186,6 +186,26 @@ abstract class WaslaApi {
   Future<String> createTask(TaskDraft draft);
   Future<void> updateTask(String taskId, TaskDraft draft);
   Future<void> setTaskAssignees(String taskId, List<String> userIds);
+
+  /// Null stops it repeating. Repeating needs a due time.
+  Future<void> setTaskRepeat(String taskId, TaskRepeat? repeat);
+
+  Future<List<TaskTemplate>> taskTemplates(String workspaceId);
+  Future<void> saveTaskTemplate(
+    String workspaceId,
+    String name,
+    List<TemplateItem> items,
+  );
+  Future<void> deleteTaskTemplate(String templateId);
+
+  /// Adds a template's tasks to a project, due their days after [start].
+  /// Returns how many were added.
+  Future<int> applyTaskTemplate(
+    String templateId,
+    String projectId, {
+    List<String>? assigneeIds,
+    required DateTime start,
+  });
   Future<void> setTaskStatus(
     String taskId,
     TaskStatus status, {
@@ -1026,6 +1046,51 @@ class SupabaseWaslaApi implements WaslaApi {
       'p_remind_before': draft.remindBefore,
     },
   );
+
+  @override
+  Future<void> setTaskRepeat(String taskId, TaskRepeat? repeat) => _client.rpc(
+    'set_task_repeat',
+    params: {'p_task': taskId, 'p_repeat': repeat?.name},
+  );
+
+  @override
+  Future<List<TaskTemplate>> taskTemplates(String workspaceId) async => _rows(
+    await _client.rpc('task_templates', params: {'p_workspace': workspaceId}),
+  ).map(TaskTemplate.fromJson).toList();
+
+  @override
+  Future<void> saveTaskTemplate(
+    String workspaceId,
+    String name,
+    List<TemplateItem> items,
+  ) => _client.rpc(
+    'save_task_template',
+    params: {
+      'p_workspace': workspaceId,
+      'p_name': name,
+      'p_items': [for (final i in items) i.toJson()],
+    },
+  );
+
+  @override
+  Future<void> deleteTaskTemplate(String templateId) =>
+      _client.rpc('delete_task_template', params: {'p_template': templateId});
+
+  @override
+  Future<int> applyTaskTemplate(
+    String templateId,
+    String projectId, {
+    List<String>? assigneeIds,
+    required DateTime start,
+  }) async => (await _client.rpc(
+    'apply_task_template',
+    params: {
+      'p_template': templateId,
+      'p_project': projectId,
+      'p_assignees': assigneeIds,
+      'p_start': start.toUtc().toIso8601String(),
+    },
+  ) as num).toInt();
 
   @override
   Future<void> setTaskAssignees(String taskId, List<String> userIds) =>

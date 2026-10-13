@@ -11,7 +11,9 @@ import 'chat_format.dart';
 import 'files_common.dart';
 import 'my_tasks_tab.dart';
 import 'project_screen.dart';
+import 'task_editor.dart';
 import 'task_list.dart';
+import 'templates.dart';
 import 'widgets.dart';
 
 /// How a project is going, for everyone in it: its lead, its latest
@@ -272,7 +274,14 @@ class ProjectTasksView extends ConsumerWidget {
           onRefresh: () => ref.refresh(projectTasksProvider(key).future),
           child: all.isEmpty
               ? ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
+                    if (active)
+                      TemplateActions(
+                        project: project,
+                        tasks: all,
+                        canSave: false,
+                      ),
                     const SizedBox(height: 60),
                     EmptyState(
                       icon: Icons.task_alt,
@@ -282,13 +291,25 @@ class ProjectTasksView extends ConsumerWidget {
                 )
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                  children: taskGroups(
-                    context,
-                    all,
-                    onTap: (t) => openTask(context, t.workspaceId, t.id),
-                    showProject: false,
-                    showAssignees: true,
-                  ),
+                  children: [
+                    if (active)
+                      TemplateActions(
+                        project: project,
+                        tasks: all,
+                        canSave: managesProject(
+                          ref,
+                          project.workspaceId,
+                          ref.watch(projectMembersProvider(project.id)).value,
+                        ),
+                      ),
+                    ...taskGroups(
+                      context,
+                      all,
+                      onTap: (t) => openTask(context, t.workspaceId, t.id),
+                      showProject: false,
+                      showAssignees: true,
+                    ),
+                  ],
                 ),
         ),
       ),

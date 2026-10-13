@@ -423,4 +423,97 @@ void main() {
       DueGroup.done,
     );
   });
+
+  testWidgets('a task with a due time can repeat weekly', (tester) async {
+    final api = _company();
+    final task = api.addTask(
+      projectId: 'p1',
+      title: 'Weekly report',
+      dueAt: _inDays(2),
+    );
+    await startApp(tester, api);
+    await _openMyTasks(tester);
+    await tester.tap(find.text('Weekly report'));
+    await tester.pumpAndSettle();
+    expect(find.text('التكرار'), findsNothing);
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تعديل المهمة'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('repeatTile')),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byKey(const Key('repeatTile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('أسبوعيًا'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حفظ'));
+    await tester.pumpAndSettle();
+    expect(api.taskCalls.last, 'repeat ${task.id} weekly');
+    expect(find.text('أسبوعيًا'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a project saves its tasks as a template and reuses it', (
+    tester,
+  ) async {
+    final api = _company()
+      ..projectsByWorkspace['ws1'] = [
+        _branch,
+        const Project(
+          id: 'p2',
+          workspaceId: 'ws1',
+          name: 'Second Branch',
+          color: '#2F5BD3',
+          status: ProjectStatus.active,
+          memberCount: 2,
+        ),
+      ];
+    api
+      ..addTask(projectId: 'p1', title: 'Rent the place', dueAt: _inDays(3))
+      ..addTask(projectId: 'p1', title: 'Hire staff');
+    await startApp(tester, api);
+    await tester.tap(find.text('المشاريع'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New Branch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المهام').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('saveTemplate')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('templateName')), 'Branch');
+    await tester.tap(find.text('حفظ'));
+    await tester.pumpAndSettle();
+    final saved = api.templates.single;
+    expect(saved.name, 'Branch');
+    expect(saved.items.map((i) => i.title).toSet(), {
+      'Rent the place',
+      'Hire staff',
+    });
+    expect(
+      saved.items.firstWhere((i) => i.title == 'Rent the place').dueInDays,
+      3,
+    );
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Second Branch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المهام').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('fromTemplate')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Branch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إضافة'));
+    await tester.pumpAndSettle();
+    expect(api.appliedTemplates.single.$2, 'p2');
+    expect(find.text('Rent the place'), findsOneWidget);
+    expect(find.text('Hire staff'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

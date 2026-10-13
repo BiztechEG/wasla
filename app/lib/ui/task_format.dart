@@ -170,3 +170,10 @@ Future<DateTime?> pickDateTime(
   if (time == null) return null;
   return DateTime(date.year, date.month, date.day, time.hour, time.minute);
 }
+
+String repeatLabel(AppLocalizations l, TaskRepeat? repeat) => switch (repeat) {
+  null => l.repeatNone,
+  TaskRepeat.daily => l.repeatDaily,
+  TaskRepeat.weekly => l.repeatWeekly,
+  TaskRepeat.monthly => l.repeatMonthly,
+};

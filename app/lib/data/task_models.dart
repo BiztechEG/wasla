@@ -37,6 +37,20 @@ enum TaskPriority {
       values.firstWhere((p) => p.name == value, orElse: () => normal);
 }
 
+/// How a task repeats from its due time.
+enum TaskRepeat {
+  daily,
+  weekly,
+  monthly;
+
+  static TaskRepeat? parse(Object? value) {
+    for (final r in values) {
+      if (r.name == value) return r;
+    }
+    return null;
+  }
+}
+
 enum TaskVisibility {
   private,
   public;
@@ -157,7 +171,8 @@ enum TaskEvent {
   visibility,
   assignees,
   attachment,
-  comment;
+  comment,
+  repeat;
 
   static TaskEvent? parse(Object? value) {
     for (final e in values) {
@@ -235,9 +250,13 @@ class TaskDetail {
     this.files = const [],
     this.activity = const [],
     this.reminders = const [],
+    this.repeat,
   });
 
   final TaskItem task;
+
+  /// Null for a task that happens once.
+  final TaskRepeat? repeat;
   final String? description;
   final String? holdReason;
 
@@ -287,6 +306,7 @@ class TaskDetail {
     canAssign: json['can_assign'] as bool? ?? false,
     isAssignee: json['is_assignee'] as bool? ?? false,
     sourceConversationId: json['source_conversation_id'] as String?,
+    repeat: TaskRepeat.parse(json['repeat']),
     files: [
       for (final f in (json['files'] as List? ?? const []))
         ProjectFile.fromJson(Json.from(f as Map)),
@@ -471,5 +491,64 @@ class ProjectProgress {
     total: json['total'] as int? ?? 0,
     done: json['done'] as int? ?? 0,
     late: json['late'] as int? ?? 0,
+  );
+}
+
+/// One task of a template.
+class TemplateItem {
+  const TemplateItem({
+    required this.title,
+    this.description,
+    this.priority = TaskPriority.normal,
+    this.dueInDays,
+  });
+
+  final String title;
+  final String? description;
+  final TaskPriority priority;
+
+  /// Due this many days after the template is used; null for no due date.
+  final int? dueInDays;
+
+  factory TemplateItem.fromJson(Json json) => TemplateItem(
+    title: json['title'] as String? ?? '',
+    description: json['description'] as String?,
+    priority: TaskPriority.parse(json['priority']),
+    dueInDays: (json['due_in_days'] as num?)?.toInt(),
+  );
+
+  Json toJson() => {
+    'title': title,
+    if (description != null) 'description': description,
+    'priority': priority.name,
+    if (dueInDays != null) 'due_in_days': dueInDays,
+  };
+}
+
+/// A named list of tasks a project can start with.
+class TaskTemplate {
+  const TaskTemplate({
+    required this.id,
+    required this.name,
+    required this.items,
+    this.creatorName = '',
+    this.canDelete = false,
+  });
+
+  final String id;
+  final String name;
+  final List<TemplateItem> items;
+  final String creatorName;
+  final bool canDelete;
+
+  factory TaskTemplate.fromJson(Json json) => TaskTemplate(
+    id: json['id'] as String,
+    name: json['name'] as String? ?? '',
+    items: [
+      for (final i in (json['items'] as List? ?? const []))
+        TemplateItem.fromJson(Json.from(i as Map)),
+    ],
+    creatorName: json['creator_name'] as String? ?? '',
+    canDelete: json['can_delete'] as bool? ?? false,
   );
 }

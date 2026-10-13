@@ -219,6 +219,12 @@ class _TaskBody extends ConsumerWidget {
                         : dueFull(context, task.dueAt!),
                     color: late ? lateColor(context) : null,
                   ),
+                  if (detail.repeat != null)
+                    _InfoRow(
+                      icon: Icons.repeat,
+                      label: l.repeatLabel,
+                      value: repeatLabel(l, detail.repeat),
+                    ),
                   if (task.dueAt != null && task.status.isOpen)
                     _InfoRow(
                       icon: Icons.notifications_none,
@@ -625,7 +631,11 @@ class _ActivityItem extends StatelessWidget {
       case TaskEvent.created:
         return (
           Icons.add_task,
-          a.newValue == 'message' ? l.actCreatedFromMessage : l.actCreated,
+          switch (a.newValue) {
+            'message' => l.actCreatedFromMessage,
+            'repeat' => l.actCreatedRepeat,
+            _ => l.actCreated,
+          },
         );
       case TaskEvent.status:
         return (
@@ -657,6 +667,14 @@ class _ActivityItem extends StatelessWidget {
         return (Icons.attach_file, l.actAttached(a.newValue ?? ''));
       case TaskEvent.comment:
         return (Icons.chat_bubble_outline, a.body ?? '');
+      case TaskEvent.repeat:
+        final repeat = TaskRepeat.parse(a.newValue);
+        return (
+          Icons.repeat,
+          repeat == null
+              ? l.actRepeatStopped
+              : l.actRepeat(repeatLabel(l, repeat)),
+        );
     }
   }
 }
