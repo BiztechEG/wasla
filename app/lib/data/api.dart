@@ -159,8 +159,16 @@ abstract class WaslaApi {
     String? projectId,
     required String body,
     bool pinned = false,
+    bool needsAck = false,
   });
   Future<void> markAnnouncementsRead(List<String> ids);
+
+  /// "I've read it", for an announcement that asks.
+  Future<void> acknowledgeAnnouncement(String id);
+
+  /// Who an announcement is for and whether they read and confirmed it; for
+  /// its author and those who may post such announcements.
+  Future<List<AnnouncementReader>> announcementReaders(String id);
   Future<void> setAnnouncementPinned(String id, bool pinned);
   Future<void> deleteAnnouncement(String id);
 
@@ -925,6 +933,7 @@ class SupabaseWaslaApi implements WaslaApi {
     String? projectId,
     required String body,
     bool pinned = false,
+    bool needsAck = false,
   }) => _client.rpc(
     'post_announcement',
     params: {
@@ -932,8 +941,19 @@ class SupabaseWaslaApi implements WaslaApi {
       'p_project': projectId,
       'p_body': body,
       'p_pinned': pinned,
+      'p_needs_ack': needsAck,
     },
   );
+
+  @override
+  Future<void> acknowledgeAnnouncement(String id) =>
+      _client.rpc('acknowledge_announcement', params: {'p_id': id});
+
+  @override
+  Future<List<AnnouncementReader>> announcementReaders(String id) async =>
+      _rows(await _client.rpc('announcement_readers', params: {'p_id': id}))
+          .map(AnnouncementReader.fromJson)
+          .toList();
 
   @override
   Future<void> markAnnouncementsRead(List<String> ids) async {

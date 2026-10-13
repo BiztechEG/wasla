@@ -59,6 +59,22 @@ Future<void> showAnnouncement(
             ),
             const SizedBox(height: 14),
             SelectableText(note.body, style: theme.textTheme.bodyLarge),
+            if (note.needsAck) ...[
+              const SizedBox(height: 16),
+              _AckButton(
+                acked: false,
+                onAck: () async {
+                  if (await runAction(
+                    context,
+                    () =>
+                        ref.read(apiProvider).acknowledgeAnnouncement(note.id),
+                  )) {
+                    ref.invalidate(unreadAnnouncementsProvider(workspaceId));
+                    if (context.mounted) Navigator.pop(context);
+                  }
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -156,6 +172,7 @@ class _AnnouncementsViewState extends ConsumerState<AnnouncementsView> {
                 _AnnouncementCard(
                   announcement: a,
                   showReads: widget.canPost || a.authorId == me,
+                  mine: a.authorId == me,
                   canManage: widget.canPost,
                   canDelete: widget.canPost || a.authorId == me,
                   onChanged: () =>
@@ -184,6 +201,7 @@ class _AnnouncementCard extends ConsumerWidget {
   const _AnnouncementCard({
     required this.announcement,
     required this.showReads,
+    required this.mine,
     required this.canManage,
     required this.canDelete,
     required this.onChanged,
@@ -191,6 +209,9 @@ class _AnnouncementCard extends ConsumerWidget {
 
   final Announcement announcement;
   final bool showReads;
+
+  /// Posted by the signed-in user, who has nothing to confirm.
+  final bool mine;
   final bool canManage;
   final bool canDelete;
   final VoidCallback onChanged;
@@ -259,12 +280,37 @@ class _AnnouncementCard extends ConsumerWidget {
               padding: const EdgeInsetsDirectional.only(end: 12),
               child: SelectableText(a.body, style: theme.textTheme.bodyLarge),
             ),
+            if (a.needsAck && !mine) ...[
+              const SizedBox(height: 8),
+              _AckButton(
+                acked: a.ackedByMe,
+                onAck: () async {
+                  if (await runAction(
+                    context,
+                    () => ref.read(apiProvider).acknowledgeAnnouncement(a.id),
+                  )) {
+                    onChanged();
+                  }
+                },
+              ),
+            ],
             if (showReads && a.audience > 0) ...[
-              const SizedBox(height: 6),
-              Text(
-                l.readByCount(a.readCount, a.audience),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: 2),
+              TextButton.icon(
+                key: Key('readers-${a.id}'),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                ),
+                onPressed: () => showReaders(context, a),
+                icon: const Icon(Icons.done_all, size: 16),
+                label: Text(
+                  a.needsAck
+                      ? '${l.readByCount(a.readCount, a.audience)} · '
+                            '${l.ackCount(a.ackCount)}'
+                      : l.readByCount(a.readCount, a.audience),
+                  style: theme.textTheme.bodySmall,
                 ),
               ),
             ],
@@ -321,6 +367,7 @@ class _ComposeSheet extends ConsumerStatefulWidget {
 class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
   final _text = TextEditingController();
   bool _pinned = false;
+  bool _needsAck = false;
 
   @override
   void dispose() {
@@ -367,6 +414,14 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
               value: _pinned,
               onChanged: (v) => setState(() => _pinned = v),
             ),
+            SwitchListTile(
+              key: const Key('askAck'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.askAck),
+              subtitle: Text(l.askAckHint),
+              value: _needsAck,
+              onChanged: (v) => setState(() => _needsAck = v),
+            ),
             const SizedBox(height: 8),
             BusyButton(
               label: l.publish,
@@ -382,6 +437,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
                               projectId: widget.scope.projectId,
                               body: _text.text.trim(),
                               pinned: _pinned,
+                              needsAck: _needsAck,
                             ),
                       );
                       if (ok && context.mounted) Navigator.pop(context, true);
@@ -407,6 +463,152 @@ class WorkspaceAnnouncementsScreen extends StatelessWidget {
       body: AnnouncementsView(
         workspaceId: membership.workspaceId,
         canPost: membership.role.canManage,
+      ),
+    );
+  }
+}
+
+/// "I've read it" on an announcement that asks, or a note once tapped.
+class _AckButton extends StatelessWidget {
+  const _AckButton({required this.acked, required this.onAck});
+
+  final bool acked;
+  final VoidCallback onAck;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    if (acked) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            l.acknowledged,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          l.needsAck,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        FilledButton.icon(
+          key: const Key('ackButton'),
+          onPressed: onAck,
+          icon: const Icon(Icons.check),
+          label: Text(l.acknowledge),
+        ),
+      ],
+    );
+  }
+}
+
+/// Who an announcement is for: who confirmed, who only read, who hasn't
+/// opened it.
+Future<void> showReaders(BuildContext context, Announcement a) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ReadersSheet(announcement: a),
+    );
+
+class _ReadersSheet extends ConsumerWidget {
+  const _ReadersSheet({required this.announcement});
+
+  final Announcement announcement;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final readers = ref.watch(announcementReadersProvider(announcement.id));
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.7,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                l.readersTitle,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(
+              child: AsyncView(
+                value: readers,
+                onRetry: () => ref.invalidate(
+                  announcementReadersProvider(announcement.id),
+                ),
+                builder: (all) {
+                  final acked = [
+                    for (final r in all)
+                      if (r.acknowledgedAt != null) r,
+                  ];
+                  final read = [
+                    for (final r in all)
+                      if (r.acknowledgedAt == null && r.readAt != null) r,
+                  ];
+                  final not = [
+                    for (final r in all)
+                      if (r.readAt == null && r.acknowledgedAt == null) r,
+                  ];
+                  Widget group(
+                    String title,
+                    List<AnnouncementReader> people,
+                    DateTime? Function(AnnouncementReader) at,
+                  ) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SectionTitle('$title (${people.length})'),
+                      ),
+                      for (final r in people)
+                        ListTile(
+                          leading: Avatar(name: r.name),
+                          title: Text(r.name),
+                          trailing: at(r) == null
+                              ? null
+                              : Text(listTime(context, at(r)!)),
+                        ),
+                    ],
+                  );
+                  return ListView(
+                    children: [
+                      if (announcement.needsAck && acked.isNotEmpty)
+                        group(l.readersAcked, acked, (r) => r.acknowledgedAt),
+                      if (read.isNotEmpty || (!announcement.needsAck))
+                        group(
+                          announcement.needsAck ? l.readersRead : l.readersSeen,
+                          [if (!announcement.needsAck) ...acked, ...read],
+                          (r) => r.readAt,
+                        ),
+                      if (not.isNotEmpty)
+                        group(l.readersNotYet, not, (_) => null),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

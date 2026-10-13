@@ -420,6 +420,11 @@ class ChatController extends AsyncNotifier<ChatState> {
 final chatProvider = AsyncNotifierProvider.autoDispose
     .family<ChatController, ChatState, ChatKey>(ChatController.new);
 
+final announcementReadersProvider = FutureProvider.autoDispose
+    .family<List<AnnouncementReader>, String>(
+      (ref, id) => ref.watch(apiProvider).announcementReaders(id),
+    );
+
 final pickerProvider = Provider<Picker>((ref) => DevicePicker());
 
 final voiceRecorderProvider = Provider<VoiceRecorder>(

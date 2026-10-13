@@ -243,12 +243,20 @@ class Announcement {
     this.readByMe = false,
     this.readCount = 0,
     this.audience = 0,
+    this.needsAck = false,
+    this.ackedByMe = false,
+    this.ackCount = 0,
   });
 
   final String id;
   final String? projectId;
   final String body;
   final bool pinned;
+
+  /// Its readers are asked to confirm they have read it.
+  final bool needsAck;
+  final bool ackedByMe;
+  final int ackCount;
   final String authorId;
   final String authorName;
   final DateTime createdAt;
@@ -267,6 +275,31 @@ class Announcement {
     readByMe: json['read_by_me'] as bool? ?? false,
     readCount: json['read_count'] as int? ?? 0,
     audience: json['audience'] as int? ?? 0,
+    needsAck: json['needs_ack'] as bool? ?? false,
+    ackedByMe: json['acked_by_me'] as bool? ?? false,
+    ackCount: json['ack_count'] as int? ?? 0,
+  );
+}
+
+/// Someone an announcement is for, and whether they read and confirmed it.
+class AnnouncementReader {
+  const AnnouncementReader({
+    required this.userId,
+    required this.name,
+    this.readAt,
+    this.acknowledgedAt,
+  });
+
+  final String userId;
+  final String name;
+  final DateTime? readAt;
+  final DateTime? acknowledgedAt;
+
+  factory AnnouncementReader.fromJson(Json json) => AnnouncementReader(
+    userId: json['user_id'] as String,
+    name: _text(json['full_name']),
+    readAt: _timeOrNull(json['read_at']),
+    acknowledgedAt: _timeOrNull(json['acknowledged_at']),
   );
 }
 
@@ -280,6 +313,7 @@ class UnreadAnnouncement {
     this.projectId,
     this.projectName,
     this.projectColor,
+    this.needsAck = false,
   });
 
   final String id;
@@ -290,6 +324,9 @@ class UnreadAnnouncement {
   final String authorName;
   final DateTime createdAt;
 
+  /// Waiting for the signed-in user to confirm they have read it.
+  final bool needsAck;
+
   factory UnreadAnnouncement.fromJson(Json json) => UnreadAnnouncement(
     id: json['id'] as String,
     projectId: json['project_id'] as String?,
@@ -298,6 +335,7 @@ class UnreadAnnouncement {
     body: _text(json['body']),
     authorName: _text(json['author_name']),
     createdAt: _time(json['created_at']),
+    needsAck: json['needs_ack'] as bool? ?? false,
   );
 }
 
