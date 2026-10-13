@@ -112,6 +112,7 @@ class ChatFile {
   final String path;
 
   bool get isImage => mime.startsWith('image/');
+  bool get isVideo => mime.startsWith('video/');
 }
 
 class ChatMessage {
@@ -377,6 +378,9 @@ String mimeFor(String name) {
     'zip' => 'application/zip',
     'mp4' => 'video/mp4',
     'mov' => 'video/quicktime',
+    'webm' => 'video/webm',
+    '3gp' => 'video/3gpp',
+    'mkv' => 'video/x-matroska',
     'mp3' => 'audio/mpeg',
     'm4a' => 'audio/mp4',
     _ => 'application/octet-stream',

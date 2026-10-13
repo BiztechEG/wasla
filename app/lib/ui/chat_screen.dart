@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -839,11 +841,15 @@ class _Bubble extends ConsumerWidget {
     final m = message;
     final file = m.file;
     final maxWidth = MediaQuery.sizeOf(context).width * 0.78;
+    // A photo or video fills its bubble, with only a thin edge around it.
+    final media = !m.deleted && file != null && (file.isImage || file.isVideo);
 
     final content = <Widget>[
       if (showSender)
         Padding(
-          padding: const EdgeInsets.only(bottom: 2),
+          padding: media
+              ? const EdgeInsets.fromLTRB(6, 2, 6, 4)
+              : const EdgeInsets.only(bottom: 2),
           child: Text(
             m.senderName,
             style: theme.textTheme.labelMedium?.copyWith(
@@ -878,16 +884,11 @@ class _Bubble extends ConsumerWidget {
         )
       else ...[
         if (m.replyTo != null) _Quote(message: m),
-        if (file != null && file.isImage)
-          GestureDetector(
+        if (file != null && (file.isImage || file.isVideo))
+          ChatMedia(
+            file: file,
+            width: math.min(maxWidth - 8, 260),
             onTap: () => openFile(context, ref, file),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 260),
-                child: StoredImage(path: file.path),
-              ),
-            ),
           )
         else if (file != null)
           InkWell(
@@ -906,7 +907,9 @@ class _Bubble extends ConsumerWidget {
           ),
         if (m.body != null && m.body!.isNotEmpty)
           Padding(
-            padding: EdgeInsets.only(top: file != null ? 6 : 0),
+            padding: media
+                ? const EdgeInsets.fromLTRB(6, 6, 6, 0)
+                : EdgeInsets.only(top: file != null ? 6 : 0),
             child: Text(
               m.body!,
               style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
@@ -914,26 +917,29 @@ class _Bubble extends ConsumerWidget {
           ),
       ],
       const SizedBox(height: 4),
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (tag != null) ...[
-            Flexible(child: _TagChip(project: tag!)),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            clockTime(context, m.createdAt),
-            style: theme.textTheme.labelSmall?.copyWith(color: muted),
-          ),
-          if (mine && !m.deleted) ...[
-            const SizedBox(width: 4),
-            Icon(
-              read ? Icons.done_all : Icons.done,
-              size: 16,
-              color: read ? theme.colorScheme.primary : muted,
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: media ? 6 : 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (tag != null) ...[
+              Flexible(child: _TagChip(project: tag!)),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              clockTime(context, m.createdAt),
+              style: theme.textTheme.labelSmall?.copyWith(color: muted),
             ),
+            if (mine && !m.deleted) ...[
+              const SizedBox(width: 4),
+              Icon(
+                read ? Icons.done_all : Icons.done,
+                size: 16,
+                color: read ? theme.colorScheme.primary : muted,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     ];
 
@@ -954,7 +960,9 @@ class _Bubble extends ConsumerWidget {
               ),
               onLongPress: onLongPress,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                padding: media
+                    ? const EdgeInsets.fromLTRB(4, 4, 4, 4)
+                    : const EdgeInsets.fromLTRB(12, 8, 12, 6),
                 child: _inBubble(
                   theme,
                   Column(
