@@ -31,6 +31,7 @@ String? logoExtension(String mime) => switch (mime.toLowerCase()) {
 abstract class Picker {
   /// [maxSide] shrinks big photos so their longest side fits.
   Future<Upload?> pickImage({required bool camera, int maxSide = 2048});
+  Future<Upload?> pickVideo({required bool camera});
   Future<Upload?> pickFile();
 }
 
@@ -51,6 +52,23 @@ class DevicePicker implements Picker {
       bytes: bytes,
       name: image.name,
       mime: image.mimeType ?? mimeFor(image.name),
+    );
+  }
+
+  @override
+  Future<Upload?> pickVideo({required bool camera}) async {
+    final video = await ImagePicker().pickVideo(
+      source: camera ? ImageSource.camera : ImageSource.gallery,
+    );
+    if (video == null) return null;
+    if (await video.length() > maxUploadBytes) throw const FileTooLarge();
+    final bytes = await video.readAsBytes();
+    final mime = video.mimeType ?? mimeFor(video.name);
+    return Upload(
+      bytes: bytes,
+      name: video.name,
+      // Some phones name a recording without a known extension.
+      mime: mime.startsWith('video/') ? mime : 'video/mp4',
     );
   }
 

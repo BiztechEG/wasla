@@ -12,7 +12,9 @@
 		<string>en</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>لتصوير صورة وإرسالها في المحادثة. Wasla uses the camera to send a photo in a chat.</string>
+	<string>لتصوير صورة أو فيديو وإرساله في المحادثة. Wasla uses the camera to send a photo or video in a chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>لتسجيل صوت الفيديو والرسايل الصوتية. Wasla uses the microphone to record videos and voice messages.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>لاختيار صورة وإرسالها في المحادثة. Wasla uses your photos to send them in a chat.</string>
 	<key>CFBundleDisplayName</key>

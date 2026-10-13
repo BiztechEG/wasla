@@ -56,5 +56,8 @@ class FakePicker implements Picker {
       file;
 
   @override
+  Future<Upload?> pickVideo({required bool camera}) async => file;
+
+  @override
   Future<Upload?> pickFile() async => file;
 }

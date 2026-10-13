@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/ui/files_common.dart';
 
 import 'fake_api.dart';
 import 'harness.dart';
@@ -249,5 +250,59 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('messageField')), findsNothing);
+  });
+
+  testWidgets('photos and videos sit in a bounded frame and open full size', (
+    tester,
+  ) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    ChatMessage media(String id, String name, String mime) => ChatMessage(
+      id: id,
+      senderId: 'u2',
+      senderName: 'Mona Adel',
+      createdAt: DateTime.now(),
+      projectId: 'p1',
+      file: ChatFile(
+        id: 'f$id',
+        name: name,
+        mime: mime,
+        size: 4000000,
+        path: 'ws1/$name',
+      ),
+    );
+    api.chatMessages[chat]!.insertAll(0, [
+      media('v1', 'site.mp4', 'video/mp4'),
+      media('i1', 'plan.jpg', 'image/jpeg'),
+    ]);
+    await startApp(tester, api);
+    await tester.tap(find.text('المشاريع'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New Branch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المحادثة'));
+    await tester.pumpAndSettle();
+
+    final frames = find.byType(ChatMedia);
+    expect(frames, findsNWidgets(2));
+    final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+    for (final frame in tester.widgetList<ChatMedia>(frames)) {
+      expect(frame.width, lessThanOrEqualTo(260));
+    }
+    for (var i = 0; i < 2; i++) {
+      final size = tester.getSize(frames.at(i));
+      expect(size.height, lessThanOrEqualTo(size.width * 4 / 3 + 0.5));
+      expect(size.width, lessThan(screen.width * 0.78));
+    }
+
+    await tester.tap(frames.at(1));
+    await tester.pumpAndSettle();
+    expect(find.byType(ImageViewerScreen), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    await tester.tap(frames.at(0));
+    await tester.pumpAndSettle();
+    expect(find.byType(VideoViewerScreen), findsOneWidget);
   });
 }
