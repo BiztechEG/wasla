@@ -578,34 +578,53 @@ class _ChatViewState extends ConsumerState<ChatView> {
               when !at.isBefore(m.createdAt))
             (p, at),
     ];
+    final notSeen = [
+      for (final p in members)
+        if (p.userId != m.senderId && !seen.any((s) => s.$1.userId == p.userId))
+          p,
+    ];
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                l.seenByTitle,
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-            if (seen.isEmpty)
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(l.notSeenYet),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  l.seenByTitle,
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
               ),
-            for (final (p, at) in seen)
-              ListTile(
-                leading: Avatar(name: p.fullName),
-                title: Text(p.fullName),
-                trailing: Text(listTime(context, at)),
-              ),
-            const SizedBox(height: 8),
-          ],
+              if (seen.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(l.notSeenYet),
+                ),
+              for (final (p, at) in seen)
+                ListTile(
+                  leading: Avatar(name: p.fullName),
+                  title: Text(p.fullName),
+                  trailing: Text(listTime(context, at)),
+                ),
+              if (notSeen.isNotEmpty && seen.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SectionTitle('${l.seenNotYet} (${notSeen.length})'),
+                ),
+                for (final p in notSeen)
+                  ListTile(
+                    leading: Avatar(name: p.fullName),
+                    title: Text(p.fullName),
+                  ),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );

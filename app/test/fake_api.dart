@@ -542,6 +542,9 @@ class FakeApi implements WaslaApi {
           readByMe: readAnnouncements.contains(a.id),
           readCount: a.readCount,
           audience: a.audience,
+          needsAck: a.needsAck,
+          ackedByMe: ackedAnnouncements.contains(a.id),
+          ackCount: a.ackCount,
         ),
   ];
 
@@ -550,7 +553,10 @@ class FakeApi implements WaslaApi {
     String workspaceId,
   ) async => [
     for (final a in announcementList)
-      if (a.authorId != 'me' && !readAnnouncements.contains(a.id))
+      if (a.authorId != 'me' &&
+          (a.needsAck
+              ? !ackedAnnouncements.contains(a.id)
+              : !readAnnouncements.contains(a.id)))
         UnreadAnnouncement(
           id: a.id,
           projectId: a.projectId,
@@ -562,6 +568,7 @@ class FakeApi implements WaslaApi {
           body: a.body,
           authorName: a.authorName,
           createdAt: a.createdAt,
+          needsAck: a.needsAck,
         ),
   ];
 
@@ -571,6 +578,7 @@ class FakeApi implements WaslaApi {
     String? projectId,
     required String body,
     bool pinned = false,
+    bool needsAck = false,
   }) async => announcementList.insert(
     0,
     Announcement(
@@ -582,12 +590,28 @@ class FakeApi implements WaslaApi {
       authorName: name,
       createdAt: _tick(),
       audience: 3,
+      needsAck: needsAck,
     ),
   );
 
   @override
   Future<void> markAnnouncementsRead(List<String> ids) async =>
       readAnnouncements.addAll(ids);
+
+  final ackedAnnouncements = <String>{};
+
+  /// What [announcementReaders] returns, by announcement.
+  final readersByAnnouncement = <String, List<AnnouncementReader>>{};
+
+  @override
+  Future<void> acknowledgeAnnouncement(String id) async {
+    readAnnouncements.add(id);
+    ackedAnnouncements.add(id);
+  }
+
+  @override
+  Future<List<AnnouncementReader>> announcementReaders(String id) async =>
+      readersByAnnouncement[id] ?? const [];
 
   @override
   Future<void> setAnnouncementPinned(String id, bool pinned) async {}

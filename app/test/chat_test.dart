@@ -428,4 +428,77 @@ void main() {
     expect(find.textContaining('الميكروفون'), findsOneWidget);
     expect(find.byKey(const Key('sendVoice')), findsNothing);
   });
+
+  testWidgets('an announcement that asks stays until it is confirmed', (
+    tester,
+  ) async {
+    final api = _company(role: WorkspaceRole.member)
+      ..announcementList.add(
+        Announcement(
+          id: 'a1',
+          body: 'تعليمات السلامة الجديدة',
+          authorId: 'u9',
+          authorName: 'Hala',
+          createdAt: DateTime.utc(2026, 10, 8, 8),
+          audience: 5,
+          needsAck: true,
+        ),
+      );
+    await startApp(tester, api);
+
+    await tester.tap(find.text('تعليمات السلامة الجديدة'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    // Opened, but not confirmed: still on top.
+    expect(find.text('تعليمات السلامة الجديدة'), findsOneWidget);
+
+    await tester.tap(find.text('تعليمات السلامة الجديدة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ackButton')));
+    await tester.pumpAndSettle();
+    expect(api.ackedAnnouncements, {'a1'});
+    expect(find.text('تعليمات السلامة الجديدة'), findsNothing);
+  });
+
+  testWidgets('an admin asks for confirmation and sees who read', (
+    tester,
+  ) async {
+    final api = _company();
+    await startApp(tester, api);
+    await tester.tap(find.text('المزيد'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('نشرات مساحة العمل'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('نشرة جديدة'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('announcementText')),
+      'تحديث اللائحة',
+    );
+    await tester.tap(find.byKey(const Key('askAck')));
+    await tester.pump();
+    await tester.tap(find.text('نشر'));
+    await tester.pumpAndSettle();
+    final posted = api.announcementList.single;
+    expect(posted.needsAck, isTrue);
+    expect(find.text('قرأها 0 من 3 · أكّد 0'), findsOneWidget);
+
+    api.readersByAnnouncement[posted.id] = [
+      AnnouncementReader(
+        userId: 'u2',
+        name: 'Mona Adel',
+        readAt: DateTime.now(),
+        acknowledgedAt: DateTime.now(),
+      ),
+      AnnouncementReader(userId: 'u3', name: 'Karim', readAt: DateTime.now()),
+      const AnnouncementReader(userId: 'u4', name: 'Sara'),
+    ];
+    await tester.tap(find.byKey(Key('readers-${posted.id}')));
+    await tester.pumpAndSettle();
+    expect(find.text('أكدوا الاطلاع (1)'), findsOneWidget);
+    expect(find.text('قرأوها ولم يؤكدوا (1)'), findsOneWidget);
+    expect(find.text('لم يفتحوها بعد (1)'), findsOneWidget);
+    expect(find.text('Sara'), findsOneWidget);
+  });
 }

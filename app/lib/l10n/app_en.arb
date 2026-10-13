@@ -225,6 +225,25 @@
   "announcementHint": "Write the announcement",
   "pinAnnouncement": "Pin to the top",
   "publish": "Post",
+  "askAck": "Ask everyone to confirm",
+  "askAckHint": "Everyone gets an \"I've read it\" button, and it stays on top of their chats until they tap it",
+  "acknowledge": "I've read it",
+  "acknowledged": "You confirmed",
+  "needsAck": "Please confirm you've read it",
+  "readersTitle": "Who read it",
+  "readersAcked": "Confirmed",
+  "readersRead": "Read, not confirmed",
+  "readersSeen": "Read",
+  "readersNotYet": "Not opened yet",
+  "seenNotYet": "Not seen yet",
+  "ackCount": "{count} confirmed",
+  "@ackCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "readByCount": "Read by {read} of {total}",
   "confirmDeleteAnnouncement": "Delete this announcement?",
   "workspaceAnnouncements": "Workspace announcements",

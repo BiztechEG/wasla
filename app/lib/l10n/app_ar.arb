@@ -397,6 +397,25 @@
   "announcementHint": "اكتب النشرة هنا",
   "pinAnnouncement": "تثبيت أعلى النشرات",
   "publish": "نشر",
+  "askAck": "اطلب تأكيد الاطلاع",
+  "askAckHint": "يظهر لكل واحد زر \"تم الاطلاع\" ويبقى في أعلى المحادثات حتى يضغطه",
+  "acknowledge": "تم الاطلاع",
+  "acknowledged": "أكدت الاطلاع",
+  "needsAck": "مطلوب تأكيد الاطلاع",
+  "readersTitle": "من قرأ النشرة",
+  "readersAcked": "أكدوا الاطلاع",
+  "readersRead": "قرأوها ولم يؤكدوا",
+  "readersSeen": "قرأوها",
+  "readersNotYet": "لم يفتحوها بعد",
+  "seenNotYet": "لم يرها بعد",
+  "ackCount": "أكّد {count}",
+  "@ackCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "readByCount": "قرأها {read} من {total}",
   "@readByCount": {
     "placeholders": {
