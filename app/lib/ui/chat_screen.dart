@@ -297,6 +297,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
   @override
   void dispose() {
     _text.dispose();
+    _recTick?.cancel();
+    if (_rec != _Rec.off) ref.read(voiceRecorderProvider).cancel();
     super.dispose();
   }
 
@@ -326,36 +328,102 @@ class _ChatViewState extends ConsumerState<ChatView> {
     }
   }
 
-  bool _recording = false;
+  // Voice messages record while the mic is held, like WhatsApp: sliding up
+  // locks the recording (hands free), sliding toward the text cancels it.
+  _Rec _rec = _Rec.off;
+  bool _pressed = false;
+  Offset _drag = Offset.zero;
+  final _recClock = Stopwatch();
+  Timer? _recTick;
 
-  Future<void> _record() async {
+  Future<void> _pressMic() async {
     final l = context.l10n;
+    final recorder = ref.read(voiceRecorderProvider);
+    _pressed = true;
+    _drag = Offset.zero;
     try {
-      final started = await ref.read(voiceRecorderProvider).start();
+      final started = await recorder.start();
       if (!mounted) return;
       if (!started) {
         showMessage(context, l.micDenied);
         return;
       }
-      setState(() => _recording = true);
+      // Let go while the microphone was starting: that was a tap.
+      if (!_pressed) {
+        await recorder.cancel();
+        if (mounted) showMessage(context, l.holdToRecord);
+        return;
+      }
+      HapticFeedback.mediumImpact();
+      _recClock
+        ..reset()
+        ..start();
+      _recTick = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (_recClock.elapsed >= maxVoiceLength) {
+          _finishRecording(send: true);
+        } else {
+          setState(() {});
+        }
+      });
+      setState(() => _rec = _Rec.holding);
     } catch (e) {
       if (mounted) showMessage(context, errorText(l, e));
     }
   }
 
-  Future<void> _stopRecording({required bool send, Duration? length}) async {
+  void _dragMic(Offset offset) {
+    if (_rec != _Rec.holding) return;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final inward = rtl ? offset.dx : -offset.dx;
+    if (-offset.dy > _lockDistance) {
+      HapticFeedback.selectionClick();
+      setState(() {
+        _rec = _Rec.locked;
+        _drag = Offset.zero;
+      });
+    } else if (inward > _cancelDistance) {
+      HapticFeedback.heavyImpact();
+      _finishRecording(send: false);
+    } else {
+      setState(() => _drag = offset);
+    }
+  }
+
+  void _releaseMic() {
+    _pressed = false;
+    if (_rec == _Rec.holding) _finishRecording(send: true, tapHint: true);
+  }
+
+  void _cancelMic() {
+    _pressed = false;
+    if (_rec == _Rec.holding) _finishRecording(send: false);
+  }
+
+  Future<void> _finishRecording({
+    required bool send,
+    bool tapHint = false,
+  }) async {
+    if (_rec == _Rec.off) return;
+    final l = context.l10n;
     final recorder = ref.read(voiceRecorderProvider);
-    setState(() => _recording = false);
+    final length = _recClock.elapsed;
+    _recTick?.cancel();
+    _recClock.stop();
+    setState(() {
+      _rec = _Rec.off;
+      _drag = Offset.zero;
+    });
     // Under a second is a slip of the finger, not a message.
-    if (!send || length == null || length < const Duration(seconds: 1)) {
+    if (!send || length < const Duration(seconds: 1)) {
       await recorder.cancel();
+      if (send && tapHint && mounted) showMessage(context, l.holdToRecord);
       return;
     }
     try {
       final voice = await recorder.stop(length);
       if (voice != null && mounted) await _send(file: voice);
     } catch (e) {
-      if (mounted) showMessage(context, errorText(context.l10n, e));
+      if (mounted) showMessage(context, errorText(l, e));
     }
   }
 
@@ -429,10 +497,11 @@ class _ChatViewState extends ConsumerState<ChatView> {
             ),
           ),
         ),
-        if (_recording && !closed)
+        if (_rec == _Rec.locked && !closed)
           _RecordingBar(
-            onCancel: () => _stopRecording(send: false),
-            onSend: (length) => _stopRecording(send: true, length: length),
+            elapsed: _recClock.elapsed,
+            onCancel: () => _finishRecording(send: false),
+            onSend: () => _finishRecording(send: true),
           )
         else if (closed)
           _ClosedNote(
@@ -461,7 +530,17 @@ class _ChatViewState extends ConsumerState<ChatView> {
             onTag: (id) => setState(() => _tag = id),
             onAttach: chat.hasValue ? _attach : null,
             onSend: chat.hasValue ? () => _send() : null,
-            onRecord: chat.hasValue ? _record : null,
+            mic: chat.hasValue
+                ? _Mic(
+                    holding: _rec == _Rec.holding,
+                    elapsed: _recClock.elapsed,
+                    drag: _drag,
+                    onPress: _pressMic,
+                    onDrag: _dragMic,
+                    onRelease: _releaseMic,
+                    onCancel: _cancelMic,
+                  )
+                : null,
           ),
       ],
     );
@@ -1279,47 +1358,55 @@ class _PendingBubble extends StatelessWidget {
   }
 }
 
-/// Shown instead of the composer while a voice message records.
-class _RecordingBar extends StatefulWidget {
-  const _RecordingBar({required this.onCancel, required this.onSend});
+enum _Rec { off, holding, locked }
 
+/// How far the mic is slid up to lock a recording, or toward the text to
+/// cancel it.
+const _lockDistance = 80.0;
+const _cancelDistance = 110.0;
+
+String _clockText(Duration t) =>
+    '${t.inMinutes}:${(t.inSeconds % 60).toString().padLeft(2, '0')}';
+
+/// The mic and what holding it is doing right now.
+class _Mic {
+  const _Mic({
+    required this.holding,
+    required this.elapsed,
+    required this.drag,
+    required this.onPress,
+    required this.onDrag,
+    required this.onRelease,
+    required this.onCancel,
+  });
+
+  final bool holding;
+  final Duration elapsed;
+
+  /// Where the finger is from where it pressed.
+  final Offset drag;
+  final VoidCallback onPress;
+  final void Function(Offset) onDrag;
+  final VoidCallback onRelease;
   final VoidCallback onCancel;
-  final void Function(Duration length) onSend;
-
-  @override
-  State<_RecordingBar> createState() => _RecordingBarState();
 }
 
-class _RecordingBarState extends State<_RecordingBar> {
-  final _clock = Stopwatch()..start();
-  late final Timer _tick;
+/// Shown instead of the composer once a recording is locked.
+class _RecordingBar extends StatelessWidget {
+  const _RecordingBar({
+    required this.elapsed,
+    required this.onCancel,
+    required this.onSend,
+  });
 
-  @override
-  void initState() {
-    super.initState();
-    _tick = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (_clock.elapsed >= maxVoiceLength) {
-        _tick.cancel();
-        widget.onSend(_clock.elapsed);
-      } else {
-        setState(() {});
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _tick.cancel();
-    super.dispose();
-  }
+  final Duration elapsed;
+  final VoidCallback onCancel;
+  final VoidCallback onSend;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
-    final t = _clock.elapsed;
-    final shown =
-        '${t.inMinutes}:${(t.inSeconds % 60).toString().padLeft(2, '0')}';
     return Material(
       color: theme.scaffoldBackgroundColor,
       child: SafeArea(
@@ -1331,7 +1418,7 @@ class _RecordingBarState extends State<_RecordingBar> {
               IconButton(
                 key: const Key('cancelRecording'),
                 tooltip: l.cancelRecording,
-                onPressed: widget.onCancel,
+                onPressed: onCancel,
                 color: theme.colorScheme.error,
                 icon: const Icon(Icons.delete_outline),
               ),
@@ -1345,20 +1432,10 @@ class _RecordingBarState extends State<_RecordingBar> {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.fiber_manual_record,
-                        size: 14,
-                        color: theme.colorScheme.error,
-                      ),
+                      const _RecordingDot(),
                       const SizedBox(width: 8),
                       Expanded(child: Text(l.recording)),
-                      Text(
-                        shown,
-                        textDirection: TextDirection.ltr,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
+                      _Clock(elapsed),
                     ],
                   ),
                 ),
@@ -1369,13 +1446,282 @@ class _RecordingBarState extends State<_RecordingBar> {
                 child: IconButton.filled(
                   key: const Key('sendVoice'),
                   tooltip: l.send,
-                  onPressed: () => widget.onSend(_clock.elapsed),
+                  onPressed: onSend,
                   icon: const Icon(Icons.send),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _Clock extends StatelessWidget {
+  const _Clock(this.elapsed);
+
+  final Duration elapsed;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    _clockText(elapsed),
+    textDirection: TextDirection.ltr,
+    style: Theme.of(context).textTheme.titleSmall
+        ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+  );
+}
+
+/// A red dot that fades in and out while recording.
+class _RecordingDot extends StatefulWidget {
+  const _RecordingDot();
+
+  @override
+  State<_RecordingDot> createState() => _RecordingDotState();
+}
+
+class _RecordingDotState extends State<_RecordingDot>
+    with SingleTickerProviderStateMixin {
+  late final _blink = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _blink.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: Tween(begin: 1.0, end: 0.25).animate(_blink),
+    child: Icon(
+      Icons.mic,
+      size: 20,
+      color: Theme.of(context).colorScheme.error,
+    ),
+  );
+}
+
+/// Over the text field while the mic is held: the time, and how to cancel.
+class _HoldingStrip extends StatelessWidget {
+  const _HoldingStrip({required this.mic});
+
+  final _Mic mic;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final inward = math.max(0.0, rtl ? mic.drag.dx : -mic.drag.dx);
+    final progress = (inward / _cancelDistance).clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Row(
+        children: [
+          const _RecordingDot(),
+          const SizedBox(width: 8),
+          _Clock(mic.elapsed),
+          const Spacer(),
+          Opacity(
+            opacity: 1 - progress * 0.8,
+            child: Transform.translate(
+              offset: Offset(rtl ? inward * 0.5 : -inward * 0.5, 0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.arrow_back_ios,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  Text(
+                    l.slideToCancel,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The mic: press and hold to record. It grows and pulses while held,
+/// follows the finger, and shows the lock to slide up to.
+class _MicButton extends StatefulWidget {
+  const _MicButton({required this.mic});
+
+  final _Mic mic;
+
+  @override
+  State<_MicButton> createState() => _MicButtonState();
+}
+
+class _MicButtonState extends State<_MicButton>
+    with SingleTickerProviderStateMixin {
+  Offset? _down;
+  late final _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  @override
+  void didUpdateWidget(_MicButton old) {
+    super.didUpdateWidget(old);
+    if (widget.mic.holding && !_pulse.isAnimating) {
+      _pulse.repeat();
+    } else if (!widget.mic.holding && _pulse.isAnimating) {
+      _pulse
+        ..stop()
+        ..reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final mic = widget.mic;
+    final holding = mic.holding;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    // The button follows the finger up toward the lock and inward toward
+    // cancel, no further.
+    final up = holding ? (-mic.drag.dy).clamp(0.0, _lockDistance) : 0.0;
+    final inward = holding
+        ? (rtl ? mic.drag.dx : -mic.drag.dx).clamp(0.0, _cancelDistance)
+        : 0.0;
+    final follow = Offset(rtl ? inward : -inward, -up);
+    final color = holding ? theme.colorScheme.error : theme.colorScheme.primary;
+
+    return Semantics(
+      button: true,
+      label: l.holdToRecord,
+      child: Listener(
+        key: const Key('micButton'),
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (e) {
+          _down = e.position;
+          mic.onPress();
+        },
+        onPointerMove: (e) {
+          if (_down != null) mic.onDrag(e.position - _down!);
+        },
+        onPointerUp: (_) {
+          _down = null;
+          mic.onRelease();
+        },
+        onPointerCancel: (_) {
+          _down = null;
+          mic.onCancel();
+        },
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            if (holding)
+              Positioned(
+                bottom: 70 + up * 0.4,
+                child: _LockHint(progress: up / _lockDistance),
+              ),
+            Transform.translate(
+              offset: follow,
+              child: AnimatedScale(
+                scale: holding ? 1.45 : 1,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOut,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (holding)
+                      AnimatedBuilder(
+                        animation: _pulse,
+                        builder: (context, _) => Container(
+                          width: 50 + 24 * _pulse.value,
+                          height: 50 + 24 * _pulse.value,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: color.withValues(
+                              alpha: 0.35 * (1 - _pulse.value),
+                            ),
+                          ),
+                        ),
+                      ),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color,
+                      ),
+                      child: Icon(
+                        Icons.mic,
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Above the held mic: slide up to here to keep recording hands free.
+class _LockHint extends StatelessWidget {
+  const _LockHint({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('lockHint'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(blurRadius: 6, color: Color(0x22000000))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            progress > 0.6 ? Icons.lock : Icons.lock_open,
+            size: 20,
+            color: Color.lerp(
+              theme.colorScheme.onSurfaceVariant,
+              theme.colorScheme.primary,
+              progress,
+            ),
+          ),
+          Icon(
+            Icons.keyboard_arrow_up,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ],
       ),
     );
   }
@@ -1391,7 +1737,7 @@ class _Composer extends StatelessWidget {
     required this.onTag,
     required this.onAttach,
     required this.onSend,
-    required this.onRecord,
+    required this.mic,
   });
 
   final TextEditingController controller;
@@ -1406,7 +1752,9 @@ class _Composer extends StatelessWidget {
   /// Null until the chat has loaded.
   final VoidCallback? onAttach;
   final VoidCallback? onSend;
-  final VoidCallback? onRecord;
+
+  /// The voice-message mic; null until the chat has loaded.
+  final _Mic? mic;
 
   @override
   Widget build(BuildContext context) {
@@ -1543,69 +1891,71 @@ class _Composer extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 50),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              key: const Key('messageField'),
-                              controller: controller,
-                              minLines: 1,
-                              maxLines: 5,
-                              inputFormatters: const [RuneLimit(4000)],
-                              textCapitalization: TextCapitalization.sentences,
-                              decoration: InputDecoration(
-                                hintText: l.typeMessage,
-                                isDense: true,
-                                filled: false,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding:
-                                    const EdgeInsetsDirectional.fromSTEB(
-                                      18,
-                                      15,
-                                      4,
-                                      15,
-                                    ),
+                    child: Stack(
+                      children: [
+                        Container(
+                          constraints: const BoxConstraints(minHeight: 50),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  key: const Key('messageField'),
+                                  controller: controller,
+                                  minLines: 1,
+                                  maxLines: 5,
+                                  inputFormatters: const [RuneLimit(4000)],
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  decoration: InputDecoration(
+                                    hintText: l.typeMessage,
+                                    isDense: true,
+                                    filled: false,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding:
+                                        const EdgeInsetsDirectional.fromSTEB(
+                                          18,
+                                          15,
+                                          4,
+                                          15,
+                                        ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              Padding(
+                                padding: const EdgeInsets.all(3),
+                                child: IconButton(
+                                  tooltip: l.attach,
+                                  onPressed: onAttach,
+                                  color: muted,
+                                  icon: const Icon(Icons.attach_file),
+                                ),
+                              ),
+                            ],
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(3),
-                            child: IconButton(
-                              tooltip: l.attach,
-                              onPressed: onAttach,
-                              color: muted,
-                              icon: const Icon(Icons.attach_file),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        if (mic?.holding ?? false)
+                          Positioned.fill(child: _HoldingStrip(mic: mic!)),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   SizedBox.square(
                     dimension: 50,
-                    child: canSend || onRecord == null
+                    child: canSend || mic == null
                         ? IconButton.filled(
                             key: const Key('sendButton'),
                             tooltip: l.send,
                             onPressed: canSend ? onSend : null,
                             icon: const Icon(Icons.send),
                           )
-                        : IconButton.filled(
-                            key: const Key('micButton'),
-                            tooltip: l.recordVoice,
-                            onPressed: onRecord,
-                            icon: const Icon(Icons.mic),
-                          ),
+                        : _MicButton(mic: mic!),
                   ),
                 ],
               ),

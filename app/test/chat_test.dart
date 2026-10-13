@@ -371,40 +371,57 @@ void main() {
     expect(find.text('New Branch'), findsWidgets);
   });
 
-  testWidgets('a voice message records, sends and shows its length', (
-    tester,
-  ) async {
-    final api = _company();
-    final chat = api.addProjectChat('ws1', _branch);
-    final recorder = FakeRecorder();
-    await startApp(tester, api, recorder: recorder);
+  Future<void> openBranchChat(WidgetTester tester) async {
     await tester.tap(find.text('المشاريع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New Branch'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('المحادثة'));
     await tester.pumpAndSettle();
+  }
 
-    // A slip of the finger is dropped.
-    await tester.tap(find.byKey(const Key('micButton')));
+  Future<TestGesture> pressMic(WidgetTester tester) async {
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const Key('micButton'))),
+    );
     await tester.pump();
-    expect(find.text('جارٍ التسجيل'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('sendVoice')));
+    await tester.pump();
+    return gesture;
+  }
+
+  Future<void> holdFor(WidgetTester tester, Duration length) async {
+    await tester.runAsync(() => Future.delayed(length));
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  testWidgets('holding the mic records and letting go sends', (tester) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    final recorder = FakeRecorder();
+    await startApp(tester, api, recorder: recorder);
+    await openBranchChat(tester);
+
+    // A tap only explains how.
+    var gesture = await pressMic(tester);
+    await gesture.up();
     await tester.pumpAndSettle();
     expect(recorder.cancelled, 1);
     expect(api.chatMessages[chat], isEmpty);
+    expect(find.text('اضغط مطولًا على المايك للتسجيل'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(seconds: 5));
 
-    await tester.tap(find.byKey(const Key('micButton')));
-    await tester.pump();
-    await tester.runAsync(() => Future.delayed(const Duration(seconds: 2)));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.byKey(const Key('sendVoice')));
+    gesture = await pressMic(tester);
+    expect(find.text('اسحب للإلغاء'), findsOneWidget);
+    expect(find.byKey(const Key('lockHint')), findsOneWidget);
+    await holdFor(tester, const Duration(seconds: 2));
+    await gesture.up();
     await tester.pumpAndSettle();
     final sent = api.chatMessages[chat]!.first.file!;
     expect(sent.mime, 'audio/mp4');
     expect(sent.name, matches(RegExp(r'^voice_[2-9]s\.m4a$')));
     expect(find.byType(VoicePlayer), findsOneWidget);
     expect(find.textContaining('0:0'), findsOneWidget);
+    expect(find.text('اسحب للإلغاء'), findsNothing);
 
     // Typing turns the microphone back into send.
     await tester.enterText(find.byKey(const Key('messageField')), 'تمام');
@@ -413,17 +430,64 @@ void main() {
     expect(find.byKey(const Key('sendButton')), findsOneWidget);
   });
 
+  testWidgets('sliding up locks the recording, sliding aside cancels it', (
+    tester,
+  ) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    final recorder = FakeRecorder();
+    await startApp(tester, api, recorder: recorder);
+    await openBranchChat(tester);
+
+    // Aside (towards the text, right in Arabic) drops it.
+    var gesture = await pressMic(tester);
+    await holdFor(tester, const Duration(seconds: 2));
+    for (var i = 0; i < 4; i++) {
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(recorder.cancelled, 1);
+    expect(api.chatMessages[chat], isEmpty);
+    expect(find.byKey(const Key('micButton')), findsOneWidget);
+
+    // Up keeps it going without the finger.
+    gesture = await pressMic(tester);
+    for (var i = 0; i < 4; i++) {
+      await gesture.moveBy(const Offset(0, -30));
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('جارٍ التسجيل'), findsOneWidget);
+    await holdFor(tester, const Duration(seconds: 2));
+    await tester.tap(find.byKey(const Key('sendVoice')));
+    await tester.pumpAndSettle();
+    expect(
+      api.chatMessages[chat]!.first.file!.name,
+      matches(RegExp(r'^voice_[2-9]s\.m4a$')),
+    );
+
+    // Locked, it can still be thrown away.
+    gesture = await pressMic(tester);
+    await gesture.moveBy(const Offset(0, -100));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('cancelRecording')));
+    await tester.pumpAndSettle();
+    expect(recorder.cancelled, 2);
+    expect(api.chatMessages[chat], hasLength(1));
+  });
+
   testWidgets('without the microphone, recording explains why', (tester) async {
     final api = _company();
     api.addProjectChat('ws1', _branch);
     await startApp(tester, api, recorder: FakeRecorder(allowed: false));
-    await tester.tap(find.text('المشاريع'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('New Branch'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('المحادثة'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('micButton')));
+    await openBranchChat(tester);
+    final gesture = await pressMic(tester);
+    await gesture.up();
     await tester.pumpAndSettle();
     expect(find.textContaining('الميكروفون'), findsOneWidget);
     expect(find.byKey(const Key('sendVoice')), findsNothing);
