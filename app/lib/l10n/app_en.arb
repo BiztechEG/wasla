@@ -272,6 +272,7 @@
   "@applyTemplateConfirm": {"placeholders": {"count": {"type": "int"}, "name": {"type": "String"}}},
   "templateApplied": "{count} tasks added",
   "@templateApplied": {"placeholders": {"count": {"type": "int"}}},
+  "addToGoogleCalendar": "Add to Google Calendar",
   "readByCount": "Read by {read} of {total}",
   "confirmDeleteAnnouncement": "Delete this announcement?",
   "workspaceAnnouncements": "Workspace announcements",

@@ -233,6 +233,19 @@ class _TaskBody extends ConsumerWidget {
                     ),
                 ],
               ),
+              if (task.dueAt != null && task.status.isOpen)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    key: const Key('addToCalendar'),
+                    onPressed: () => openLink(
+                      context,
+                      googleCalendarLink(task, details: detail.description),
+                    ),
+                    icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                    label: Text(l.addToGoogleCalendar),
+                  ),
+                ),
               if ((detail.description ?? '').isNotEmpty) ...[
                 SectionTitle(l.taskDetailsTitle),
                 Card(

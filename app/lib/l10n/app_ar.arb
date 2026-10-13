@@ -444,6 +444,7 @@
   "@applyTemplateConfirm": {"placeholders": {"count": {"type": "int"}, "name": {"type": "String"}}},
   "templateApplied": "أُضيفت {count} مهمة",
   "@templateApplied": {"placeholders": {"count": {"type": "int"}}},
+  "addToGoogleCalendar": "أضف لتقويم Google",
   "readByCount": "قرأها {read} من {total}",
   "@readByCount": {
     "placeholders": {

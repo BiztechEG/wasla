@@ -177,3 +177,18 @@ String repeatLabel(AppLocalizations l, TaskRepeat? repeat) => switch (repeat) {
   TaskRepeat.weekly => l.repeatWeekly,
   TaskRepeat.monthly => l.repeatMonthly,
 };
+
+/// A Google Calendar page that adds an hour-long event at the task's due
+/// time; it needs no sign-in to Wasla, only to Google in the browser.
+String googleCalendarLink(TaskItem task, {String? details}) {
+  String stamp(DateTime t) =>
+      '${t.toUtc().toIso8601String().replaceAll(RegExp(r'[-:]'), '').split('.').first}Z';
+  final start = task.dueAt!;
+  return Uri.https('calendar.google.com', '/calendar/render', {
+    'action': 'TEMPLATE',
+    'text': task.title,
+    'dates':
+        '${stamp(start.subtract(const Duration(hours: 1)))}/${stamp(start)}',
+    'details': [task.projectName, ?details].join('\n\n'),
+  }).toString();
+}
