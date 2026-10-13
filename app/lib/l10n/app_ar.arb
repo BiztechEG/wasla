@@ -1183,5 +1183,18 @@
     }
   },
   "exitAppTitle": "الخروج من وصلة؟",
-  "exitApp": "خروج"
+  "exitApp": "خروج",
+  "googleSection": "Google",
+  "googleCalendarAuto": "حط مهامي في تقويم Google",
+  "googleCalendarAutoHint": "المهام اللي ليها موعد تتضاف وتتحرك وتتشال معاها",
+  "googleDisconnect": "فصل حساب Google",
+  "googleDisconnected": "اتفصل حساب Google، والمواعيد اللي اتضافت قبل كده هتفضل في تقويمك.",
+  "googleNotConnected": "مسمحتش لوصلة بالوصول لـ Google",
+  "googleUnavailable": "مش متاح على الموبايل ده لسه",
+  "saveToDrive": "احفظ في Google Drive",
+  "savingToDrive": "جاري الحفظ في Google Drive…",
+  "savedToDrive": "اتحفظ في Google Drive بتاعك",
+  "inGoogleCalendar": "موجودة في تقويم Google بتاعك",
+  "removeFromCalendar": "شيلها من التقويم",
+  "addedToCalendar": "اتضافت لتقويم Google بتاعك"
 }

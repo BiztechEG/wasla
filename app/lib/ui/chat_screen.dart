@@ -497,6 +497,12 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 title: Text(l.copy),
                 onTap: () => Navigator.pop(context, 'copy'),
               ),
+            if (m.file != null)
+              ListTile(
+                leading: const Icon(Icons.add_to_drive_outlined),
+                title: Text(l.saveToDrive),
+                onTap: () => Navigator.pop(context, 'drive'),
+              ),
             if (!closed)
               ListTile(
                 leading: const Icon(Icons.add_task),
@@ -529,6 +535,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
     switch (choice) {
       case 'reply':
         setState(() => _replyTo = m);
+      case 'drive':
+        await saveFileToDrive(context, ref, m.file!);
       case 'copy':
         await Clipboard.setData(ClipboardData(text: m.body!));
         if (mounted) showMessage(context, l.copied);

@@ -7,6 +7,7 @@ import '../data/models.dart';
 import '../push/open_push.dart';
 import '../push/push.dart';
 import '../state/chat_providers.dart';
+import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
 import 'chats_tab.dart';
@@ -50,6 +51,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     ref.listen(pendingPushProvider, (_, _) => _openPending());
+    // Keeps tasks in Google Calendar in step with their changes.
+    ref.listen(myTasksProvider, (_, next) {
+      final tasks = next.value;
+      if (tasks != null) ref.read(calendarProvider.notifier).sync(tasks);
+    });
     final membership = ref.watch(currentMembershipProvider);
     if (membership == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));

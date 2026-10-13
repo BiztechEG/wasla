@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/chat_models.dart';
 import '../data/task_models.dart';
 import '../state/chat_providers.dart';
+import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
 import '../theme.dart';
@@ -234,18 +235,7 @@ class _TaskBody extends ConsumerWidget {
                 ],
               ),
               if (task.dueAt != null && task.status.isOpen)
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: TextButton.icon(
-                    key: const Key('addToCalendar'),
-                    onPressed: () => openLink(
-                      context,
-                      googleCalendarLink(task, details: detail.description),
-                    ),
-                    icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                    label: Text(l.addToGoogleCalendar),
-                  ),
-                ),
+                _CalendarButton(task: task, details: detail.description),
               if ((detail.description ?? '').isNotEmpty) ...[
                 SectionTitle(l.taskDetailsTitle),
                 Card(
@@ -396,6 +386,63 @@ class _TaskBody extends ConsumerWidget {
 }
 
 /// The five statuses as chips; the ones one may not move to are disabled.
+/// Puts the task in the person's Google Calendar, where it then follows the
+/// task. Without Google sign-in on the phone, opens Google Calendar's page
+/// for adding an event instead.
+class _CalendarButton extends ConsumerWidget {
+  const _CalendarButton({required this.task, this.details});
+
+  final TaskItem task;
+  final String? details;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final google = ref.watch(googleAccountProvider);
+    final linked = ref.watch(calendarProvider).events.containsKey(task.id);
+    final calendar = ref.read(calendarProvider.notifier);
+    final Widget button;
+    if (!google.available) {
+      button = TextButton.icon(
+        key: const Key('addToCalendar'),
+        onPressed: () =>
+            openLink(context, googleCalendarLink(task, details: details)),
+        icon: const Icon(Icons.calendar_month_outlined, size: 18),
+        label: Text(l.addToGoogleCalendar),
+      );
+    } else if (linked) {
+      button = Row(
+        children: [
+          Icon(
+            Icons.event_available,
+            size: 18,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Flexible(child: Text(l.inGoogleCalendar)),
+          TextButton(
+            key: const Key('removeFromCalendar'),
+            onPressed: () => runAction(context, () => calendar.remove(task.id)),
+            child: Text(l.removeFromCalendar),
+          ),
+        ],
+      );
+    } else {
+      button = TextButton.icon(
+        key: const Key('addToCalendar'),
+        onPressed: () => runAction(
+          context,
+          () => calendar.add(task),
+          done: l.addedToCalendar,
+        ),
+        icon: const Icon(Icons.calendar_month_outlined, size: 18),
+        label: Text(l.addToGoogleCalendar),
+      );
+    }
+    return Align(alignment: AlignmentDirectional.centerStart, child: button);
+  }
+}
+
 class _StatusPicker extends ConsumerWidget {
   const _StatusPicker({required this.detail});
 

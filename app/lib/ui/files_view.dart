@@ -129,20 +129,20 @@ class _ProjectFilesViewState extends ConsumerState<ProjectFilesView> {
       contentPadding: const EdgeInsetsDirectional.fromSTEB(16, 4, 4, 4),
       title: FileRow(file: f.file, detail: detail, dense: true),
       onTap: () => openFile(context, ref, f.file),
-      trailing: canPin || canDelete
-          ? PopupMenuButton<String>(
-              onSelected: (action) => _act(context, f, action),
-              itemBuilder: (_) => [
-                if (canPin)
-                  PopupMenuItem(
-                    value: 'pin',
-                    child: Text(f.pinned ? l.unpin : l.pin),
-                  ),
-                if (canDelete)
-                  PopupMenuItem(value: 'delete', child: Text(l.delete)),
-              ],
-            )
-          : null,
+      trailing: PopupMenuButton<String>(
+        onSelected: (action) => action == 'drive'
+            ? saveFileToDrive(context, ref, f.file)
+            : _act(context, f, action),
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'drive', child: Text(l.saveToDrive)),
+          if (canPin)
+            PopupMenuItem(
+              value: 'pin',
+              child: Text(f.pinned ? l.unpin : l.pin),
+            ),
+          if (canDelete) PopupMenuItem(value: 'delete', child: Text(l.delete)),
+        ],
+      ),
     );
   }
 

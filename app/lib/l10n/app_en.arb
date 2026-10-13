@@ -977,5 +977,18 @@
   "lateTasks": "{count, plural, =1{1 late task} other{{count} late tasks}}",
   "newMessagesCount": "{count} new",
   "exitAppTitle": "Close Wasla?",
-  "exitApp": "Close"
+  "exitApp": "Close",
+  "googleSection": "Google",
+  "googleCalendarAuto": "Put my tasks in Google Calendar",
+  "googleCalendarAutoHint": "Tasks with a due date are added, moved and removed with them",
+  "googleDisconnect": "Disconnect Google",
+  "googleDisconnected": "Google is disconnected. Events already added stay in your calendar.",
+  "googleNotConnected": "Google access wasn't allowed",
+  "googleUnavailable": "Not available on this phone yet",
+  "saveToDrive": "Save to Google Drive",
+  "savingToDrive": "Saving to Google Drive…",
+  "savedToDrive": "Saved to your Google Drive",
+  "inGoogleCalendar": "In your Google Calendar",
+  "removeFromCalendar": "Remove from calendar",
+  "addedToCalendar": "Added to your Google Calendar"
 }

@@ -9,6 +9,7 @@ import '../data/chat_models.dart';
 import '../data/picker.dart';
 import '../data/voice.dart';
 import '../state/chat_providers.dart';
+import '../state/google_providers.dart';
 import 'chat_format.dart';
 import 'widgets.dart';
 
@@ -94,6 +95,25 @@ Future<void> openFile(
   }
 }
 
+/// Copies a stored file to the person's own Google Drive.
+Future<void> saveFileToDrive(
+  BuildContext context,
+  WidgetRef ref,
+  ChatFile file,
+) async {
+  final l = context.l10n;
+  final google = ref.read(googleAccountProvider);
+  if (!google.available) {
+    showMessage(context, l.googleUnavailable);
+    return;
+  }
+  showMessage(context, l.savingToDrive);
+  await runAction(context, () async {
+    final url = await ref.read(fileUrlProvider(file.path).future);
+    await google.saveToDrive(name: file.name, mime: file.mime, source: url);
+  }, done: l.savedToDrive);
+}
+
 /// A stored photo, loaded through a short-lived link.
 class StoredImage extends ConsumerWidget {
   const StoredImage({
@@ -152,6 +172,12 @@ class ImageViewerScreen extends ConsumerWidget {
           foregroundColor: Colors.white,
           title: Text(file.name, overflow: TextOverflow.ellipsis),
           actions: [
+            IconButton(
+              key: const Key('saveToDrive'),
+              tooltip: l.saveToDrive,
+              icon: const Icon(Icons.add_to_drive_outlined),
+              onPressed: () => saveFileToDrive(context, ref, file),
+            ),
             IconButton(
               tooltip: l.openFile,
               icon: const Icon(Icons.open_in_new),
@@ -449,6 +475,11 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
           foregroundColor: Colors.white,
           title: Text(widget.file.name, overflow: TextOverflow.ellipsis),
           actions: [
+            IconButton(
+              tooltip: l.saveToDrive,
+              icon: const Icon(Icons.add_to_drive_outlined),
+              onPressed: () => saveFileToDrive(context, ref, widget.file),
+            ),
             IconButton(
               tooltip: l.openFile,
               icon: const Icon(Icons.open_in_new),

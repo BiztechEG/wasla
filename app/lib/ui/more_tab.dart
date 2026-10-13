@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/google.dart';
 import '../data/models.dart';
 import '../state/billing_providers.dart';
+import '../state/google_providers.dart';
 import '../push/push.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
+import '../state/task_providers.dart';
 import 'admin_screen.dart';
 import 'announcements_view.dart';
 import 'billing_format.dart';
@@ -205,6 +208,10 @@ class MoreTab extends ConsumerWidget {
           ),
         ],
 
+        if (ref.watch(googleAccountProvider).available) ...[
+          SectionTitle(l.googleSection),
+          const _GoogleCard(),
+        ],
         SectionTitle(l.settingsSection),
         Card(
           child: Padding(
@@ -292,5 +299,48 @@ class MoreTab extends ConsumerWidget {
         .read(apiProvider)
         .updateProfile(theme: theme, locale: locale)
         .catchError((_) {});
+  }
+}
+
+/// The person's own Google account: tasks in their calendar. Saving files to
+/// Drive is offered on each file.
+class _GoogleCard extends ConsumerWidget {
+  const _GoogleCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final calendar = ref.watch(calendarProvider);
+    final notifier = ref.read(calendarProvider.notifier);
+    return Card(
+      child: Column(
+        children: [
+          SwitchListTile(
+            key: const Key('calendarAuto'),
+            secondary: const Icon(Icons.calendar_month_outlined),
+            title: Text(l.googleCalendarAuto),
+            subtitle: Text(l.googleCalendarAutoHint),
+            value: calendar.auto,
+            onChanged: (on) => runAction(context, () async {
+              final tasks = on
+                  ? await ref.read(myTasksProvider.future)
+                  : const <Never>[];
+              if (!await notifier.setAuto(on, tasks)) {
+                throw const GoogleNotConnected();
+              }
+            }),
+          ),
+          ListTile(
+            key: const Key('googleDisconnect'),
+            leading: const Icon(Icons.link_off),
+            title: Text(l.googleDisconnect),
+            onTap: () => runAction(context, () async {
+              await notifier.forget();
+              await ref.read(googleAccountProvider).disconnect();
+            }, done: l.googleDisconnected),
+          ),
+        ],
+      ),
+    );
   }
 }
