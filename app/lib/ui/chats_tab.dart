@@ -5,12 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chat_models.dart';
 import '../data/models.dart';
+import '../data/search_models.dart';
 import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../theme.dart';
 import 'announcements_view.dart';
+import 'files_common.dart';
 import 'chat_format.dart';
 import 'chat_screen.dart';
+import 'project_screen.dart';
+import 'task_format.dart';
+import 'task_screen.dart';
 import 'widgets.dart';
 
 /// Every chat in one list, as in the design: announcements on top, then
@@ -621,12 +626,20 @@ class _SearchResults extends ConsumerStatefulWidget {
   ConsumerState<_SearchResults> createState() => _SearchResultsState();
 }
 
-class _SearchResultsState extends ConsumerState<_SearchResults> {
-  late Future<List<MessageHit>> _hits = _load();
+/// Everything a search found: messages, plus files, tasks and announcements.
+typedef _Found = (List<MessageHit>, WorkspaceSearch);
 
-  Future<List<MessageHit>> _load() => ref
-      .read(apiProvider)
-      .searchMessages(widget.membership.workspaceId, widget.query);
+class _SearchResultsState extends ConsumerState<_SearchResults> {
+  late Future<_Found> _hits = _load();
+
+  Future<_Found> _load() {
+    final api = ref.read(apiProvider);
+    final ws = widget.membership.workspaceId;
+    return (
+      api.searchMessages(ws, widget.query),
+      api.searchWorkspace(ws, widget.query),
+    ).wait;
+  }
 
   @override
   void didUpdateWidget(_SearchResults old) {
@@ -634,33 +647,73 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     if (old.query != widget.query) _hits = _load();
   }
 
+  void _push(Widget screen) =>
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => screen));
+
+  void _openProject(String id, {ProjectTab tab = ProjectTab.status}) {
+    final project = ref
+        .read(projectsProvider(widget.membership.workspaceId))
+        .value
+        ?.where((p) => p.id == id)
+        .firstOrNull;
+    if (project != null) {
+      _push(ProjectScreen(project: project, initialTab: tab));
+    }
+  }
+
+  void _openMessage(MessageHit h) {
+    // Chats outside the list (a closed project, or one an admin is not part
+    // of) open from the hit itself.
+    final chat =
+        widget.chats.where((c) => c.id == h.conversationId).firstOrNull ??
+        h.chat;
+    _push(
+      ChatScreen(membership: widget.membership, target: ChatTarget.of(chat)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
     final me = ref.watch(authProvider).value;
-    final q = widget.query.toLowerCase();
-    final people =
-        (ref.watch(membersProvider(widget.membership.workspaceId)).value ??
-                const <Member>[])
-            .where(
-              (m) => m.userId != me && m.fullName.toLowerCase().contains(q),
-            )
+    final ws = widget.membership.workspaceId;
+    final q = normalizeSearch(widget.query);
+    final people = (ref.watch(membersProvider(ws)).value ?? const <Member>[])
+        .where((m) => m.userId != me && normalizeSearch(m.fullName).contains(q))
+        .toList();
+    final projects =
+        (ref.watch(projectsProvider(ws)).value ?? const <Project>[])
+            .where((p) => normalizeSearch(p.name).contains(q))
             .toList();
 
-    return FutureBuilder<List<MessageHit>>(
+    Widget section(String title) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SectionTitle(title),
+    );
+    Widget line(String text) =>
+        Text(text, maxLines: 1, overflow: TextOverflow.ellipsis);
+
+    return FutureBuilder<_Found>(
       future: _hits,
       builder: (context, snap) {
-        final hits = snap.data ?? const <MessageHit>[];
         final loading = snap.connectionState != ConnectionState.done;
+        final (messages, found) =
+            snap.data ?? (const <MessageHit>[], const WorkspaceSearch());
+        final nothing =
+            people.isEmpty &&
+            projects.isEmpty &&
+            messages.isEmpty &&
+            found.files.isEmpty &&
+            found.tasks.isEmpty &&
+            found.announcements.isEmpty;
         return ListView(
           padding: const EdgeInsets.only(bottom: 96),
           children: [
             if (people.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SectionTitle(l.searchPeople),
-              ),
+              section(l.searchPeople),
               for (final m in people)
                 PersonTile(
                   name: m.fullName,
@@ -669,10 +722,98 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                       openPrivateChat(context, ref, widget.membership, m),
                 ),
             ],
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SectionTitle(l.searchMessages),
-            ),
+            if (projects.isNotEmpty) ...[
+              section(l.searchProjects),
+              for (final p in projects)
+                ListTile(
+                  leading: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: WaslaColors.project(
+                      p.color,
+                      theme.brightness,
+                    ).withValues(alpha: 0.14),
+                    child: Icon(
+                      Icons.folder_outlined,
+                      size: 20,
+                      color: WaslaColors.project(p.color, theme.brightness),
+                    ),
+                  ),
+                  title: line(p.name),
+                  onTap: () => _openProject(p.id),
+                ),
+            ],
+            if (found.tasks.isNotEmpty) ...[
+              section(l.searchTasks),
+              for (final t in found.tasks)
+                ListTile(
+                  leading: const Icon(Icons.task_alt),
+                  title: line(t.title),
+                  subtitle: line(
+                    t.dueAt == null
+                        ? t.projectName
+                        : '${t.projectName} · ${dueText(context, t.dueAt!)}',
+                  ),
+                  trailing: StatusTag(t.status),
+                  onTap: () => _push(TaskScreen(workspaceId: ws, taskId: t.id)),
+                ),
+            ],
+            if (found.files.isNotEmpty) ...[
+              section(l.searchFiles),
+              for (final f in found.files)
+                ListTile(
+                  leading: FileBadge(name: f.file.name),
+                  title: line(f.file.name),
+                  subtitle: line(
+                    '${f.projectName} · ${listTime(context, f.createdAt)}',
+                  ),
+                  onTap: () => openFile(context, ref, f.file),
+                ),
+            ],
+            if (messages.isNotEmpty) ...[
+              section(l.searchMessages),
+              for (final h in messages)
+                ListTile(
+                  leading: h.fileName != null
+                      ? FileBadge(name: h.fileName!)
+                      : Avatar(name: h.senderName),
+                  title: Text(
+                    h.body ?? h.fileName ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: line(
+                    '${h.chat.title} · '
+                    '${h.senderName} · ${listTime(context, h.createdAt)}',
+                  ),
+                  onTap: () => _openMessage(h),
+                ),
+            ],
+            if (found.announcements.isNotEmpty) ...[
+              section(l.searchAnnouncements),
+              for (final a in found.announcements)
+                ListTile(
+                  leading: const Icon(Icons.campaign_outlined),
+                  title: Text(
+                    a.body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: line(
+                    '${a.projectName ?? l.workspaceAnnouncements} · '
+                    '${a.authorName} · ${listTime(context, a.createdAt)}',
+                  ),
+                  onTap: () => a.projectId == null
+                      ? _push(
+                          WorkspaceAnnouncementsScreen(
+                            membership: widget.membership,
+                          ),
+                        )
+                      : _openProject(
+                          a.projectId!,
+                          tab: ProjectTab.announcements,
+                        ),
+                ),
+            ],
             if (loading)
               const Padding(
                 padding: EdgeInsets.all(24),
@@ -686,52 +827,15 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                   textAlign: TextAlign.center,
                 ),
               )
-            else if (hits.isEmpty)
+            else if (nothing)
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
                   l.searchNoResults,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                 ),
-              )
-            else
-              for (final h in hits)
-                ListTile(
-                  leading: h.fileName != null
-                      ? FileBadge(name: h.fileName!)
-                      : Avatar(name: h.senderName),
-                  title: Text(
-                    h.body ?? h.fileName ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    '${h.chat.title} · '
-                    '${h.senderName} · ${listTime(context, h.createdAt)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () {
-                    // Chats outside the list (a closed project, or one an
-                    // admin is not part of) open from the hit itself.
-                    final chat =
-                        widget.chats
-                            .where((c) => c.id == h.conversationId)
-                            .firstOrNull ??
-                        h.chat;
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ChatScreen(
-                          membership: widget.membership,
-                          target: ChatTarget.of(chat),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              ),
           ],
         );
       },
