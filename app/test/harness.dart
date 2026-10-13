@@ -5,10 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wasla/app.dart';
 import 'package:wasla/data/chat_models.dart';
+import 'package:wasla/data/google.dart';
 import 'package:wasla/data/picker.dart';
 import 'package:wasla/data/voice.dart';
 import 'package:wasla/push/push.dart';
 import 'package:wasla/state/chat_providers.dart';
+import 'package:wasla/state/google_providers.dart';
 import 'package:wasla/state/providers.dart';
 import 'package:wasla/state/settings.dart';
 
@@ -22,6 +24,7 @@ Future<void> startApp(
   Picker? picker,
   PushMessaging? push,
   VoiceRecorder? recorder,
+  GoogleAccount? google,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -35,6 +38,7 @@ Future<void> startApp(
         if (picker != null) pickerProvider.overrideWithValue(picker),
         if (push != null) pushMessagingProvider.overrideWithValue(push),
         if (recorder != null) voiceRecorderProvider.overrideWithValue(recorder),
+        googleAccountProvider.overrideWithValue(google ?? FakeGoogle()),
       ],
       child: const WaslaApp(),
     ),
@@ -85,4 +89,55 @@ class FakePicker implements Picker {
 
   @override
   Future<Upload?> pickFile() async => file;
+}
+
+/// A Google account that keeps Drive files and calendar events in memory.
+class FakeGoogle implements GoogleAccount {
+  FakeGoogle({this.available = true, this.allows = true});
+
+  @override
+  final bool available;
+
+  /// What the person answers when asked for access.
+  bool allows;
+  final allowed = <String>{};
+  final events = <String, CalendarEvent>{};
+  final drive = <String>[];
+  int _seq = 0;
+
+  @override
+  Future<bool> connect(List<String> scopes) async {
+    if (allows) allowed.addAll(scopes);
+    return allows;
+  }
+
+  @override
+  Future<bool> hasAccess(List<String> scopes) async =>
+      scopes.every(allowed.contains);
+
+  @override
+  Future<String> saveToDrive({
+    required String name,
+    required String mime,
+    required String source,
+  }) async {
+    if (!await connect([driveScope])) throw const GoogleNotConnected();
+    drive.add(name);
+    return 'https://drive.google.com/file/d/f${drive.length}/view';
+  }
+
+  @override
+  Future<String> putEvent(CalendarEvent event, {String? eventId}) async {
+    final id = eventId != null && events.containsKey(eventId)
+        ? eventId
+        : 'e${_seq++}';
+    events[id] = event;
+    return id;
+  }
+
+  @override
+  Future<void> deleteEvent(String eventId) async => events.remove(eventId);
+
+  @override
+  Future<void> disconnect() async => allowed.clear();
 }

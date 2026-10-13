@@ -3,8 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/data/task_models.dart';
 import 'package:wasla/l10n/app_localizations_ar.dart';
+import 'package:wasla/ui/chat_format.dart';
 import 'package:wasla/ui/admin_billing.dart';
+import 'package:wasla/ui/task_format.dart';
 import 'package:wasla/ui/widgets.dart';
 
 void main() {
@@ -267,5 +270,42 @@ void main() {
     expect(parseNumber(' 1,250.75 '), 1250.75);
     expect(parseNumber('abc'), isNull);
     expect(parseNumber(''), isNull);
+  });
+
+  test('a task goes to Google Calendar as the hour before it is due', () {
+    final link = Uri.parse(
+      googleCalendarLink(
+        TaskItem(
+          id: 't1',
+          workspaceId: 'ws1',
+          workspaceName: 'Engineering',
+          projectId: 'p1',
+          projectName: 'New Branch',
+          projectColor: '#C2660A',
+          title: 'Send the drawings',
+          status: TaskStatus.todo,
+          createdBy: 'me',
+          creatorName: 'Amr',
+          createdAt: DateTime.utc(2026, 10, 1),
+          updatedAt: DateTime.utc(2026, 10, 1),
+          dueAt: DateTime.utc(2026, 10, 15, 14, 30),
+        ),
+        details: 'Level B2',
+      ),
+    );
+    expect(link.host, 'calendar.google.com');
+    expect(link.queryParameters['text'], 'Send the drawings');
+    expect(link.queryParameters['dates'], '20261015T133000Z/20261015T143000Z');
+    expect(link.queryParameters['details'], 'New Branch\n\nLevel B2');
+  });
+
+  test('links are found in a message, without trailing punctuation', () {
+    expect(
+      linksIn(
+        'الملف هنا: https://drive.google.com/file/d/abc/view، وده كمان http://x.co/a.',
+      ),
+      ['https://drive.google.com/file/d/abc/view', 'http://x.co/a'],
+    );
+    expect(linksIn('no links'), isEmpty);
   });
 }

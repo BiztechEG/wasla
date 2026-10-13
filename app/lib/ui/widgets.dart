@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/google.dart';
 import '../data/models.dart';
 import '../l10n/app_localizations.dart';
 import '../state/providers.dart';
@@ -87,6 +88,7 @@ String roleLabel(AppLocalizations l, WorkspaceRole role) => switch (role) {
 
 /// Turns backend errors into something a person can act on.
 String errorText(AppLocalizations l, Object error) {
+  if (error is GoogleNotConnected) return l.googleNotConnected;
   if (error is AuthException) {
     if (error is AuthRetryableFetchException) return l.errorNetwork;
     if (error.code == 'over_email_send_rate_limit' ||
