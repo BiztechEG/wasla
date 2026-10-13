@@ -171,3 +171,11 @@ Future<void> openLink(BuildContext context, String url) async {
       ..showSnackBar(SnackBar(content: Text(l.cantOpenFile)));
   }
 }
+
+final _link = RegExp(r'https?://[^\s<>"]+', caseSensitive: false);
+
+/// The web links in [text], without trailing punctuation.
+List<String> linksIn(String text) => [
+  for (final m in _link.allMatches(text))
+    m[0]!.replaceFirst(RegExp(r'[.,;:!?)\]،؛]+$'), ''),
+];

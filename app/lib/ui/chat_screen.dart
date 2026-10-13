@@ -977,6 +977,11 @@ class _Bubble extends ConsumerWidget {
               style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
             ),
           ),
+        for (final link in linksIn(m.body ?? '').take(3))
+          Padding(
+            padding: EdgeInsets.fromLTRB(media ? 6 : 0, 6, media ? 6 : 0, 0),
+            child: _LinkChip(url: link),
+          ),
       ],
       const SizedBox(height: 4),
       Padding(
@@ -1035,6 +1040,53 @@ class _Bubble extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A link in a message, one tap from opening; Google Drive and Docs links
+/// say so.
+class _LinkChip extends StatelessWidget {
+  const _LinkChip({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final host = Uri.tryParse(url)?.host ?? '';
+    final drive =
+        host == 'drive.google.com' ||
+        host == 'docs.google.com' ||
+        host == 'sheets.google.com';
+    return Material(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => openLink(context, url),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(drive ? Icons.add_to_drive : Icons.link, size: 20),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  drive ? l.googleDriveLink : host,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.open_in_new, size: 16),
+            ],
           ),
         ),
       ),

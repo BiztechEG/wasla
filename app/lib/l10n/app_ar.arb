@@ -445,6 +445,7 @@
   "templateApplied": "أُضيفت {count} مهمة",
   "@templateApplied": {"placeholders": {"count": {"type": "int"}}},
   "addToGoogleCalendar": "أضف لتقويم Google",
+  "googleDriveLink": "ملف على Google Drive",
   "readByCount": "قرأها {read} من {total}",
   "@readByCount": {
     "placeholders": {

@@ -273,6 +273,7 @@
   "templateApplied": "{count} tasks added",
   "@templateApplied": {"placeholders": {"count": {"type": "int"}}},
   "addToGoogleCalendar": "Add to Google Calendar",
+  "googleDriveLink": "File on Google Drive",
   "readByCount": "Read by {read} of {total}",
   "confirmDeleteAnnouncement": "Delete this announcement?",
   "workspaceAnnouncements": "Workspace announcements",

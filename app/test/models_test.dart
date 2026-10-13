@@ -5,6 +5,7 @@ import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/task_models.dart';
 import 'package:wasla/l10n/app_localizations_ar.dart';
+import 'package:wasla/ui/chat_format.dart';
 import 'package:wasla/ui/admin_billing.dart';
 import 'package:wasla/ui/task_format.dart';
 import 'package:wasla/ui/widgets.dart';
@@ -296,5 +297,15 @@ void main() {
     expect(link.queryParameters['text'], 'Send the drawings');
     expect(link.queryParameters['dates'], '20261015T133000Z/20261015T143000Z');
     expect(link.queryParameters['details'], 'New Branch\n\nLevel B2');
+  });
+
+  test('links are found in a message, without trailing punctuation', () {
+    expect(
+      linksIn(
+        'الملف هنا: https://drive.google.com/file/d/abc/view، وده كمان http://x.co/a.',
+      ),
+      ['https://drive.google.com/file/d/abc/view', 'http://x.co/a'],
+    );
+    expect(linksIn('no links'), isEmpty);
   });
 }
