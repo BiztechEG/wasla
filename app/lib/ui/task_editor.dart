@@ -82,6 +82,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
   late TaskPriority _priority = _existing?.task.priority ?? TaskPriority.normal;
   late TaskVisibility _visibility =
       _existing?.task.visibility ?? TaskVisibility.private;
+  late TaskRepeat? _repeat = _existing?.repeat;
   final _files = <Upload>[];
   bool _saving = false;
 
@@ -128,6 +129,9 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
         id = existing.task.id;
         await _saveChanges(api, existing, title, people);
       }
+      // Repeating needs a due time.
+      final repeat = _due == null ? null : _repeat;
+      if (repeat != existing?.repeat) await api.setTaskRepeat(id!, repeat);
     });
     // Once the task exists it opens, even when a file fails to attach, so
     // saving again can't make it twice.
@@ -216,6 +220,37 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
       if (_due == null && _remind.isEmpty) _remind.addAll(const [1440, 60]);
       _due = picked;
     });
+  }
+
+  Future<void> _pickRepeat() async {
+    final l = context.l10n;
+    final picked = await showModalBottomSheet<(TaskRepeat?,)>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final r in <TaskRepeat?>[null, ...TaskRepeat.values])
+              ListTile(
+                title: Text(repeatLabel(l, r)),
+                trailing: r == _repeat ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, (r,)),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: Text(
+                l.repeatHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) setState(() => _repeat = picked.$1);
   }
 
   Future<void> _attach() async {
@@ -361,7 +396,10 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                     : IconButton(
                         tooltip: l.clearDue,
                         icon: const Icon(Icons.close),
-                        onPressed: () => setState(() => _due = null),
+                        onPressed: () => setState(() {
+                          _due = null;
+                          _repeat = null;
+                        }),
                       ),
                 onTap: _pickDue,
               ),
@@ -399,6 +437,19 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                     ],
                   ),
                 ),
+              ListTile(
+                key: const Key('repeatTile'),
+                leading: const Icon(Icons.repeat),
+                title: Text(l.repeatLabel),
+                subtitle: Text(
+                  _due == null ? l.repeatNeedsDue : repeatLabel(l, _repeat),
+                ),
+                enabled: _due != null,
+                trailing: _due == null
+                    ? null
+                    : const Icon(Icons.arrow_drop_down),
+                onTap: _due == null ? null : _pickRepeat,
+              ),
             ],
           ),
           if (!manager && existing == null && members != null)

@@ -844,7 +844,65 @@ class FakeApi implements WaslaApi {
           if (editor || assignee || a.kind != TaskEvent.comment) a,
       ],
       reminders: editor ? d.reminders : const [],
+      repeat: taskRepeats[taskId],
     );
+  }
+
+  /// How each task repeats, by id.
+  final taskRepeats = <String, TaskRepeat>{};
+  final templates = <TaskTemplate>[];
+
+  /// Each template applied: (template, project, start).
+  final appliedTemplates = <(String, String, DateTime)>[];
+
+  @override
+  Future<void> setTaskRepeat(String taskId, TaskRepeat? repeat) async {
+    taskCalls.add('repeat $taskId ${repeat?.name}');
+    if (repeat == null) {
+      taskRepeats.remove(taskId);
+    } else {
+      taskRepeats[taskId] = repeat;
+    }
+  }
+
+  @override
+  Future<List<TaskTemplate>> taskTemplates(String workspaceId) async => [
+    ...templates,
+  ];
+
+  @override
+  Future<void> saveTaskTemplate(
+    String workspaceId,
+    String name,
+    List<TemplateItem> items,
+  ) async => templates.add(
+    TaskTemplate(id: 'tpl${_seq++}', name: name, items: items, canDelete: true),
+  );
+
+  @override
+  Future<void> deleteTaskTemplate(String templateId) async =>
+      templates.removeWhere((t) => t.id == templateId);
+
+  @override
+  Future<int> applyTaskTemplate(
+    String templateId,
+    String projectId, {
+    List<String>? assigneeIds,
+    required DateTime start,
+  }) async {
+    final template = templates.firstWhere((t) => t.id == templateId);
+    appliedTemplates.add((templateId, projectId, start));
+    for (final i in template.items) {
+      addTask(
+        projectId: projectId,
+        title: i.title,
+        assignees: assigneeIds ?? const ['me'],
+        dueAt: i.dueInDays == null
+            ? null
+            : start.add(Duration(days: i.dueInDays!)),
+      );
+    }
+    return template.items.length;
   }
 
   @override
