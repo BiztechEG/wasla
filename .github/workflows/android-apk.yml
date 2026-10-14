@@ -18,6 +18,8 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    # A healthy build takes about 15 minutes; fail fast instead of hanging.
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: app
