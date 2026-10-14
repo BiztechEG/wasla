@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.pushTokens.keys, contains('phone-token-2'));
 
-    await tester.tap(find.text('More'));
+    await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Sign out'), 200);
     await tester.ensureVisible(find.text('Sign out'));

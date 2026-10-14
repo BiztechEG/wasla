@@ -65,6 +65,10 @@ class TaskTile extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -176,7 +180,7 @@ List<Widget> taskGroups(
         child: Text(
           l.groupCount(groupLabel(l, entry.key), entry.value.length),
           style: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: entry.key == DueGroup.late
                 ? lateColor(context)
                 : theme.colorScheme.onSurfaceVariant,
@@ -222,14 +226,11 @@ class StatTile extends StatelessWidget {
     // A count that needs attention sits on a tint of its color.
     final accent = value > 0 ? color : null;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       decoration: BoxDecoration(
-        color: accent == null
-            ? scheme.surface
-            : accent.withValues(
-                alpha: theme.brightness == Brightness.dark ? 0.18 : 0.12,
-              ),
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,8 +247,7 @@ class StatTile extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: accent ?? scheme.onSurfaceVariant,
-              fontWeight: accent == null ? null : FontWeight.w600,
+              color: scheme.onSurfaceVariant,
             ),
           ),
         ],

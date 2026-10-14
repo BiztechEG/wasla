@@ -62,12 +62,12 @@ void main() {
     expect(find.text('Engineering'), findsOneWidget);
     expect(find.text('لا توجد محادثات بعد'), findsOneWidget);
 
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     expect(find.text('New Branch'), findsOneWidget);
     expect(find.text('3 أعضاء'), findsOneWidget);
     // Members cannot create projects.
-    expect(find.text('مشروع جديد'), findsNothing);
+    expect(find.byTooltip('مشروع جديد'), findsNothing);
   });
 
   testWidgets('back goes to the first tab, then asks before closing', (
@@ -79,7 +79,7 @@ void main() {
       );
     await startApp(tester, api);
 
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -102,10 +102,10 @@ void main() {
       );
     await startApp(tester, api);
 
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     expect(find.text('لا توجد مشاريع هنا'), findsOneWidget);
-    await tester.tap(find.text('مشروع جديد'));
+    await tester.tap(find.byTooltip('مشروع جديد'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('projectName')), 'Warehouse');
     await tester.tap(find.text('إنشاء'));
@@ -115,7 +115,7 @@ void main() {
     expect(api.projectsByWorkspace['ws1']!.single.name, 'Warehouse');
 
     // Its group chat is ready in the chats tab.
-    await tester.tap(find.text('المحادثات'));
+    await tester.tap(find.byTooltip('المحادثات'));
     await tester.pumpAndSettle();
     expect(find.text('لا توجد رسائل بعد'), findsOneWidget);
   });
@@ -129,7 +129,7 @@ void main() {
       );
     await startApp(tester, api);
 
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('داكن'), 200);
     await tester.ensureVisible(find.text('داكن'));
@@ -157,7 +157,7 @@ void main() {
       );
     await startApp(tester, api, prefs: {'locale': 'en'});
 
-    await tester.tap(find.text('More'));
+    await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Sign out'), 200);
     await tester.ensureVisible(find.text('Sign out'));
@@ -185,7 +185,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Engineering'), findsOneWidget);
-    expect(find.text('المشاريع'), findsWidgets);
+    expect(find.byTooltip('المشاريع'), findsWidgets);
   });
 
   testWidgets('screens on top close when the session ends', (tester) async {
@@ -195,7 +195,7 @@ void main() {
       );
     await startApp(tester, api);
 
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('الأعضاء'));
     await tester.pumpAndSettle();
@@ -226,7 +226,7 @@ void main() {
       ];
     await startApp(tester, api);
 
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('الأعضاء'));
     await tester.pumpAndSettle();

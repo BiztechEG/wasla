@@ -33,7 +33,7 @@ FakeApi _company() => FakeApi(signedInAs: 'me', name: 'Amr')
 DateTime _inDays(int days) => DateTime.now().add(Duration(days: days));
 
 Future<void> _openTask(WidgetTester tester, String title) async {
-  await tester.tap(find.text('مهامي'));
+  await tester.tap(find.byTooltip('مهامي'));
   await tester.pumpAndSettle();
   await tester.tap(find.text(title));
   await tester.pumpAndSettle();
@@ -85,7 +85,7 @@ void main() {
     expect(find.byKey(const Key('addToCalendar')), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('calendarAuto')), findsNothing);
   });
@@ -102,7 +102,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await startApp(tester, api, google: google);
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('calendarAuto')));
     await tester.pumpAndSettle();
@@ -141,7 +141,7 @@ void main() {
     );
     final google = FakeGoogle();
     await startApp(tester, api, google: google);
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New Branch'));
     await tester.pumpAndSettle();

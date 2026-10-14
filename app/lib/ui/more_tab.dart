@@ -16,6 +16,7 @@ import 'billing_screen.dart';
 import 'invite_sheet.dart';
 import 'join_requests_screen.dart';
 import 'members_screen.dart';
+import 'modern.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
 
@@ -50,7 +51,7 @@ class MoreTab extends ConsumerWidget {
         : l.seats(members.length, membership.maxMembers!, plan);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      padding: EdgeInsets.fromLTRB(16, 4, 16, navClearance(context) + 88),
       children: [
         // Who is signed in.
         Card(

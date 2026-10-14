@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/task_models.dart';
@@ -50,7 +51,7 @@ String? _tabBadge(WidgetTester tester, IconData icon) {
 }
 
 Future<void> _openMyTasks(WidgetTester tester) async {
-  await tester.tap(find.text('مهامي'));
+  await tester.tap(find.byTooltip('مهامي'));
   await tester.pumpAndSettle();
 }
 
@@ -73,7 +74,7 @@ void main() {
     await startApp(tester, api);
 
     // One late task of mine: the tab says so before it is opened.
-    expect(_tabBadge(tester, Icons.task_alt_outlined), '1');
+    expect(_tabBadge(tester, LucideIcons.circleCheck), '1');
 
     await _openMyTasks(tester);
     expect(find.text('متأخرة · 1'), findsOneWidget);
@@ -98,7 +99,7 @@ void main() {
     await _openMyTasks(tester);
     expect(find.text('لا توجد مهام مسندة إليك'), findsOneWidget);
 
-    await tester.tap(find.text('مهمة جديدة'));
+    await tester.tap(find.byTooltip('مهمة جديدة'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Measure the hall');
     await tester.tap(find.byType(DropdownButtonFormField<String>));
@@ -275,7 +276,7 @@ void main() {
     );
     await startApp(tester, api, picker: FakePicker(plan));
     await _openMyTasks(tester);
-    await tester.tap(find.text('مهمة جديدة'));
+    await tester.tap(find.byTooltip('مهمة جديدة'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Send the plan');
     // Done typing, so the field stops keeping itself on screen.
@@ -476,7 +477,7 @@ void main() {
       ..addTask(projectId: 'p1', title: 'Rent the place', dueAt: _inDays(3))
       ..addTask(projectId: 'p1', title: 'Hire staff');
     await startApp(tester, api);
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New Branch'));
     await tester.pumpAndSettle();
