@@ -147,6 +147,8 @@
   "newMessage": "New message",
   "chatsSearchHint": "Search messages, files and tasks",
   "filterAll": "All",
+  "filterUnread": "Unread",
+  "filterPeople": "People",
   "chatsEmptyTitle": "No chats yet",
   "chatsEmptyBody": "Start a chat with a colleague from New message. Your project chats show up here too.",
   "chatsFilterEmpty": "No chats about this project",

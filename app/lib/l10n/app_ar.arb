@@ -267,6 +267,8 @@
   "newMessage": "رسالة جديدة",
   "chatsSearchHint": "ابحث في الرسائل والملفات والمهام",
   "filterAll": "الكل",
+  "filterUnread": "غير مقروء",
+  "filterPeople": "أشخاص",
   "chatsEmptyTitle": "لا توجد محادثات بعد",
   "chatsEmptyBody": "ابدأ محادثة مع زميل من «رسالة جديدة»، وستظهر هنا أيضاً محادثات مشاريعك.",
   "chatsFilterEmpty": "لا توجد محادثات عن هذا المشروع",

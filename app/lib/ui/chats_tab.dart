@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/chat_models.dart';
 import '../data/models.dart';
@@ -11,10 +12,12 @@ import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../theme.dart';
 import 'announcements_view.dart';
-import 'files_common.dart';
 import 'chat_format.dart';
 import 'chat_screen.dart';
+import 'files_common.dart';
+import 'modern.dart';
 import 'project_screen.dart';
+import 'projects_tab.dart';
 import 'task_format.dart';
 import 'task_screen.dart';
 import 'widgets.dart';
@@ -30,9 +33,17 @@ class ChatsTab extends ConsumerStatefulWidget {
   ConsumerState<ChatsTab> createState() => _ChatsTabState();
 }
 
+enum _Kind { all, unread, people }
+
+final _searchBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.circular(14),
+  borderSide: BorderSide.none,
+);
+
 class _ChatsTabState extends ConsumerState<ChatsTab> {
   final _search = TextEditingController();
   String? _project;
+  _Kind _kind = _Kind.all;
   String _query = '';
   Timer? _debounce;
 
@@ -53,6 +64,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final theme = Theme.of(context);
     final ws = widget.membership.workspaceId;
     final chats = ref.watch(conversationsProvider(ws));
     final notes = ref.watch(unreadAnnouncementsProvider(ws)).value ?? const [];
@@ -64,30 +76,39 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
       return ref.refresh(conversationsProvider(ws).future);
     }
 
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'newMessage',
+    return FabScaffold(
+      fab: WaslaFab(
+        icon: LucideIcons.squarePen,
+        tooltip: l.newMessage,
         onPressed: () => _newChat(context),
-        icon: const Icon(Icons.edit_outlined),
-        label: Text(l.newMessage),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
             child: TextField(
               key: const Key('chatSearch'),
               controller: _search,
               onChanged: _onQuery,
               decoration: InputDecoration(
                 hintText: l.chatsSearchHint,
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(LucideIcons.search, size: 19),
                 isDense: true,
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHigh,
+                border: _searchBorder,
+                enabledBorder: _searchBorder,
+                focusedBorder: _searchBorder.copyWith(
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 1.5,
+                  ),
+                ),
                 suffixIcon: _search.text.isEmpty
                     ? null
                     : IconButton(
                         tooltip: l.cancel,
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(LucideIcons.x, size: 19),
                         onPressed: () {
                           _search.clear();
                           setState(() => _query = '');
@@ -99,85 +120,117 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
           if (_query.length >= 2)
             Expanded(
               child: _SearchResults(
+                // A new search starts from the top of its results.
+                key: ValueKey(_query),
                 membership: widget.membership,
                 query: _query,
                 chats: chats.value ?? const [],
               ),
             )
-          else ...[
-            _ProjectFilter(
-              chats: chats.value ?? const [],
-              selected: _project,
-              onSelected: (id) => setState(() => _project = id),
-            ),
+          else
             Expanded(
               child: AsyncView(
                 value: chats,
                 onRetry: () => ref.invalidate(conversationsProvider(ws)),
                 builder: (all) {
-                  final shown = _project == null
-                      ? all
-                      : all
-                            .where((c) => c.tagProjectIds.contains(_project))
-                            .toList();
-                  final shownNotes = _project == null
+                  final shown = [
+                    for (final c in all)
+                      if ((_project == null ||
+                              c.tagProjectIds.contains(_project)) &&
+                          switch (_kind) {
+                            _Kind.all => true,
+                            _Kind.unread => c.unread > 0,
+                            _Kind.people => !c.isProject,
+                          })
+                        c,
+                  ];
+                  final shownNotes = _kind == _Kind.people
+                      ? const <UnreadAnnouncement>[]
+                      : _project == null
                       ? notes
                       : notes.where((n) => n.projectId == _project).toList();
+                  final unreadChats = all.where((c) => c.unread > 0).length;
                   return RefreshIndicator(
                     onRefresh: refresh,
-                    child: shown.isEmpty && shownNotes.isEmpty
-                        ? ListView(
+                    child: ListView(
+                      padding: EdgeInsets.fromLTRB(
+                        8,
+                        0,
+                        8,
+                        navClearance(context) + 80,
+                      ),
+                      children: [
+                        _ProjectStrip(
+                          chats: all,
+                          selected: _project,
+                          canCreate: widget.membership.role.canManage,
+                          workspaceId: ws,
+                          onSelected: (id) => setState(() => _project = id),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
                             children: [
-                              const SizedBox(height: 60),
-                              EmptyState(
-                                icon: Icons.forum_outlined,
-                                title: _project == null
-                                    ? l.chatsEmptyTitle
-                                    : l.chatsFilterEmpty,
-                                body: _project == null
-                                    ? l.chatsEmptyBody
-                                    : null,
-                              ),
-                            ],
-                          )
-                        : ListView(
-                            padding: const EdgeInsets.fromLTRB(4, 4, 4, 96),
-                            children: [
-                              for (final n in shownNotes.take(3))
-                                _AnnouncementRow(
-                                  note: n,
-                                  onTap: () => showAnnouncement(
-                                    context,
-                                    ref,
-                                    workspaceId: ws,
-                                    note: n,
-                                  ),
-                                ),
-                              for (final c in shown)
-                                _ChatRow(
-                                  chat: c,
-                                  me: me,
-                                  filter: _project,
-                                  projects: projects,
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => ChatScreen(
-                                        membership: widget.membership,
-                                        target: ChatTarget.of(c),
-                                        projectFilter: c.isProject
-                                            ? null
-                                            : _project,
-                                      ),
-                                    ),
-                                  ),
+                              for (final k in _Kind.values)
+                                FilterPill(
+                                  label: switch (k) {
+                                    _Kind.all => l.filterAll,
+                                    _Kind.unread => l.filterUnread,
+                                    _Kind.people => l.filterPeople,
+                                  },
+                                  count: k == _Kind.unread ? unreadChats : null,
+                                  selected: _kind == k,
+                                  onTap: () => setState(() => _kind = k),
                                 ),
                             ],
                           ),
+                        ),
+                        if (shown.isEmpty && shownNotes.isEmpty) ...[
+                          const SizedBox(height: 40),
+                          EmptyState(
+                            icon: LucideIcons.messageCircle,
+                            title: _project == null && _kind == _Kind.all
+                                ? l.chatsEmptyTitle
+                                : l.chatsFilterEmpty,
+                            body: _project == null && _kind == _Kind.all
+                                ? l.chatsEmptyBody
+                                : null,
+                          ),
+                        ],
+                        for (final n in shownNotes.take(3))
+                          _AnnouncementRow(
+                            note: n,
+                            onTap: () => showAnnouncement(
+                              context,
+                              ref,
+                              workspaceId: ws,
+                              note: n,
+                            ),
+                          ),
+                        for (final c in shown)
+                          _ChatRow(
+                            chat: c,
+                            me: me,
+                            filter: _project,
+                            projects: projects,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ChatScreen(
+                                  membership: widget.membership,
+                                  target: ChatTarget.of(c),
+                                  projectFilter: c.isProject ? null : _project,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   );
                 },
               ),
             ),
-          ],
         ],
       ),
     );
@@ -230,15 +283,21 @@ Future<void> openPrivateChat(
   );
 }
 
-class _ProjectFilter extends StatelessWidget {
-  const _ProjectFilter({
+/// The projects as a row of tiles over the chats: a ring and a count when
+/// there is something new, and a tap filters the list by that project.
+class _ProjectStrip extends StatelessWidget {
+  const _ProjectStrip({
     required this.chats,
     required this.selected,
+    required this.canCreate,
+    required this.workspaceId,
     required this.onSelected,
   });
 
   final List<Conversation> chats;
   final String? selected;
+  final bool canCreate;
+  final String workspaceId;
   final void Function(String?) onSelected;
 
   @override
@@ -248,37 +307,182 @@ class _ProjectFilter extends StatelessWidget {
       for (final c in chats)
         if (c.isProject) c,
     ];
-    if (projects.isEmpty) return const SizedBox(height: 4);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Row(
+    if (projects.isEmpty && !canCreate) return const SizedBox(height: 4);
+    return SizedBox(
+      height: 92,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
         children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: 8),
-            child: ChoiceChip(
-              showCheckmark: false,
-              label: Text(l.filterAll),
-              selected: selected == null,
-              onSelected: (_) => onSelected(null),
-            ),
-          ),
           for (final c in projects)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: 8),
-              child: ChoiceChip(
-                avatar: ColorDot(hex: c.projectColor ?? '#0F6E6A', size: 10),
-                showCheckmark: false,
-                label: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
-                  child: Text(c.title, overflow: TextOverflow.ellipsis),
-                ),
-                selected: selected == c.projectId,
-                onSelected: (_) =>
-                    onSelected(selected == c.projectId ? null : c.projectId),
+            _StripTile(
+              chat: c,
+              selected: selected == c.projectId,
+              onTap: () =>
+                  onSelected(selected == c.projectId ? null : c.projectId),
+            ),
+          if (canCreate)
+            _StripAdd(
+              label: l.newProject,
+              onTap: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => NewProjectSheet(workspaceId: workspaceId),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _StripTile extends StatelessWidget {
+  const _StripTile({
+    required this.chat,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Conversation chat;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = WaslaColors.project(
+      chat.projectColor ?? '#0F6E6A',
+      theme.brightness,
+    );
+    final ring = selected
+        ? scheme.onSurface
+        : chat.unread > 0
+        ? color
+        : null;
+    return Tooltip(
+      message: chat.title,
+      excludeFromSemantics: true,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: chat.title,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            width: 62,
+            child: Column(
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2.5),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(19),
+                        border: Border.all(
+                          color: ring ?? Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                      child: ProjectAvatar(
+                        name: chat.title,
+                        hex: chat.projectColor ?? '#0F6E6A',
+                        size: 44,
+                      ),
+                    ),
+                    if (chat.unread > 0)
+                      PositionedDirectional(
+                        top: -4,
+                        end: -4,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 18),
+                          height: 18,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(
+                              color: theme.scaffoldBackgroundColor,
+                              width: 2,
+                            ),
+                          ),
+                          child: Text(
+                            chat.unread > 99 ? '99+' : '${chat.unread}',
+                            style: TextStyle(
+                              color: theme.scaffoldBackgroundColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  chat.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: selected
+                        ? scheme.onSurface
+                        : scheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StripAdd extends StatelessWidget {
+  const _StripAdd({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          width: 62,
+          child: Column(
+            children: [
+              Container(
+                width: 53,
+                height: 53,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(17),
+                  border: Border.all(color: theme.colorScheme.outline),
+                ),
+                child: Icon(LucideIcons.plus, color: muted, size: 22),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(color: muted),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -303,7 +507,8 @@ class _ChatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
+    final scheme = theme.colorScheme;
+    final muted = scheme.onSurfaceVariant;
     final unread = chat.unread > 0;
     final lastAt = chat.lastAt;
 
@@ -315,20 +520,20 @@ class _ChatRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Row(
           children: [
             if (chat.isProject)
               ProjectAvatar(
                 name: chat.title,
                 hex: chat.projectColor ?? '#0F6E6A',
-                size: 52,
+                size: 50,
               )
             else
-              Avatar(name: chat.title, radius: 26),
-            const SizedBox(width: 14),
+              Avatar(name: chat.title, radius: 25),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,6 +547,7 @@ class _ChatRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
+                            fontSize: 15.5,
                             color: chat.otherActive ? null : muted,
                           ),
                         ),
@@ -351,7 +557,7 @@ class _ChatRow extends StatelessWidget {
                         Text(
                           listTime(context, lastAt),
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: unread ? theme.colorScheme.primary : muted,
+                            color: unread ? scheme.primary : muted,
                             fontWeight: unread ? FontWeight.w700 : null,
                           ),
                         ),
@@ -361,25 +567,8 @@ class _ChatRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      if (chat.lastFileName != null && !chat.lastDeleted) ...[
-                        Icon(
-                          voiceLength(chat.lastFileName!) != null
-                              ? Icons.mic
-                              : Icons.attach_file,
-                          size: 15,
-                          color: muted,
-                        ),
-                        const SizedBox(width: 2),
-                      ],
                       Expanded(
-                        child: Text(
-                          preview(l, chat, me),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: unread ? theme.colorScheme.onSurface : muted,
-                          ),
-                        ),
+                        child: _Preview(chat: chat, me: me, unread: unread),
                       ),
                       if (unread) ...[
                         const SizedBox(width: 8),
@@ -412,6 +601,107 @@ class _ChatRow extends StatelessWidget {
   }
 }
 
+/// The last message under a chat's name: who sent it, then the text, a file
+/// or a voice message drawn as a short wave as long as the recording.
+class _Preview extends StatelessWidget {
+  const _Preview({required this.chat, required this.me, required this.unread});
+
+  final Conversation chat;
+  final String? me;
+  final bool unread;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final muted = scheme.onSurfaceVariant;
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 13.5,
+      color: unread ? scheme.onSurface : muted,
+    );
+    if (chat.lastAt == null || chat.lastDeleted) {
+      return Text(
+        preview(l, chat, me),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+    final who = chat.lastSenderId == me
+        ? l.you
+        : chat.isProject
+        ? firstName(chat.lastSenderName ?? '')
+        : null;
+    final file = chat.lastFileName;
+    final body = chat.lastBody;
+    final voice = file == null || (body?.isNotEmpty ?? false)
+        ? null
+        : voiceLength(file);
+    final whoSpan = who == null
+        ? null
+        : TextSpan(
+            text: voice == null ? '$who: ' : who,
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          );
+
+    if (voice != null) {
+      return Row(
+        children: [
+          if (whoSpan != null) ...[
+            Text.rich(whoSpan, style: style),
+            const SizedBox(width: 8),
+          ],
+          VoiceWave(
+            seconds: voice.inSeconds,
+            color: unread ? scheme.primary : muted,
+            height: 16,
+            seed: chat.id.hashCode % 7,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            clockLength(voice),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: muted,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        if (file != null && !(body?.isNotEmpty ?? false)) ...[
+          Icon(LucideIcons.paperclip, size: 14, color: muted),
+          const SizedBox(width: 4),
+        ],
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                ?whoSpan,
+                TextSpan(
+                  text: body != null && body.isNotEmpty
+                      ? body
+                      : fileLabel(l, file ?? ''),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The project a private chat is about: a colored square and its name.
 class _SmallTag extends StatelessWidget {
   const _SmallTag({required this.project});
 
@@ -419,23 +709,32 @@ class _SmallTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final color = WaslaColors.project(project.color, brightness);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        project.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          color: WaslaColors.onTint(color, brightness),
+    final theme = Theme.of(context);
+    final color = WaslaColors.project(project.color, theme.brightness);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-      ),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            project.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 11.5,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -455,73 +754,92 @@ class _AnnouncementRow extends StatelessWidget {
       note.projectColor ?? '#C2660A',
       brightness,
     );
+    final surface = theme.colorScheme.surface;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Material(
-        color: color.withValues(
-          alpha: brightness == Brightness.dark ? 0.16 : 0.10,
-        ),
         borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(17),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: AlignmentDirectional.centerStart,
+              end: AlignmentDirectional.centerEnd,
+              colors: [
+                Color.lerp(surface, color, 0.16)!,
+                Color.lerp(surface, color, 0.05)!,
+              ],
+            ),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      LucideIcons.megaphone,
+                      size: 19,
+                      color: brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.campaign_outlined,
-                    color: brightness == Brightness.dark
-                        ? Colors.black
-                        : Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              note.projectName == null
-                                  ? l.announcementForAll
-                                  : l.announcementFor(note.projectName!),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                note.projectName == null
+                                    ? l.announcementForAll
+                                    : l.announcementFor(note.projectName!),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: WaslaColors.onTint(color, brightness),
+                                ),
                               ),
                             ),
-                          ),
-                          Text(
-                            listTime(context, note.createdAt),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                            Text(
+                              listTime(context, note.createdAt),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        note.body,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                          ],
                         ),
-                      ),
-                    ],
+                        Text(
+                          note.body,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Icon(
+                    LucideIcons.chevronRightDir,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -620,6 +938,7 @@ class _PeopleSheetState extends ConsumerState<_PeopleSheet> {
 
 class _SearchResults extends ConsumerStatefulWidget {
   const _SearchResults({
+    super.key,
     required this.membership,
     required this.query,
     required this.chats,

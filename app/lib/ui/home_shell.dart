@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../push/open_push.dart';
@@ -11,6 +12,7 @@ import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
 import 'chats_tab.dart';
+import 'modern.dart';
 import 'more_tab.dart';
 import 'my_tasks_tab.dart';
 import 'notifications_screen.dart';
@@ -71,6 +73,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     final theme = Theme.of(context);
     final titles = [l.tabChats, l.tabProjects, l.tabMyTasks, l.tabMore];
+    final name = ref.watch(profileProvider).value?.fullName ?? '';
 
     return PopScope(
       // Back on the main screen goes to the first tab, then asks before
@@ -85,13 +88,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         }
       },
       child: Scaffold(
+        // The nav bar floats over the lists, which scroll underneath it.
+        extendBody: true,
         body: SafeArea(
           bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 4, 0),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 0),
                 child: Row(
                   children: [
                     // Not Flexible plus Spacer: those split the free space
@@ -103,11 +108,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                       ),
                     ),
                     _BellButton(count: notes),
+                    const SizedBox(width: 8),
+                    _MeButton(
+                      name: name,
+                      onTap: () => setState(() => _tab = 3),
+                    ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(16, 6, 16, 4),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 8),
                 child: Semantics(
                   header: true,
                   child: ExcludeSemantics(
@@ -116,7 +126,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                       titles[_tab],
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w700,
-                        fontSize: 26,
+                        fontSize: 30,
+                        height: 1.2,
                       ),
                     ),
                   ),
@@ -139,50 +150,23 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             ],
           ),
         ),
-        bottomNavigationBar: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: theme.colorScheme.outlineVariant),
+        bottomNavigationBar: FloatingNavBar(
+          selected: _tab,
+          onSelected: (i) => setState(() => _tab = i),
+          items: [
+            NavItem(
+              icon: LucideIcons.messageCircle,
+              label: l.tabChats,
+              count: unread,
             ),
-          ),
-          child: NavigationBar(
-            selectedIndex: _tab,
-            onDestinationSelected: (i) => setState(() => _tab = i),
-            destinations: [
-              NavigationDestination(
-                icon: _Count(
-                  count: unread,
-                  child: const Icon(Icons.forum_outlined),
-                ),
-                selectedIcon: _Count(
-                  count: unread,
-                  child: const Icon(Icons.forum),
-                ),
-                label: l.tabChats,
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.folder_outlined),
-                selectedIcon: const Icon(Icons.folder),
-                label: l.tabProjects,
-              ),
-              NavigationDestination(
-                icon: _Count(
-                  count: late,
-                  child: const Icon(Icons.task_alt_outlined),
-                ),
-                selectedIcon: _Count(
-                  count: late,
-                  child: const Icon(Icons.task_alt),
-                ),
-                label: l.tabMyTasks,
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.grid_view_outlined),
-                selectedIcon: const Icon(Icons.grid_view_rounded),
-                label: l.tabMore,
-              ),
-            ],
-          ),
+            NavItem(icon: LucideIcons.folder, label: l.tabProjects),
+            NavItem(
+              icon: LucideIcons.circleCheck,
+              label: l.tabMyTasks,
+              count: late,
+            ),
+            NavItem(icon: LucideIcons.layoutGrid, label: l.tabMore),
+          ],
         ),
       ),
     );
@@ -210,26 +194,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 }
 
-/// A red count on a nav icon.
-class _Count extends StatelessWidget {
-  const _Count({required this.count, required this.child});
-
-  final int count;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Badge(
-      isLabelVisible: count > 0,
-      backgroundColor: scheme.error,
-      textColor: scheme.onError,
-      label: Text('$count'),
-      child: child,
-    );
-  }
-}
-
 /// The notifications bell, with the unread count.
 class _BellButton extends StatelessWidget {
   const _BellButton({required this.count});
@@ -239,7 +203,7 @@ class _BellButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return IconButton(
+    return SoftIconButton(
       tooltip: context.l10n.notificationsTitle,
       onPressed: () => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
@@ -249,7 +213,29 @@ class _BellButton extends StatelessWidget {
         backgroundColor: scheme.error,
         textColor: scheme.onError,
         label: Text('$count'),
-        child: const Icon(Icons.notifications_none, size: 26),
+        child: const Icon(LucideIcons.bell, size: 20),
+      ),
+    );
+  }
+}
+
+/// My initials in the top bar; opens the "more" tab with my profile.
+class _MeButton extends StatelessWidget {
+  const _MeButton({required this.name, required this.onTap});
+
+  final String name;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: context.l10n.tabMore,
+      excludeSemantics: true,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Avatar(name: name, radius: 20),
       ),
     );
   }
@@ -267,49 +253,55 @@ class _WorkspaceTitle extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final name = membership.workspaceName.trim();
     return Material(
-      color: scheme.surface,
-      borderRadius: BorderRadius.circular(13),
+      color: scheme.surfaceContainerHigh,
+      shape: const StadiumBorder(),
       child: InkWell(
-        borderRadius: BorderRadius.circular(13),
+        customBorder: const StadiumBorder(),
         onTap: () => showModalBottomSheet<void>(
           context: context,
           isScrollControlled: true,
           builder: (_) => const _WorkspaceSwitcher(),
         ),
         child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(6, 6, 8, 6),
+          padding: const EdgeInsetsDirectional.fromSTEB(5, 5, 10, 5),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 24,
+                height: 24,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: scheme.primary,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   name.isEmpty ? '?' : name.characters.first,
                   style: TextStyle(
                     color: scheme.onPrimary,
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontSize: 12,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 7),
               Flexible(
                 child: Text(
                   membership.workspaceName,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.expand_more, size: 18, color: scheme.onSurfaceVariant),
+              Icon(
+                LucideIcons.chevronDown,
+                size: 15,
+                color: scheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),

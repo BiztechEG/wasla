@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../data/task_models.dart';
@@ -7,6 +8,7 @@ import '../state/providers.dart';
 import '../state/task_providers.dart';
 import '../theme.dart';
 import 'followup_screen.dart';
+import 'modern.dart';
 import 'task_format.dart';
 import 'task_editor.dart';
 import 'task_list.dart';
@@ -79,36 +81,31 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
         widget.membership.role.canManage ||
         (ref.watch(managedTasksProvider(ws)).value?.isNotEmpty ?? false);
 
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'newTask',
+    return FabScaffold(
+      fab: WaslaFab(
+        icon: LucideIcons.plus,
+        tooltip: l.newTask,
         onPressed: () => newTask(context, workspaceId: ws),
-        icon: const Icon(Icons.add),
-        label: Text(l.newTask),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: Row(
               children: [
                 Expanded(
-                  child: SegmentedButton<bool>(
-                    showSelectedIcon: false,
-                    segments: [
-                      ButtonSegment(value: false, label: Text(l.assignedToMe)),
-                      ButtonSegment(value: true, label: Text(l.createdByMe)),
-                    ],
-                    selected: {_created},
-                    onSelectionChanged: (s) =>
-                        setState(() => _created = s.first),
+                  child: _Switch(
+                    labels: [l.assignedToMe, l.createdByMe],
+                    selected: _created ? 1 : 0,
+                    onSelected: (i) => setState(() => _created = i == 1),
                   ),
                 ),
                 if (follows) ...[
                   const SizedBox(width: 8),
-                  IconButton.filledTonal(
+                  SoftIconButton(
+                    size: 44,
                     tooltip: l.followUp,
-                    icon: const Icon(Icons.insights_outlined),
+                    icon: const Icon(LucideIcons.chartColumn, size: 20),
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => FollowUpScreen(workspaceId: ws),
@@ -139,7 +136,7 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
                           children: [
                             const SizedBox(height: 60),
                             EmptyState(
-                              icon: Icons.task_alt,
+                              icon: LucideIcons.circleCheck,
                               title: _created ? l.createdEmpty : l.myTasksEmpty,
                               body: _created
                                   ? l.createdEmptyBody
@@ -148,7 +145,12 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
                           ],
                         )
                       : ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            14,
+                            16,
+                            navClearance(context) + 80,
+                          ),
                           children: [
                             if (!_created) _Summary(tasks: shown),
                             ...taskGroups(
@@ -165,6 +167,74 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Two choices side by side on a light track; the chosen one is raised.
+class _Switch extends StatelessWidget {
+  const _Switch({
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: i == selected,
+                child: Material(
+                  color: i == selected
+                      ? (dark ? const Color(0xFF2E3332) : scheme.surface)
+                      : Colors.transparent,
+                  elevation: i == selected && !dark ? 1 : 0,
+                  shadowColor: Colors.black26,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => onSelected(i),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        labels[i],
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: i == selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: i == selected
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

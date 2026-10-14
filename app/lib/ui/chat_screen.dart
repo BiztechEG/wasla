@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/chat_models.dart';
 import '../data/models.dart';
@@ -94,7 +95,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: theme.scaffoldBackgroundColor,
         shape: Border(
           bottom: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
@@ -115,10 +116,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ProjectAvatar(
                   name: target.title,
                   hex: target.projectColor ?? '#0F6E6A',
-                  size: 42,
+                  size: 40,
                 )
               else
-                Avatar(name: target.title, radius: 21),
+                Avatar(name: target.title, radius: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -156,7 +157,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           if (filterChoices.isNotEmpty && _filter == null)
             PopupMenuButton<String>(
               tooltip: l.filterByProject,
-              icon: const Icon(Icons.filter_list),
+              icon: const Icon(LucideIcons.listFilter, size: 21),
               onSelected: (id) => setState(() => _filter = id),
               itemBuilder: (_) => [
                 for (final p in filterChoices)
@@ -762,9 +763,17 @@ sealed class _Item {
 }
 
 class _MessageItem extends _Item {
-  const _MessageItem(this.message, {required this.showSender});
+  const _MessageItem(
+    this.message, {
+    required this.showSender,
+    required this.showAvatar,
+  });
   final ChatMessage message;
   final bool showSender;
+
+  /// Null in a private chat; otherwise whether this is the last of a run
+  /// from one person, which carries their picture.
+  final bool? showAvatar;
 }
 
 class _PendingItem extends _Item {
@@ -826,7 +835,12 @@ class _MessageList extends StatelessWidget {
     for (var i = 0; i < messages.length; i++) {
       final m = messages[i];
       final older = i + 1 < messages.length ? messages[i + 1] : null;
+      final newer = i > 0 ? messages[i - 1] : null;
       final newDay = older == null || !_sameDay(older.createdAt, m.createdAt);
+      final lastOfRun =
+          newer == null ||
+          newer.senderId != m.senderId ||
+          !_sameDay(newer.createdAt, m.createdAt);
       items.add(
         _MessageItem(
           m,
@@ -834,6 +848,7 @@ class _MessageList extends StatelessWidget {
               showSenders &&
               m.senderId != me &&
               (newDay || older.senderId != m.senderId),
+          showAvatar: showSenders && m.senderId != me ? lastOfRun : null,
         ),
       );
       if (newDay && (older != null || !state.hasMore)) {
@@ -864,16 +879,24 @@ class _MessageList extends StatelessWidget {
               onRetry: () => onRetry(message),
               onDiscard: () => onDiscard(message),
             ),
-            _MessageItem(:final message, :final showSender) => _Bubble(
-              message: message,
-              mine: message.senderId == me,
-              showSender: showSender,
-              tag: showTags
-                  ? projects.where((p) => p.id == message.projectId).firstOrNull
-                  : null,
-              read: _readByAll(message),
-              onLongPress: () => onLongPress(message),
-            ),
+            _MessageItem(
+              :final message,
+              :final showSender,
+              :final showAvatar,
+            ) =>
+              _Bubble(
+                message: message,
+                showAvatar: showAvatar,
+                mine: message.senderId == me,
+                showSender: showSender,
+                tag: showTags
+                    ? projects
+                          .where((p) => p.id == message.projectId)
+                          .firstOrNull
+                    : null,
+                read: _readByAll(message),
+                onLongPress: () => onLongPress(message),
+              ),
           };
         },
       ),
@@ -902,15 +925,16 @@ class _DayLine extends StatelessWidget {
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(10),
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(99),
         ),
         child: Text(
           dayLabel(context, day),
-          style: theme.textTheme.bodySmall?.copyWith(
+          style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -966,6 +990,7 @@ Widget _inBubble(ThemeData theme, Widget child) => Theme(
 class _Bubble extends ConsumerWidget {
   const _Bubble({
     required this.message,
+    this.showAvatar,
     required this.mine,
     required this.showSender,
     required this.tag,
@@ -974,6 +999,7 @@ class _Bubble extends ConsumerWidget {
   });
 
   final ChatMessage message;
+  final bool? showAvatar;
   final bool mine;
   final bool showSender;
   final Project? tag;
@@ -1097,34 +1123,59 @@ class _Bubble extends ConsumerWidget {
       ),
     ];
 
+    final avatar = showAvatar;
     return Align(
       alignment: mine
           ? AlignmentDirectional.centerEnd
           : AlignmentDirectional.centerStart,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Material(
-            color: _bubbleColor(context, mine),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (avatar != null) ...[
+              avatar
+                  ? Avatar(name: m.senderName, radius: 14)
+                  : const SizedBox(width: 28),
+              const SizedBox(width: 8),
+            ],
+            Flexible(child: _bubbleBody(context, theme, content, maxWidth)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bubbleBody(
+    BuildContext context,
+    ThemeData theme,
+    List<Widget> content,
+    double maxWidth,
+  ) {
+    final m = message;
+    final file = m.file;
+    final media = !m.deleted && file != null && (file.isImage || file.isVideo);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Material(
+        color: _bubbleColor(context, mine),
+        borderRadius: _bubbleShape(mine),
+        child: InkWell(
+          customBorder: RoundedRectangleBorder(
             borderRadius: _bubbleShape(mine),
-            child: InkWell(
-              customBorder: RoundedRectangleBorder(
-                borderRadius: _bubbleShape(mine),
-              ),
-              onLongPress: onLongPress,
-              child: Padding(
-                padding: media
-                    ? const EdgeInsets.fromLTRB(4, 4, 4, 4)
-                    : const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                child: _inBubble(
-                  theme,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: content,
-                  ),
-                ),
+          ),
+          onLongPress: onLongPress,
+          child: Padding(
+            padding: media
+                ? const EdgeInsets.fromLTRB(4, 4, 4, 4)
+                : const EdgeInsets.fromLTRB(12, 8, 12, 6),
+            child: _inBubble(
+              theme,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: content,
               ),
             ),
           ),
@@ -1687,7 +1738,8 @@ class _MicButtonState extends State<_MicButton>
                           color: color,
                         ),
                         child: Icon(
-                          Icons.mic,
+                          LucideIcons.mic,
+                          size: 22,
                           color: theme.colorScheme.onPrimary,
                         ),
                       ),
@@ -1910,10 +1962,13 @@ class _Composer extends StatelessWidget {
                     child: Stack(
                       children: [
                         Container(
-                          constraints: const BoxConstraints(minHeight: 50),
+                          constraints: const BoxConstraints(minHeight: 48),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(25),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -1950,7 +2005,10 @@ class _Composer extends StatelessWidget {
                                   tooltip: l.attach,
                                   onPressed: onAttach,
                                   color: muted,
-                                  icon: const Icon(Icons.attach_file),
+                                  icon: const Icon(
+                                    LucideIcons.paperclip,
+                                    size: 21,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1969,7 +2027,10 @@ class _Composer extends StatelessWidget {
                             key: const Key('sendButton'),
                             tooltip: l.send,
                             onPressed: canSend ? onSend : null,
-                            icon: const Icon(Icons.send),
+                            icon: const Icon(
+                              LucideIcons.sendHorizontalDir,
+                              size: 21,
+                            ),
                           )
                         : _MicButton(mic: mic!),
                   ),

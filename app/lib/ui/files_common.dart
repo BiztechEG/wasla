@@ -11,6 +11,7 @@ import '../data/voice.dart';
 import '../state/chat_providers.dart';
 import '../state/google_providers.dart';
 import 'chat_format.dart';
+import 'modern.dart';
 import 'widgets.dart';
 
 /// Asks where to pick from (gallery, camera or files) and returns the pick.
@@ -543,7 +544,7 @@ class _Playback extends StatelessWidget {
               child: Row(
                 children: [
                   Text(
-                    _clock(value.position),
+                    clockLength(value.position),
                     style: const TextStyle(color: Colors.white70),
                   ),
                   Expanded(
@@ -554,7 +555,7 @@ class _Playback extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    _clock(value.duration),
+                    clockLength(value.duration),
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ],
@@ -567,7 +568,8 @@ class _Playback extends StatelessWidget {
   }
 }
 
-String _clock(Duration d) {
+/// A length as minutes:seconds, like 0:42.
+String clockLength(Duration d) {
   final m = d.inMinutes;
   final s = (d.inSeconds % 60).toString().padLeft(2, '0');
   return '$m:$s';
@@ -656,87 +658,97 @@ class _VoicePlayerState extends ConsumerState<VoicePlayer> {
     }
   }
 
+  void _seekTo(double fraction) {
+    final player = _player;
+    final length = _length;
+    if (player == null || length == null) return;
+    player.seek(length * fraction.clamp(0.0, 1.0));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final playing = _state == PlayerState.playing;
     final length = _length;
-    final max = (length?.inMilliseconds ?? 0).toDouble();
-    final at = _position.inMilliseconds.toDouble().clamp(0.0, max);
-    return SizedBox(
-      width: widget.width,
+    final ms = length?.inMilliseconds ?? 0;
+    final progress = ms == 0
+        ? 0.0
+        : (_position.inMilliseconds / ms).clamp(0.0, 1.0);
+    final button = scheme.primary;
+    final onButton =
+        ThemeData.estimateBrightnessForColor(button) == Brightness.dark
+        ? Colors.white
+        : const Color(0xFF0B2E2B);
+    final wave = VoiceWave(
+      seconds: length?.inSeconds ?? 20,
+      color: scheme.onSurface,
+      progress: playing || _position > Duration.zero ? progress : 0,
+      height: 26,
+      minBars: 10,
+      maxBars: 32,
+      seed: widget.file.name.hashCode % 7,
+    );
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    void seekAt(Offset at) {
+      final x = at.dx / wave.width;
+      _seekTo(rtl ? 1 - x : x);
+    }
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: widget.width),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox.square(
-            dimension: 40,
+            dimension: 38,
             child: _loading
-                ? const Padding(
-                    padding: EdgeInsets.all(10),
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                ? Padding(
+                    padding: const EdgeInsets.all(9),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: scheme.onSurface,
+                    ),
                   )
                 : IconButton(
                     key: const Key('voicePlay'),
                     tooltip: playing ? l.pauseVoice : l.playVoice,
                     padding: EdgeInsets.zero,
+                    style: IconButton.styleFrom(
+                      backgroundColor: button,
+                      foregroundColor: onButton,
+                    ),
                     onPressed: _toggle,
                     icon: Icon(
                       playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      size: 32,
+                      size: 24,
                     ),
                   ),
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
-                    overlayShape: SliderComponentShape.noOverlay,
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 6,
-                    ),
-                    activeTrackColor: theme.colorScheme.onSurface,
-                    inactiveTrackColor: theme.colorScheme.onSurface.withValues(
-                      alpha: 0.25,
-                    ),
-                    thumbColor: theme.colorScheme.onSurface,
-                  ),
-                  child: Slider(
-                    value: max == 0 ? 0 : at,
-                    max: max == 0 ? 1 : max,
-                    onChanged: _player == null || max == 0
-                        ? null
-                        : (v) =>
-                              _player!.seek(Duration(milliseconds: v.round())),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      voiceLength(widget.file.name) != null
-                          ? Icons.mic
-                          : Icons.audiotrack,
-                      size: 14,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      playing || _position > Duration.zero
-                          ? _clock(_position)
-                          : length == null
-                          ? l.voiceMessage
-                          : _clock(length),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          const SizedBox(width: 10),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (d) => seekAt(d.localPosition),
+                onHorizontalDragUpdate: (d) => seekAt(d.localPosition),
+                child: wave,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            playing || _position > Duration.zero
+                ? clockLength(_position)
+                : length == null
+                ? l.voiceMessage
+                : clockLength(length),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

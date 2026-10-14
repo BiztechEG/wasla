@@ -7,6 +7,7 @@ import 'package:wasla/data/models.dart';
 import 'package:wasla/data/search_models.dart';
 import 'package:wasla/data/task_models.dart';
 import 'package:wasla/ui/files_common.dart';
+import 'package:wasla/ui/modern.dart';
 
 import 'fake_api.dart';
 import 'harness.dart';
@@ -38,7 +39,7 @@ FakeApi _company({WorkspaceRole role = WorkspaceRole.owner}) =>
 String? _badge(WidgetTester tester) {
   final badges = tester.widgetList<Badge>(
     find.descendant(
-      of: find.byType(NavigationBar),
+      of: find.byType(FloatingNavBar),
       matching: find.byType(Badge),
     ),
   );
@@ -91,7 +92,7 @@ void main() {
     api.addProjectChat('ws1', _branch);
     await startApp(tester, api);
 
-    await tester.tap(find.text('رسالة جديدة'));
+    await tester.tap(find.byTooltip('رسالة جديدة'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Mona Adel'));
     await tester.pumpAndSettle();
@@ -118,7 +119,7 @@ void main() {
     expect(find.text('Mona Adel'), findsOneWidget);
 
     // Filtering by the project keeps the private chat about it.
-    await tester.tap(find.widgetWithText(ChoiceChip, 'New Branch'));
+    await tester.tap(find.byTooltip('New Branch'));
     await tester.pumpAndSettle();
     expect(find.text('Mona Adel'), findsOneWidget);
   });
@@ -159,7 +160,7 @@ void main() {
     final api = _company();
     await startApp(tester, api);
 
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('نشرات مساحة العمل'));
     await tester.pumpAndSettle();
@@ -189,7 +190,7 @@ void main() {
     api.receive(chat, 'u2', 'Mona Adel', 'وصلت الخامات');
     await startApp(tester, api);
 
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New Branch'));
     await tester.pumpAndSettle();
@@ -240,7 +241,7 @@ void main() {
 
     // It leaves the chats list and stays readable from the project.
     expect(find.text('Mona: تم التسليم'), findsNothing);
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('المغلقة'));
     await tester.pumpAndSettle();
@@ -280,7 +281,7 @@ void main() {
       media('i1', 'plan.jpg', 'image/jpeg'),
     ]);
     await startApp(tester, api);
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New Branch'));
     await tester.pumpAndSettle();
@@ -369,12 +370,13 @@ void main() {
     }
 
     await tester.enterText(find.byKey(const Key('chatSearch')), 'new');
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.text('New Branch'), findsWidgets);
   });
 
   Future<void> openBranchChat(WidgetTester tester) async {
-    await tester.tap(find.text('المشاريع'));
+    await tester.tap(find.byTooltip('المشاريع'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New Branch'));
     await tester.pumpAndSettle();
@@ -541,7 +543,7 @@ void main() {
   ) async {
     final api = _company();
     await startApp(tester, api);
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('نشرات مساحة العمل'));
     await tester.pumpAndSettle();

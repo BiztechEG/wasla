@@ -221,12 +221,14 @@ Future<void> _tapText(WidgetTester tester, String text) async {
 }
 
 Future<void> _openBilling(WidgetTester tester) async {
-  await _tapText(tester, 'المزيد');
+  await tester.tap(find.byTooltip('المزيد'));
+  await tester.pumpAndSettle();
   await _tapText(tester, 'الاشتراك والفواتير');
 }
 
 Future<void> _openAdmin(WidgetTester tester) async {
-  await _tapText(tester, 'المزيد');
+  await tester.tap(find.byTooltip('المزيد'));
+  await tester.pumpAndSettle();
   await _tapText(tester, 'إدارة المنصة');
 }
 
@@ -330,7 +332,7 @@ void main() {
         ),
       );
     await startApp(tester, api);
-    await tester.tap(find.byIcon(Icons.notifications_none));
+    await tester.tap(find.byTooltip('الإشعارات'));
     await tester.pumpAndSettle();
 
     expect(
@@ -347,7 +349,8 @@ void main() {
 
   testWidgets('only platform admins see the admin dashboard', (tester) async {
     await startApp(tester, _owner());
-    await _tapText(tester, 'المزيد');
+    await tester.tap(find.byTooltip('المزيد'));
+    await tester.pumpAndSettle();
     expect(find.text('إدارة المنصة'), findsNothing);
   });
 

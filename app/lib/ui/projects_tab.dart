@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../data/task_models.dart';
@@ -8,6 +9,7 @@ import '../state/providers.dart';
 import '../state/task_providers.dart';
 import '../theme.dart';
 import 'chat_screen.dart';
+import 'modern.dart';
 import 'project_screen.dart';
 import 'widgets.dart';
 
@@ -30,85 +32,76 @@ class _ProjectsTabState extends ConsumerState<ProjectsTab> {
     final canManage = widget.membership.role.canManage;
     final projects = ref.watch(projectsProvider(ws));
 
-    return Scaffold(
-      floatingActionButton: canManage
-          ? FloatingActionButton.extended(
-              heroTag: 'newProject',
+    return FabScaffold(
+      fab: canManage
+          ? WaslaFab(
+              icon: LucideIcons.plus,
+              tooltip: l.newProject,
               onPressed: () => showModalBottomSheet<void>(
                 context: context,
                 isScrollControlled: true,
                 builder: (_) => NewProjectSheet(workspaceId: ws),
               ),
-              icon: const Icon(Icons.add),
-              label: Text(l.newProject),
             )
           : null,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<ProjectStatus>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(
-                    value: ProjectStatus.active,
-                    label: Text(l.filterActive),
+      body: AsyncView(
+        value: projects,
+        onRetry: () => ref.invalidate(projectsProvider(ws)),
+        builder: (all) {
+          final shown = all.where((p) => p.status == _filter).toList();
+          return RefreshIndicator(
+            onRefresh: () {
+              ref.invalidate(projectProgressProvider(ws));
+              return ref.refresh(projectsProvider(ws).future);
+            },
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                4,
+                16,
+                navClearance(context) + 80,
+              ),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final (status, label) in [
+                        (ProjectStatus.active, l.filterActive),
+                        (ProjectStatus.archived, l.filterArchived),
+                        (ProjectStatus.closed, l.filterClosed),
+                      ])
+                        FilterPill(
+                          label: label,
+                          selected: _filter == status,
+                          onTap: () => setState(() => _filter = status),
+                        ),
+                    ],
                   ),
-                  ButtonSegment(
-                    value: ProjectStatus.archived,
-                    label: Text(l.filterArchived),
-                  ),
-                  ButtonSegment(
-                    value: ProjectStatus.closed,
-                    label: Text(l.filterClosed),
+                ),
+                if (shown.isEmpty) ...[
+                  const SizedBox(height: 40),
+                  EmptyState(
+                    icon: LucideIcons.folderOpen,
+                    title: l.projectsEmpty,
+                    body: _filter != ProjectStatus.active
+                        ? null
+                        : canManage
+                        ? l.projectsEmptyAdmin
+                        : l.projectsEmptyMember,
                   ),
                 ],
-                selected: {_filter},
-                onSelectionChanged: (s) => setState(() => _filter = s.first),
-              ),
+                for (final p in shown)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _ProjectCard(project: p),
+                  ),
+              ],
             ),
-          ),
-          Expanded(
-            child: AsyncView(
-              value: projects,
-              onRetry: () => ref.invalidate(projectsProvider(ws)),
-              builder: (all) {
-                final shown = all.where((p) => p.status == _filter).toList();
-                return RefreshIndicator(
-                  onRefresh: () {
-                    ref.invalidate(projectProgressProvider(ws));
-                    return ref.refresh(projectsProvider(ws).future);
-                  },
-                  child: shown.isEmpty
-                      ? ListView(
-                          children: [
-                            const SizedBox(height: 60),
-                            EmptyState(
-                              icon: Icons.folder_open_outlined,
-                              title: l.projectsEmpty,
-                              body: _filter != ProjectStatus.active
-                                  ? null
-                                  : canManage
-                                  ? l.projectsEmptyAdmin
-                                  : l.projectsEmptyMember,
-                            ),
-                          ],
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                          itemCount: shown.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, i) =>
-                              _ProjectCard(project: shown[i]),
-                        ),
-                );
-              },
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -142,6 +135,10 @@ class _ProjectCard extends ConsumerWidget {
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
       child: InkWell(
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -149,7 +146,7 @@ class _ProjectCard extends ConsumerWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 15),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -158,7 +155,7 @@ class _ProjectCard extends ConsumerWidget {
                   ProjectAvatar(
                     name: project.name,
                     hex: project.color,
-                    size: 46,
+                    size: 44,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -171,7 +168,7 @@ class _ProjectCard extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: 17,
+                            fontSize: 16,
                           ),
                         ),
                         Text(l.memberCount(project.memberCount), style: muted),
@@ -180,7 +177,7 @@ class _ProjectCard extends ConsumerWidget {
                   ),
                   if (unread > 0)
                     _Pill(
-                      icon: Icons.chat_bubble_outline,
+                      icon: LucideIcons.messageCircle,
                       text: l.newMessagesCount(unread),
                       color: scheme.primary,
                       background: scheme.primaryContainer,
@@ -220,7 +217,7 @@ class _ProjectCard extends ConsumerWidget {
               if (progress.late > 0) ...[
                 const SizedBox(height: 12),
                 Align(
-                  alignment: AlignmentDirectional.centerEnd,
+                  alignment: AlignmentDirectional.centerStart,
                   child: _Pill(
                     text: l.lateTasks(progress.late),
                     color: scheme.error,
@@ -256,13 +253,13 @@ class _Pill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(99),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 15, color: color),
+            Icon(icon, size: 13, color: color),
             const SizedBox(width: 5),
           ],
           Text(
