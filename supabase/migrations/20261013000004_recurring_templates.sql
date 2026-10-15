@@ -349,7 +349,11 @@ $$;
 do $$
 begin
   if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
-    create extension if not exists pg_cron with schema pg_catalog;
+    -- Already turned on by the tasks migration; see the billing migration
+    -- for why it is never created again.
+    if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+      create extension pg_cron with schema pg_catalog;
+    end if;
     perform cron.schedule('wasla-recurring-tasks', '*/5 * * * *',
                           'select public.process_recurring_tasks()');
   else
