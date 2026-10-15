@@ -173,6 +173,57 @@ class FakeApi implements WaslaApi {
   }) => throw UnimplementedError();
   @override
   Future<void> setDiscoverable(String workspaceId, bool discoverable) async {}
+
+  final deleted = <DeletedWorkspace>[];
+
+  @override
+  Future<void> renameWorkspace(String workspaceId, String name) async {
+    final i = memberships.indexWhere((m) => m.workspaceId == workspaceId);
+    final m = memberships[i];
+    memberships[i] = Membership(
+      workspaceId: m.workspaceId,
+      workspaceName: name,
+      companyId: m.companyId,
+      companyName: m.companyName,
+      isCompanyOwner: m.isCompanyOwner,
+      role: m.role,
+      planName: m.planName,
+      maxMembers: m.maxMembers,
+      discoverable: m.discoverable,
+    );
+  }
+
+  @override
+  Future<void> leaveWorkspace(String workspaceId) async =>
+      memberships.removeWhere((m) => m.workspaceId == workspaceId);
+
+  @override
+  Future<void> deleteWorkspace(String workspaceId, String confirmName) async {
+    final m = memberships.firstWhere((m) => m.workspaceId == workspaceId);
+    if (confirmName != m.workspaceName) throw StateError('name_mismatch');
+    memberships.remove(m);
+    final now = DateTime.now();
+    deleted.add(
+      DeletedWorkspace(
+        id: m.workspaceId,
+        name: m.workspaceName,
+        companyName: m.companyName,
+        deletedAt: now,
+        purgeAt: now.add(const Duration(days: 30)),
+      ),
+    );
+  }
+
+  @override
+  Future<List<DeletedWorkspace>> deletedWorkspaces() async => List.of(deleted);
+
+  @override
+  Future<void> restoreWorkspace(String workspaceId) async {
+    final d = deleted.firstWhere((d) => d.id == workspaceId);
+    deleted.remove(d);
+    memberships.add(membership(d.id, d.name, WorkspaceRole.owner));
+  }
+
   @override
   Future<List<WorkspaceHit>> searchWorkspaces(String query) async => const [];
   @override

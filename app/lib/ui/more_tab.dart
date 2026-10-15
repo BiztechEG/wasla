@@ -19,6 +19,7 @@ import 'members_screen.dart';
 import 'modern.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
+import 'workspaces_screen.dart';
 
 class MoreTab extends ConsumerWidget {
   const MoreTab({super.key, required this.membership});
@@ -185,6 +186,14 @@ class MoreTab extends ConsumerWidget {
                   }
                 },
               ),
+            ListTile(
+              key: const Key('manageWorkspaces'),
+              leading: const Icon(Icons.tune),
+              title: Text(l.manageWorkspaces),
+              subtitle: Text(l.manageWorkspacesHint),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => push(const WorkspacesScreen()),
+            ),
             ListTile(
               leading: const Icon(Icons.add_circle_outline),
               title: Text(l.addWorkspace),

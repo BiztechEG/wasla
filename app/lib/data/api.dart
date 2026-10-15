@@ -40,6 +40,13 @@ abstract class WaslaApi {
     required String name,
   });
   Future<void> setDiscoverable(String workspaceId, bool discoverable);
+  Future<void> renameWorkspace(String workspaceId, String name);
+  Future<void> leaveWorkspace(String workspaceId);
+
+  /// Needs the workspace's name typed back as [confirmName].
+  Future<void> deleteWorkspace(String workspaceId, String confirmName);
+  Future<List<DeletedWorkspace>> deletedWorkspaces();
+  Future<void> restoreWorkspace(String workspaceId);
 
   Future<List<WorkspaceHit>> searchWorkspaces(String query);
   Future<void> requestToJoin(String workspaceId, {String? message});
@@ -431,6 +438,41 @@ class SupabaseWaslaApi implements WaslaApi {
       .from('workspaces')
       .update({'discoverable': discoverable})
       .eq('id', workspaceId);
+
+  @override
+  Future<void> renameWorkspace(String workspaceId, String name) async {
+    // An update RLS refuses changes nothing and says nothing, so ask for the
+    // row back to tell.
+    final rows = await _client
+        .from('workspaces')
+        .update({'name': name})
+        .eq('id', workspaceId)
+        .select('id');
+    if (rows.isEmpty) {
+      throw const PostgrestException(message: 'not_allowed', code: '42501');
+    }
+  }
+
+  @override
+  Future<void> leaveWorkspace(String workspaceId) =>
+      _client.rpc('leave_workspace', params: {'p_workspace': workspaceId});
+
+  @override
+  Future<void> deleteWorkspace(String workspaceId, String confirmName) =>
+      _client.rpc(
+        'delete_workspace',
+        params: {'p_workspace': workspaceId, 'p_confirm_name': confirmName},
+      );
+
+  @override
+  Future<List<DeletedWorkspace>> deletedWorkspaces() async =>
+      _rows(await _client.rpc('my_deleted_workspaces'))
+          .map(DeletedWorkspace.fromJson)
+          .toList();
+
+  @override
+  Future<void> restoreWorkspace(String workspaceId) =>
+      _client.rpc('restore_workspace', params: {'p_workspace': workspaceId});
 
   @override
   Future<List<WorkspaceHit>> searchWorkspaces(String query) async =>

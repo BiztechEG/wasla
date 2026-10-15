@@ -85,6 +85,9 @@ class Membership {
   final int? maxMembers;
   final bool discoverable;
 
+  /// Workspace owners and the company owner delete a workspace.
+  bool get canDelete => role == WorkspaceRole.owner || isCompanyOwner;
+
   factory Membership.fromJson(Json json, {required String me}) {
     final ws = _object(json['workspaces']);
     final plan = _object(ws['plans']);
@@ -101,6 +104,33 @@ class Membership {
       discoverable: ws['discoverable'] as bool? ?? false,
     );
   }
+}
+
+/// A deleted workspace the signed-in user can still restore.
+class DeletedWorkspace {
+  const DeletedWorkspace({
+    required this.id,
+    required this.name,
+    required this.companyName,
+    required this.deletedAt,
+    required this.purgeAt,
+  });
+
+  final String id;
+  final String name;
+  final String companyName;
+  final DateTime deletedAt;
+
+  /// When it is removed for good.
+  final DateTime purgeAt;
+
+  factory DeletedWorkspace.fromJson(Json json) => DeletedWorkspace(
+    id: json['id'] as String,
+    name: _text(json['name']),
+    companyName: _text(json['company_name']),
+    deletedAt: DateTime.parse(json['deleted_at'] as String),
+    purgeAt: DateTime.parse(json['purge_at'] as String),
+  );
 }
 
 /// An invitation addressed to the signed-in user.

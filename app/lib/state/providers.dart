@@ -34,6 +34,14 @@ final membershipsProvider = FutureProvider<List<Membership>>((ref) async {
   return api.myWorkspaces();
 });
 
+/// Deleted workspaces one may still restore.
+final deletedWorkspacesProvider =
+    FutureProvider.autoDispose<List<DeletedWorkspace>>((ref) async {
+      final api = ref.watch(apiProvider);
+      if (await _user(ref) == null) return const [];
+      return api.deletedWorkspaces();
+    });
+
 final myInvitesProvider = FutureProvider.autoDispose<List<MyInvite>>((
   ref,
 ) async {
