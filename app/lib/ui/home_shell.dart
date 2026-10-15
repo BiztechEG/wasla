@@ -19,6 +19,7 @@ import 'notifications_screen.dart';
 import 'projects_tab.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
+import 'workspaces_screen.dart';
 
 /// The four tabs from the design, with notifications in the top bar.
 class HomeShell extends ConsumerStatefulWidget {
@@ -374,6 +375,26 @@ class _WorkspaceSwitcher extends ConsumerWidget {
               navigator.push(
                 MaterialPageRoute<void>(
                   builder: (_) => const StartScreen(asPage: true),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              child: Icon(
+                LucideIcons.settings2,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            title: Text(l.manageWorkspaces),
+            onTap: () {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              navigator.push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const WorkspacesScreen(),
                 ),
               );
             },

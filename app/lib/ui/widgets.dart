@@ -104,6 +104,7 @@ String errorText(AppLocalizations l, Object error) {
     final m = error.message;
     if (m.contains('seat_limit_reached')) return l.errorSeatLimit;
     if (m.contains('last_owner')) return l.errorLastOwner;
+    if (m.contains('name_mismatch')) return l.errorNameMismatch;
     if (m.contains('invite_invalid')) return l.errorInviteInvalid;
     if (m.contains('invite_not_for_you')) return l.errorInviteNotForYou;
     if (m.contains('already_member')) return l.errorAlreadyMember;
