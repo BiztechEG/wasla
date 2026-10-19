@@ -130,10 +130,13 @@ class _ProjectFilesViewState extends ConsumerState<ProjectFilesView> {
       title: FileRow(file: f.file, detail: detail, dense: true),
       onTap: () => openFile(context, ref, f.file),
       trailing: PopupMenuButton<String>(
-        onSelected: (action) => action == 'drive'
-            ? saveFileToDrive(context, ref, f.file)
-            : _act(context, f, action),
+        onSelected: (action) => switch (action) {
+          'drive' => saveFileToDrive(context, ref, f.file),
+          'download' => downloadFile(context, ref, f.file),
+          _ => _act(context, f, action),
+        },
         itemBuilder: (_) => [
+          PopupMenuItem(value: 'download', child: Text(l.download)),
           PopupMenuItem(value: 'drive', child: Text(l.saveToDrive)),
           if (canPin)
             PopupMenuItem(

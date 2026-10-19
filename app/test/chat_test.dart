@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/search_models.dart';
 import 'package:wasla/data/task_models.dart';
+import 'package:wasla/ui/chat_format.dart';
 import 'package:wasla/ui/files_common.dart';
 import 'package:wasla/ui/modern.dart';
 
@@ -46,6 +48,16 @@ String? _badge(WidgetTester tester) {
   final shown = badges.where((b) => b.isLabelVisible);
   if (shown.isEmpty) return null;
   return (shown.first.label! as Text).data;
+}
+
+/// Opens the project's chat from its page.
+Future<void> _openProjectChat(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('المشاريع'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('New Branch'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('المحادثة'));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -577,5 +589,204 @@ void main() {
     expect(find.text('قرأوها ولم يؤكدوا (1)'), findsOneWidget);
     expect(find.text('لم يفتحوها بعد (1)'), findsOneWidget);
     expect(find.text('Sara'), findsOneWidget);
+  });
+
+  testWidgets('swiping a message replies to it, and the quote leads back', (
+    tester,
+  ) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'أول رسالة في المشروع');
+    final first = api.chatMessages[chat]!.first;
+    for (var i = 0; i < 120; i++) {
+      api.receive(chat, 'u2', 'Mona Adel', 'متابعة رقم $i');
+    }
+    final last = api.chatMessages[chat]!.first;
+    api.chatMessages[chat]!.insert(
+      0,
+      ChatMessage(
+        id: 'r1',
+        senderId: 'me',
+        senderName: 'Amr',
+        createdAt: last.createdAt.add(const Duration(minutes: 1)),
+        body: 'ده لسه مطلوب؟',
+        projectId: 'p1',
+        replyTo: first.id,
+        replySenderName: 'Mona Adel',
+        replyBody: first.body,
+      ),
+    );
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    // Swiping toward the middle (left, in Arabic) starts a reply.
+    await tester.drag(find.text('متابعة رقم 119'), const Offset(-90, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('رد على Mona Adel: متابعة رقم 119'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('messageField')), 'أيوه');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sendButton')));
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat]!.first.replyTo, last.id);
+
+    // The quote of a message far back loads it and brings it on screen.
+    final original = find.byWidgetPredicate(
+      (w) =>
+          w is Text && w.data == 'أول رسالة في المشروع' && w.maxLines == null,
+    );
+    expect(original, findsNothing);
+    await tester.tap(find.byKey(const Key('quote')).last);
+    await tester.pumpAndSettle();
+    expect(original.hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('a right click opens the menu, and any part can be selected', (
+    tester,
+  ) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'رقم الحساب EG3800190005');
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    await tester.tap(
+      find.text('رقم الحساب EG3800190005'),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('نسخ'), findsOneWidget);
+    await tester.tap(find.text('تحديد النص'));
+    await tester.pumpAndSettle();
+    final selectable = tester.widget<SelectableText>(
+      find.byKey(const Key('selectableMessage')),
+    );
+    expect(selectable.data, 'رقم الحساب EG3800190005');
+  });
+
+  testWidgets('a long paste goes as a file, or as several messages', (
+    tester,
+  ) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    final long = List.filled(1100, 'word').join(' ');
+    expect(long.length, greaterThan(maxMessageLength));
+    await tester.enterText(find.byKey(const Key('messageField')), long);
+    await tester.pump();
+    expect(find.byKey(const Key('longText')), findsOneWidget);
+    expect(find.text('5,499 حرف · سيُرسل كملف'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('messageField')), 'المحضر');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sendButton')));
+    await tester.pumpAndSettle();
+    final sent = api.chatMessages[chat]!.first;
+    expect(sent.body, 'المحضر');
+    expect(sent.file!.name, 'نص طويل.txt');
+    expect(sent.file!.size, long.length);
+
+    // Changing to text sends it whole, over two messages.
+    await tester.enterText(find.byKey(const Key('messageField')), long);
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('longTextMode')));
+    await tester.pump();
+    expect(find.text('5,499 حرف · سيُرسل على 2 رسائل'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('sendButton')));
+    await tester.pumpAndSettle();
+    final parts = api.chatMessages[chat]!.take(2).toList().reversed;
+    expect(parts.map((m) => m.body).join(' '), long);
+    for (final m in parts) {
+      expect(m.body!.length, lessThanOrEqualTo(maxMessageLength));
+    }
+  });
+
+  testWidgets('a long message folds until "Read more"', (tester) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(
+      chat,
+      'u2',
+      'Mona Adel',
+      List.generate(30, (i) => 'سطر ${i + 1}').join('\n'),
+    );
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    expect(find.text('اقرأ المزيد'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('readMore')));
+    await tester.pumpAndSettle();
+    expect(find.text('عرض أقل'), findsOneWidget);
+  });
+
+  testWidgets('on a wide screen messages stay narrow; files can download', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', List.filled(80, 'كلام').join(' '));
+    api.chatMessages[chat]!.insert(
+      0,
+      ChatMessage(
+        id: 'f1',
+        senderId: 'u2',
+        senderName: 'Mona Adel',
+        createdAt: api.chatMessages[chat]!.first.createdAt.add(
+          const Duration(minutes: 1),
+        ),
+        projectId: 'p1',
+        file: const ChatFile(
+          id: 'file1',
+          name: 'notes.txt',
+          mime: 'text/plain',
+          size: 2000,
+          path: 'ws1/notes.txt',
+        ),
+      ),
+    );
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    final text = find.textContaining('كلام كلام');
+    expect(tester.getSize(text).width, lessThanOrEqualTo(520));
+    final download = find.byKey(const Key('bubbleDownload'));
+    expect(download, findsOneWidget);
+    expect(
+      tester.getRect(download).right -
+          tester.getRect(find.text('notes.txt')).left,
+      lessThanOrEqualTo(320),
+    );
+  });
+
+  test('a download link keeps the file name', () {
+    expect(
+      downloadLink('https://x.supabase.co/sign/files/a.txt?token=t', 'ملف.txt'),
+      'https://x.supabase.co/sign/files/a.txt?token=t&download=%D9%85%D9%84%D9%81.txt',
+    );
+  });
+
+  test('long text splits between words', () {
+    final parts = splitLongText('aaa bbb ccc\nddd eee', 8);
+    expect(parts, ['aaa bbb', 'ccc\nddd', 'eee']);
+    for (final p in splitLongText(List.filled(50, 'كلمة').join(' '), 30)) {
+      expect(p.runes.length, lessThanOrEqualTo(30));
+    }
+  });
+
+  testWidgets('a project chat says where its details are', (tester) async {
+    final api = _company();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'صباح الخير');
+    await startApp(tester, api);
+    await tester.tap(find.text('Mona: صباح الخير'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 أعضاء · اضغط للتفاصيل'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('chatDetails')));
+    await tester.pumpAndSettle();
+    expect(find.text('الحالة'), findsWidgets);
   });
 }
