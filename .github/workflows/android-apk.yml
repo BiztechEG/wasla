@@ -50,8 +50,12 @@ jobs:
           keytool -list -v -keystore "$WASLA_KEYSTORE_FILE" -storepass "$WASLA_KEY_PASSWORD" -alias wasla \
             | grep -E 'SHA1:|SHA256:' | tee -a "$GITHUB_STEP_SUMMARY"
       - run: flutter build apk --release --build-number $(git rev-list --count HEAD)
+      # The repository's artifact storage is small: keep test builds for a
+      # week, and don't fail a good build when the storage is full (the
+      # public APK goes out through site.yml either way).
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: wasla-android-${{ github.run_number }}
           path: app/build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
+          retention-days: 7
