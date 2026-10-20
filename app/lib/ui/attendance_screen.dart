@@ -15,6 +15,7 @@ import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../theme.dart';
 import 'attendance_setup_screen.dart';
+import 'attendance_team_screen.dart';
 import 'chat_format.dart';
 import 'widgets.dart';
 
@@ -219,6 +220,13 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
       appBar: AppBar(
         title: Text(l.attendance),
         actions: [
+          if (today.value?.isManager ?? false)
+            IconButton(
+              key: const Key('teamAttendance'),
+              tooltip: l.teamAttendance,
+              icon: const Icon(LucideIcons.users),
+              onPressed: () => openTeamAttendance(context, widget.membership),
+            ),
           if (isAdmin)
             IconButton(
               tooltip: l.attendanceSetup,
@@ -281,7 +289,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _Stat(
+                      child: AttendanceStat(
                         value: l.minutesShort(t.monthLateMinutes),
                         label: l.lateThisMonth,
                         color: t.monthLateMinutes > 0
@@ -291,11 +299,14 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _Stat(value: '${t.monthLate}', label: l.lateTimes),
+                      child: AttendanceStat(
+                        value: '${t.monthLate}',
+                        label: l.lateTimes,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _Stat(
+                      child: AttendanceStat(
                         value: '${t.monthPresent}',
                         label: l.presentDays,
                         color: Theme.of(context).colorScheme.primary,
@@ -405,7 +416,7 @@ class _TodayCard extends StatelessWidget {
             if (record != null && record.review == AttendanceReview.pending)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: _Chip(
+                child: AttendanceChip(
                   icon: LucideIcons.hourglass,
                   text: l.waitingReview,
                   color: lateTint(context),
@@ -431,7 +442,7 @@ class _TodayCard extends StatelessWidget {
     final record = today.record;
     if (record != null) {
       final at = clockTime(context, record.inAt);
-      return _Chip(
+      return AttendanceChip(
         icon: LucideIcons.check,
         text: record.lateMinutes > 0
             ? l.checkedInLate(at, lateText(l, record.lateMinutes))
@@ -440,7 +451,7 @@ class _TodayCard extends StatelessWidget {
       );
     }
     if (locating && fix == null) {
-      return _Chip(
+      return AttendanceChip(
         icon: LucideIcons.locateFixed,
         text: l.locating,
         color: scheme.onSurfaceVariant,
@@ -455,20 +466,20 @@ class _TodayCard extends StatelessWidget {
     }
     final place = PlaceCheck.of(fix!, own: today.site, sites: today.sites);
     if (place.site == null) {
-      return _Chip(
+      return AttendanceChip(
         icon: LucideIcons.mapPin,
         text: l.locationFound,
         color: scheme.primary,
       );
     }
     if (place.site!.isField) {
-      return _Chip(
+      return AttendanceChip(
         icon: LucideIcons.mapPin,
         text: l.atFieldSite(place.site!.name),
         color: scheme.primary,
       );
     }
-    return _Chip(
+    return AttendanceChip(
       icon: LucideIcons.mapPin,
       text: place.inside
           ? l.atSite(place.site!.name, place.distanceM!)
@@ -830,6 +841,7 @@ class _AttendanceHistoryScreenState
     final theme = Theme.of(context);
     final key = (widget.workspaceId, _month);
     final records = ref.watch(myAttendanceProvider(key));
+    final fixes = ref.watch(myFixesProvider(key)).value ?? const [];
     final thisMonth = _month.year == _last.year && _month.month == _last.month;
     return Scaffold(
       appBar: AppBar(title: Text(l.attendanceHistory)),
@@ -876,7 +888,15 @@ class _AttendanceHistoryScreenState
                 month: _month,
                 last: _last,
                 records: list,
+                fixes: fixes,
                 weekendDays: widget.today.weekendDays,
+                onDay: (day, record, fix) => showFixSheet(
+                  context,
+                  workspaceId: widget.workspaceId,
+                  day: day,
+                  record: record,
+                  fix: fix,
+                ),
               ),
             ),
           ),
@@ -892,6 +912,8 @@ class _MonthList extends StatelessWidget {
     required this.last,
     required this.records,
     required this.weekendDays,
+    this.fixes = const [],
+    this.onDay,
   });
 
   final DateTime month;
@@ -899,10 +921,18 @@ class _MonthList extends StatelessWidget {
   final List<AttendanceRecord> records;
   final Set<int> weekendDays;
 
+  /// The month's corrections, newest first.
+  final List<AttendanceFix> fixes;
+  final void Function(DateTime, AttendanceRecord?, AttendanceFix?)? onDay;
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final byDay = {for (final r in records) r.day: r};
+    final fixByDay = <DateTime, AttendanceFix>{};
+    for (final f in fixes) {
+      if (f.status != FixStatus.cancelled) fixByDay.putIfAbsent(f.day, () => f);
+    }
     final counted = records.where((r) => r.review != AttendanceReview.rejected);
     final late = counted.where((r) => r.lateMinutes > 0).length;
     final worked = counted.fold(
@@ -925,11 +955,14 @@ class _MonthList extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _Stat(value: '${counted.length}', label: l.presentDays),
+              child: AttendanceStat(
+                value: '${counted.length}',
+                label: l.presentDays,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _Stat(
+              child: AttendanceStat(
                 value: '$late',
                 label: l.lateTimes,
                 color: late > 0 ? lateTint(context) : null,
@@ -937,7 +970,7 @@ class _MonthList extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _Stat(
+              child: AttendanceStat(
                 value: l.hoursShort(worked.inHours),
                 label: l.hoursWorked,
               ),
@@ -954,7 +987,11 @@ class _MonthList extends StatelessWidget {
                 _DayTile(
                   day: d,
                   record: byDay[d],
+                  fix: fixByDay[d],
                   off: weekendDays.contains(d.weekday % 7),
+                  onTap: onDay == null
+                      ? null
+                      : () => onDay!(d, byDay[d], fixByDay[d]),
                 ),
             ],
           ),
@@ -964,11 +1001,19 @@ class _MonthList extends StatelessWidget {
 }
 
 class _DayTile extends StatelessWidget {
-  const _DayTile({required this.day, required this.record, required this.off});
+  const _DayTile({
+    required this.day,
+    required this.record,
+    required this.off,
+    this.fix,
+    this.onTap,
+  });
 
   final DateTime day;
   final AttendanceRecord? record;
   final bool off;
+  final AttendanceFix? fix;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -993,22 +1038,29 @@ class _DayTile extends StatelessWidget {
         if (r.reason != null) reasonLabel(l, r.reason!),
       ].join(' · ');
       tag = switch (r.review) {
-        AttendanceReview.pending => _Chip(
+        AttendanceReview.pending => AttendanceChip(
           text: l.waitingReview,
           color: lateTint(context),
         ),
-        AttendanceReview.rejected => _Chip(
+        AttendanceReview.rejected => AttendanceChip(
           text: l.reviewRejected,
           color: scheme.error,
         ),
-        _ when r.lateMinutes > 0 => _Chip(
+        _ when r.lateMinutes > 0 => AttendanceChip(
           text: lateText(l, r.lateMinutes),
           color: lateTint(context),
         ),
-        _ => _Chip(text: l.present, color: scheme.primary),
+        _ => AttendanceChip(text: l.present, color: scheme.primary),
       };
     }
+    if (fix?.status == FixStatus.pending) {
+      tag = AttendanceChip(text: l.fixPending, color: lateTint(context));
+    } else if (fix?.status == FixStatus.rejected) {
+      tag = AttendanceChip(text: l.fixRejected, color: scheme.error);
+    }
     return ListTile(
+      key: Key('day-${day.day}'),
+      onTap: onTap,
       leading: SizedBox(
         width: 44,
         child: Column(
@@ -1070,8 +1122,13 @@ class _Line extends StatelessWidget {
 }
 
 /// A rounded label on a tint of [color].
-class _Chip extends StatelessWidget {
-  const _Chip({required this.text, required this.color, this.icon});
+class AttendanceChip extends StatelessWidget {
+  const AttendanceChip({
+    super.key,
+    required this.text,
+    required this.color,
+    this.icon,
+  });
 
   final String text;
   final Color color;
@@ -1110,8 +1167,13 @@ class _Chip extends StatelessWidget {
 }
 
 /// A number and what it counts.
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, this.color});
+class AttendanceStat extends StatelessWidget {
+  const AttendanceStat({
+    super.key,
+    required this.value,
+    required this.label,
+    this.color,
+  });
 
   final String value;
   final String label;
@@ -1221,6 +1283,222 @@ class AttendanceStrip extends ConsumerWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Asking to correct a day, or the state of a correction already asked for.
+Future<void> showFixSheet(
+  BuildContext context, {
+  required String workspaceId,
+  required DateTime day,
+  AttendanceRecord? record,
+  AttendanceFix? fix,
+}) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  showDragHandle: true,
+  builder: (_) =>
+      _FixSheet(workspaceId: workspaceId, day: day, record: record, fix: fix),
+);
+
+class _FixSheet extends ConsumerStatefulWidget {
+  const _FixSheet({
+    required this.workspaceId,
+    required this.day,
+    this.record,
+    this.fix,
+  });
+
+  final String workspaceId;
+  final DateTime day;
+  final AttendanceRecord? record;
+  final AttendanceFix? fix;
+
+  @override
+  ConsumerState<_FixSheet> createState() => _FixSheetState();
+}
+
+class _FixSheetState extends ConsumerState<_FixSheet> {
+  late DateTime? _in = widget.record?.inAt.toLocal();
+  late DateTime? _out = widget.record?.outAt?.toLocal();
+  final _note = TextEditingController();
+
+  bool get _pending => widget.fix?.status == FixStatus.pending;
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  void _refresh() {
+    ref.invalidate(myFixesProvider);
+    ref.invalidate(myAttendanceProvider);
+  }
+
+  Future<void> _pick({required bool checkIn}) async {
+    final l = context.l10n;
+    final current = checkIn ? _in : _out;
+    final t = await showTimePicker(
+      context: context,
+      initialTime: current == null
+          ? const TimeOfDay(hour: 9, minute: 0)
+          : TimeOfDay.fromDateTime(current),
+    );
+    if (t == null || !mounted) return;
+    final d = widget.day;
+    var at = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+    // A check-out before the check-in is the next morning (a night shift).
+    if (!checkIn && _in != null && !at.isAfter(_in!)) {
+      at = at.add(const Duration(days: 1));
+    }
+    if (at.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
+      showMessage(context, l.errorFutureTime);
+      return;
+    }
+    setState(() => checkIn ? _in = at : _out = at);
+  }
+
+  Future<void> _send() async {
+    final l = context.l10n;
+    final navigator = Navigator.of(context);
+    final r = widget.record;
+    // Only what changed is asked for.
+    final inAt = r != null && _in == r.inAt.toLocal() ? null : _in;
+    final outAt = r != null && _out == r.outAt?.toLocal() ? null : _out;
+    if (inAt == null && outAt == null) {
+      showMessage(context, l.fixNothingChanged);
+      return;
+    }
+    final ok = await runAction(
+      context,
+      () => ref
+          .read(apiProvider)
+          .requestAttendanceFix(
+            widget.workspaceId,
+            widget.day,
+            inAt: inAt,
+            outAt: outAt,
+            note: _note.text.trim(),
+          ),
+      done: l.fixSent,
+    );
+    if (!ok) return;
+    _refresh();
+    navigator.pop();
+  }
+
+  Future<void> _cancel() async {
+    final navigator = Navigator.of(context);
+    final ok = await runAction(
+      context,
+      () => ref.read(apiProvider).cancelAttendanceFix(widget.fix!.id),
+    );
+    if (!ok) return;
+    _refresh();
+    navigator.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final f = widget.fix;
+    String t(DateTime? d) => d == null ? l.notSet : clockTime(context, d);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        0,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              dayLabel(context, widget.day),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            if (_pending) ...[
+              Text(l.fixWaiting),
+              const SizedBox(height: 8),
+              Text(
+                l.fixAsked(
+                  f!.inAt == null ? t(widget.record?.inAt) : t(f.inAt),
+                  f.outAt == null ? t(widget.record?.outAt) : t(f.outAt),
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text('“${f.note}”'),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                key: const Key('cancelFix'),
+                onPressed: _cancel,
+                child: Text(l.cancelFix),
+              ),
+            ] else ...[
+              if (f != null && f.status != FixStatus.cancelled) ...[
+                Text(
+                  f.status == FixStatus.accepted
+                      ? l.fixWasAccepted(f.decidedBy ?? '')
+                      : l.fixWasRejected(f.decidedBy ?? ''),
+                  style: TextStyle(
+                    color: f.status == FixStatus.accepted
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error,
+                  ),
+                ),
+                if (f.decisionNote != null) Text('“${f.decisionNote}”'),
+                const SizedBox(height: 8),
+              ],
+              Text(l.fixIntro, style: theme.textTheme.bodySmall),
+              ListTile(
+                key: const Key('fixIn'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(LucideIcons.logIn),
+                title: Text(l.checkIn),
+                trailing: Text(t(_in)),
+                onTap: () => _pick(checkIn: true),
+              ),
+              ListTile(
+                key: const Key('fixOut'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(LucideIcons.logOut),
+                title: Text(l.checkOut),
+                trailing: Text(t(_out)),
+                onTap: () => _pick(checkIn: false),
+              ),
+              TextField(
+                key: const Key('fixNote'),
+                controller: _note,
+                maxLength: 300,
+                minLines: 1,
+                maxLines: 3,
+                decoration: InputDecoration(labelText: l.fixNote),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 8),
+              BusyButton(
+                key: const Key('sendFix'),
+                label: l.sendFix,
+                onPressed:
+                    _note.text.trim().isEmpty ||
+                        (_in == null && _out == null) ||
+                        (widget.record == null && _in == null) ||
+                        (_in != null && _out != null && !_out!.isAfter(_in!))
+                    ? null
+                    : _send,
+              ),
+            ],
+          ],
         ),
       ),
     );

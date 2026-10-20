@@ -320,7 +320,7 @@ begin
                      'detail', e.detail, 'by', (select full_name from profiles where id = e.edited_by),
                      'at', e.edited_at) order by e.edited_at desc, e.id desc)
                    from attendance_edits e where e.person_id = p_person and e.day = p_day), '[]'),
-         'fix', (select jsonb_build_object('id', f.id, 'in_at', f.in_at, 'out_at', f.out_at,
+         'fix', (select jsonb_build_object('id', f.id, 'day', f.day, 'in_at', f.in_at, 'out_at', f.out_at,
                                            'note', f.note, 'status', f.status)
                  from attendance_fixes f
                  where f.person_id = p_person and f.day = p_day

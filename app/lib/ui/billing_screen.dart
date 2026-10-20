@@ -716,6 +716,11 @@ class InvoiceScreen extends ConsumerWidget {
                             planLabel(l, line.planName),
                             l.lineUnit(usd(context, line.unitUsd)),
                             l.memberCount(line.members),
+                            if (line.extraWorkers > 0)
+                              l.extraWorkersLine(
+                                line.extraWorkers,
+                                usd(context, line.extraWorkerUsd),
+                              ),
                           ].join(' · '),
                         ),
                         trailing: Text(

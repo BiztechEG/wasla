@@ -542,11 +542,19 @@ void main() {
       find.widgetWithText(TextField, 'السعر الشهري (دولار)'),
       '25',
     );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'سعر العامل الإضافي (دولار شهرياً)'),
+      '2',
+    );
+    await tester.ensureVisible(find.byType(Switch));
     await tester.tap(find.byType(Switch));
     await tester.pump();
     await tester.tap(find.widgetWithText(TextButton, 'حفظ'));
     await tester.pumpAndSettle();
-    expect(api.billingCalls.last, 'plan basic Basic 50 50 25.0 false');
+    expect(api.billingCalls.sublist(api.billingCalls.length - 2), [
+      'plan basic Basic 50 50 25.0 false',
+      'workers basic null 2.0',
+    ]);
     // Let the "saved" message clear off the bottom of the page.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();

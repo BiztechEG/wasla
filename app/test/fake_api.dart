@@ -1464,6 +1464,13 @@ class FakeApi implements WaslaApi {
   );
 
   @override
+  Future<void> adminSetPlanWorkers(
+    String planId, {
+    int? freeWorkers,
+    double extraUsd = 0,
+  }) async => billingCalls.add('workers $planId $freeWorkers $extraUsd');
+
+  @override
   Future<void> adminUpdatePaymentInfo(PaymentInfo info) async {
     billingCalls.add(
       'payment ${info.instructions} ${info.phone} ${info.email}',
@@ -1543,6 +1550,7 @@ class FakeApi implements WaslaApi {
     return AttendanceToday(
       enabled: true,
       isAdmin: admin,
+      isManager: attendanceManager ?? admin,
       today: _today,
       weekendDays: a.weekendDays,
       requireSelfie: a.requireSelfie,
@@ -1782,4 +1790,283 @@ class FakeApi implements WaslaApi {
     );
     attendanceCalls.add('delete site $id');
   }
+
+  // Attendance for managers: a team, today's records by person, requests.
+
+  /// Null: managers are the workspace's owners and admins.
+  bool? attendanceManager;
+  final teamPeople = <TeamPerson>[];
+  final teamRecords = <String, AttendanceRecord>{};
+  final teamEdits = <String, List<AttendanceEdit>>{};
+  final teamReviews = <(AttendanceRecord, String)>[];
+  final teamFixes = <AttendanceFix>[];
+  final myFixes = <AttendanceFix>[];
+  var teamProjects = <AttendanceOption>[];
+  int? workersFree;
+  double extraWorkerUsd = 0;
+
+  TeamPerson _withRecord(TeamPerson p) => TeamPerson(
+    id: p.id,
+    name: p.name,
+    userId: p.userId,
+    jobTitle: p.jobTitle,
+    phone: p.phone,
+    code: p.code,
+    projectId: p.projectId,
+    projectName: p.projectName,
+    siteId: p.siteId,
+    siteName: p.siteName,
+    shiftId: p.shiftId,
+    shift: p.shift,
+    dayOff: p.dayOff,
+    record: teamRecords[p.id],
+  );
+
+  @override
+  Future<TeamBoard> teamAttendance(
+    String workspaceId, {
+    DateTime? day,
+    String? projectId,
+  }) async {
+    final admin = memberships
+        .where((m) => m.workspaceId == workspaceId)
+        .any((m) => m.role.canManage);
+    final d = day ?? _today;
+    return TeamBoard(
+      day: d,
+      today: _today,
+      isAdmin: admin,
+      projects: teamProjects,
+      sites: [
+        for (final s in attendance?.sites ?? const <AttendanceSite>[])
+          AttendanceOption(s.id, s.name),
+      ],
+      shifts: [
+        for (final s in attendance?.shifts ?? const <AttendanceShift>[])
+          AttendanceOption(s.id, s.name),
+      ],
+      workersUsed: teamPeople.where((p) => !p.hasApp).length,
+      workersFree: workersFree,
+      extraWorkerUsd: extraWorkerUsd,
+      requests: teamReviews.length + teamFixes.length,
+      people: [
+        for (final p in teamPeople)
+          if (projectId == null || p.projectId == projectId)
+            d == _today ? _withRecord(p) : p,
+      ],
+    );
+  }
+
+  @override
+  Future<PersonDay> personDay(String personId, DateTime day) async {
+    final p = teamPeople.firstWhere((p) => p.id == personId);
+    return PersonDay(
+      person: day == _today ? _withRecord(p) : p,
+      canEdit: true,
+      edits: teamEdits[personId] ?? const [],
+      fix: teamFixes.where((f) => f.personId == personId).firstOrNull,
+    );
+  }
+
+  @override
+  Future<void> reviewAttendance(String recordId, {required bool accept}) async {
+    teamReviews.removeWhere((r) => r.$1.id == recordId);
+    attendanceCalls.add('review $recordId $accept');
+  }
+
+  @override
+  Future<String> saveWorker(
+    String workspaceId, {
+    String? id,
+    required String name,
+    String? jobTitle,
+    String? phone,
+    String? code,
+    String? projectId,
+    String? siteId,
+    String? shiftId,
+  }) async {
+    final used = teamPeople.where((p) => !p.hasApp).length;
+    if (id == null &&
+        workersFree != null &&
+        used >= workersFree! &&
+        extraWorkerUsd == 0) {
+      throw const PostgrestException(message: 'workers_limit');
+    }
+    final workerId = id ?? 'w${_attSeq++}';
+    final worker = TeamPerson(
+      id: workerId,
+      name: name,
+      jobTitle: jobTitle,
+      phone: phone,
+      code: code,
+      projectId: projectId,
+      projectName: teamProjects
+          .where((p) => p.id == projectId)
+          .firstOrNull
+          ?.name,
+      siteId: siteId,
+      shiftId: shiftId,
+      shift: shiftToday,
+    );
+    final i = teamPeople.indexWhere((p) => p.id == workerId);
+    if (i < 0) {
+      teamPeople.add(worker);
+    } else {
+      teamPeople[i] = worker;
+    }
+    attendanceCalls.add(
+      'worker $name ${jobTitle ?? '-'} ${projectId ?? '-'} ${siteId ?? '-'}',
+    );
+    return workerId;
+  }
+
+  @override
+  Future<void> removeWorker(String personId) async {
+    teamPeople.removeWhere((p) => p.id == personId);
+    attendanceCalls.add('remove worker $personId');
+  }
+
+  @override
+  Future<void> assignAttendance(
+    String personId, {
+    String? siteId,
+    String? shiftId,
+  }) async => attendanceCalls.add('assign $personId $siteId $shiftId');
+
+  @override
+  Future<RollCallResult> rollCall(
+    String workspaceId, {
+    required bool checkIn,
+    required Map<String, DateTime> times,
+    LocationFix? at,
+    Upload? photo,
+  }) async {
+    var done = 0;
+    final skipped = <String>[];
+    for (final e in times.entries) {
+      final p = teamPeople.firstWhere((p) => p.id == e.key);
+      final r = teamRecords[p.id];
+      if (checkIn) {
+        if (r != null) {
+          skipped.add(p.id);
+          continue;
+        }
+        final s = p.shift;
+        final late =
+            s != null &&
+                e.value.isAfter(s.startAt.add(Duration(minutes: s.grace)))
+            ? e.value.difference(s.startAt).inMinutes
+            : 0;
+        teamRecords[p.id] = AttendanceRecord(
+          id: 'tr${_attSeq++}',
+          personId: p.id,
+          day: _today,
+          inAt: e.value,
+          lateMinutes: late,
+          inByName: name,
+        );
+      } else {
+        if (r == null || !r.open) {
+          skipped.add(p.id);
+          continue;
+        }
+        teamRecords[p.id] = AttendanceRecord(
+          id: r.id,
+          personId: p.id,
+          day: r.day,
+          inAt: r.inAt,
+          outAt: e.value,
+          lateMinutes: r.lateMinutes,
+          inByName: r.inByName,
+          outByName: name,
+        );
+      }
+      done++;
+    }
+    String hm(DateTime t) =>
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    attendanceCalls.add(
+      'roll ${checkIn ? 'in' : 'out'} '
+      '${times.entries.map((e) => '${e.key}@${hm(e.value)}').join(',')}'
+      '${photo == null ? '' : ' photo'}',
+    );
+    return RollCallResult(recorded: done, skipped: skipped);
+  }
+
+  @override
+  Future<void> setAttendanceTimes(
+    String recordId, {
+    required DateTime inAt,
+    DateTime? outAt,
+    String? note,
+  }) async {
+    attendanceCalls.add(
+      'times $recordId ${inAt.hour}:${inAt.minute} '
+      '${outAt == null ? '-' : '${outAt.hour}:${outAt.minute}'} ${note ?? ''}',
+    );
+  }
+
+  @override
+  Future<void> deleteAttendanceRecord(String recordId, {String? note}) async {
+    teamRecords.removeWhere((_, r) => r.id == recordId);
+    attendanceCalls.add('delete record $recordId');
+  }
+
+  @override
+  Future<void> requestAttendanceFix(
+    String workspaceId,
+    DateTime day, {
+    DateTime? inAt,
+    DateTime? outAt,
+    required String note,
+  }) async {
+    if (myFixes.any((f) => f.day == day && f.status == FixStatus.pending)) {
+      throw const PostgrestException(message: 'fix_pending');
+    }
+    myFixes.insert(
+      0,
+      AttendanceFix(
+        id: 'fix${_attSeq++}',
+        day: day,
+        inAt: inAt,
+        outAt: outAt,
+        note: note,
+      ),
+    );
+    String hm(DateTime? t) => t == null
+        ? '-'
+        : '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    attendanceCalls.add('fix ${day.day} ${hm(inAt)} ${hm(outAt)} $note');
+  }
+
+  @override
+  Future<void> cancelAttendanceFix(String fixId) async {
+    myFixes.removeWhere((f) => f.id == fixId);
+    attendanceCalls.add('cancel fix $fixId');
+  }
+
+  @override
+  Future<void> decideAttendanceFix(
+    String fixId, {
+    required bool accept,
+    String? note,
+  }) async {
+    teamFixes.removeWhere((f) => f.id == fixId);
+    attendanceCalls.add('decide $fixId $accept');
+  }
+
+  @override
+  Future<List<AttendanceFix>> myAttendanceFixes(
+    String workspaceId,
+    DateTime from,
+    DateTime to,
+  ) async => [
+    for (final f in myFixes)
+      if (!f.day.isBefore(from) && !f.day.isAfter(to)) f,
+  ];
+
+  @override
+  Future<AttendanceRequests> attendanceRequests(String workspaceId) async =>
+      AttendanceRequests(reviews: [...teamReviews], fixes: [...teamFixes]);
 }

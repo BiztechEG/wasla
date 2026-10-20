@@ -110,6 +110,13 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('attendance_reason_required')) return l.errorOutsideReason;
     if (m.contains('location_required')) return l.errorLocationRequired;
     if (m.contains('invalid_hours')) return l.errorInvalidHours;
+    if (m.contains('future_time')) return l.errorFutureTime;
+    if (m.contains('too_old')) return l.errorTooOld;
+    if (m.contains('workers_limit')) return l.errorWorkersLimit;
+    if (m.contains('fix_pending')) return l.errorFixPending;
+    if (m.contains('fix_note_required')) return l.errorFixNote;
+    if (m.contains('fix_needs_check_in')) return l.errorFixNeedsCheckIn;
+    if (m.contains('already_reviewed')) return l.errorAlreadyReviewed;
     if (m.contains('seat_limit_reached')) return l.errorSeatLimit;
     if (m.contains('last_owner')) return l.errorLastOwner;
     if (m.contains('name_mismatch')) return l.errorNameMismatch;
