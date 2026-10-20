@@ -4,12 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wasla/app.dart';
+import 'package:wasla/data/attendance_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/google.dart';
+import 'package:wasla/data/location.dart';
 import 'package:wasla/data/picker.dart';
 import 'package:wasla/data/share.dart';
 import 'package:wasla/data/voice.dart';
 import 'package:wasla/push/push.dart';
+import 'package:wasla/state/attendance_providers.dart';
 import 'package:wasla/state/chat_providers.dart';
 import 'package:wasla/state/google_providers.dart';
 import 'package:wasla/state/providers.dart';
@@ -27,6 +30,7 @@ Future<void> startApp(
   VoiceRecorder? recorder,
   GoogleAccount? google,
   Sharer? sharer,
+  Locator? locator,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -42,6 +46,7 @@ Future<void> startApp(
         if (recorder != null) voiceRecorderProvider.overrideWithValue(recorder),
         googleAccountProvider.overrideWithValue(google ?? FakeGoogle()),
         sharerProvider.overrideWithValue(sharer ?? FakeSharer()),
+        locatorProvider.overrideWithValue(locator ?? FakeLocator()),
       ],
       child: const WaslaApp(),
     ),
@@ -84,8 +89,11 @@ class FakePicker implements Picker {
   final Upload file;
 
   @override
-  Future<Upload?> pickImage({required bool camera, int maxSide = 2048}) async =>
-      file;
+  Future<Upload?> pickImage({
+    required bool camera,
+    int maxSide = 2048,
+    bool front = false,
+  }) async => file;
 
   @override
   Future<Upload?> pickVideo({required bool camera}) async => file;
@@ -161,4 +169,22 @@ class FakeSharer implements Sharer {
     shared.add((text, file?.name));
     return true;
   }
+}
+
+/// A phone that is always at [fix], or fails with [error].
+class FakeLocator implements Locator {
+  FakeLocator({this.fix = const LocationFix(30.0444, 31.2357, accuracyM: 10)});
+
+  LocationFix fix;
+  Object? error;
+  int settingsOpened = 0;
+
+  @override
+  Future<LocationFix> current() async {
+    if (error != null) throw error!;
+    return fix;
+  }
+
+  @override
+  Future<void> openSettings() async => settingsOpened++;
 }

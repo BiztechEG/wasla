@@ -13,6 +13,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>لتصوير صورة أو فيديو وإرساله في المحادثة. Wasla uses the camera to send a photo or video in a chat.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>لمعرفة إنك في الفرع وقت تسجيل الحضور والانصراف فقط. Wasla checks your location only when you check in or out.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>لتسجيل صوت الفيديو والرسايل الصوتية. Wasla uses the microphone to record videos and voice messages.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

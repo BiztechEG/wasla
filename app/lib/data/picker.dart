@@ -29,18 +29,28 @@ String? logoExtension(String mime) => switch (mime.toLowerCase()) {
 
 /// Picks photos and files on the phone. Tests swap in a fake.
 abstract class Picker {
-  /// [maxSide] shrinks big photos so their longest side fits.
-  Future<Upload?> pickImage({required bool camera, int maxSide = 2048});
+  /// [maxSide] shrinks big photos so their longest side fits; [front] opens
+  /// the selfie camera.
+  Future<Upload?> pickImage({
+    required bool camera,
+    int maxSide = 2048,
+    bool front = false,
+  });
   Future<Upload?> pickVideo({required bool camera});
   Future<Upload?> pickFile();
 }
 
 class DevicePicker implements Picker {
   @override
-  Future<Upload?> pickImage({required bool camera, int maxSide = 2048}) async {
+  Future<Upload?> pickImage({
+    required bool camera,
+    int maxSide = 2048,
+    bool front = false,
+  }) async {
     // Shrunk on the phone so photos upload quickly over mobile data.
     final image = await ImagePicker().pickImage(
       source: camera ? ImageSource.camera : ImageSource.gallery,
+      preferredCameraDevice: front ? CameraDevice.front : CameraDevice.rear,
       maxWidth: maxSide.toDouble(),
       maxHeight: maxSide.toDouble(),
       imageQuality: 80,

@@ -9,7 +9,10 @@ import '../push/push.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
 import '../state/task_providers.dart';
+import '../state/attendance_providers.dart';
 import 'admin_screen.dart';
+import 'attendance_screen.dart';
+import 'attendance_setup_screen.dart';
 import 'announcements_view.dart';
 import 'billing_format.dart';
 import 'billing_screen.dart';
@@ -38,6 +41,8 @@ class MoreTab extends ConsumerWidget {
     final requests = canManage
         ? ref.watch(joinRequestsProvider(ws)).value
         : null;
+    final attendanceOn =
+        ref.watch(attendanceTodayProvider(ws)).value?.enabled ?? false;
 
     void push(Widget screen) =>
         Navigator.of(context)
@@ -115,6 +120,14 @@ class MoreTab extends ConsumerWidget {
               onTap: () =>
                   push(WorkspaceAnnouncementsScreen(membership: membership)),
             ),
+            if (attendanceOn)
+              ListTile(
+                key: const Key('attendanceTile'),
+                leading: const Icon(Icons.schedule_outlined),
+                title: Text(l.attendance),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => openAttendance(context, membership),
+              ),
             if (canManage) ...[
               ListTile(
                 leading: const Icon(Icons.person_add_alt_1_outlined),
@@ -134,6 +147,14 @@ class MoreTab extends ConsumerWidget {
                   ],
                 ),
                 onTap: () => push(JoinRequestsScreen(membership: membership)),
+              ),
+              ListTile(
+                key: const Key('attendanceSetupTile'),
+                leading: const Icon(Icons.more_time_outlined),
+                title: Text(l.attendanceSetup),
+                subtitle: attendanceOn ? null : Text(l.attendanceSetupHint),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => openAttendanceSetup(context, membership),
               ),
               SwitchListTile(
                 secondary: const Icon(Icons.travel_explore_outlined),
