@@ -1020,5 +1020,21 @@
   "restore": "Restore",
   "workspaceRestored": "{workspace} is back",
   "@workspaceRestored": {"placeholders": {"workspace": {"type": "String"}}},
-  "errorNameMismatch": "The name you typed doesn't match the workspace name."
+  "errorNameMismatch": "The name you typed doesn't match the workspace name.",
+  "download": "Download",
+  "selectText": "Select text",
+  "readMore": "Read more",
+  "showLess": "Show less",
+  "moreActions": "More",
+  "chatDetails": "Details",
+  "tapForDetails": "tap for details",
+  "longTextFile": "long text.txt",
+  "longTextAsFile": "{chars} characters · will be sent as a file",
+  "@longTextAsFile": {"placeholders": {"chars": {"type": "String"}}},
+  "longTextAsMessages": "{chars} characters · will be sent as {count} messages",
+  "@longTextAsMessages": {"placeholders": {"chars": {"type": "String"}, "count": {"type": "int"}}},
+  "sendAsText": "Send as text",
+  "sendAsFile": "Send as a file",
+  "captionHint": "Add a comment (optional)",
+  "originalNotFound": "The original message is no longer here"
 }

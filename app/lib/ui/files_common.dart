@@ -96,6 +96,30 @@ Future<void> openFile(
   }
 }
 
+/// Saves a stored file to the device: the link asks the browser (or the
+/// phone's download manager) to keep the file under its own name instead
+/// of showing it.
+Future<void> downloadFile(
+  BuildContext context,
+  WidgetRef ref,
+  ChatFile file,
+) async {
+  try {
+    final url = await ref.read(fileUrlProvider(file.path).future);
+    if (context.mounted) await openLink(context, downloadLink(url, file.name));
+  } catch (e) {
+    if (context.mounted) showMessage(context, errorText(context.l10n, e));
+  }
+}
+
+/// A signed storage link that downloads as [name].
+String downloadLink(String url, String name) {
+  final uri = Uri.parse(url);
+  return uri
+      .replace(queryParameters: {...uri.queryParameters, 'download': name})
+      .toString();
+}
+
 /// Copies a stored file to the person's own Google Drive.
 Future<void> saveFileToDrive(
   BuildContext context,
@@ -178,6 +202,12 @@ class ImageViewerScreen extends ConsumerWidget {
               tooltip: l.saveToDrive,
               icon: const Icon(Icons.add_to_drive_outlined),
               onPressed: () => saveFileToDrive(context, ref, file),
+            ),
+            IconButton(
+              key: const Key('downloadFile'),
+              tooltip: l.download,
+              icon: const Icon(Icons.download),
+              onPressed: () => downloadFile(context, ref, file),
             ),
             IconButton(
               tooltip: l.openFile,
@@ -480,6 +510,11 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
               tooltip: l.saveToDrive,
               icon: const Icon(Icons.add_to_drive_outlined),
               onPressed: () => saveFileToDrive(context, ref, widget.file),
+            ),
+            IconButton(
+              tooltip: l.download,
+              icon: const Icon(Icons.download),
+              onPressed: () => downloadFile(context, ref, widget.file),
             ),
             IconButton(
               tooltip: l.openFile,

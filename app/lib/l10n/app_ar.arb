@@ -1226,5 +1226,21 @@
   "restore": "استرجاع",
   "workspaceRestored": "رجعت {workspace}",
   "@workspaceRestored": {"placeholders": {"workspace": {"type": "String"}}},
-  "errorNameMismatch": "الاسم المكتوب لا يطابق اسم مساحة العمل."
+  "errorNameMismatch": "الاسم المكتوب لا يطابق اسم مساحة العمل.",
+  "download": "تحميل",
+  "selectText": "تحديد النص",
+  "readMore": "اقرأ المزيد",
+  "showLess": "عرض أقل",
+  "moreActions": "خيارات أخرى",
+  "chatDetails": "التفاصيل",
+  "tapForDetails": "اضغط للتفاصيل",
+  "longTextFile": "نص طويل.txt",
+  "longTextAsFile": "{chars} حرف · سيُرسل كملف",
+  "@longTextAsFile": {"placeholders": {"chars": {"type": "String"}}},
+  "longTextAsMessages": "{chars} حرف · سيُرسل على {count} رسائل",
+  "@longTextAsMessages": {"placeholders": {"chars": {"type": "String"}, "count": {"type": "int"}}},
+  "sendAsText": "أرسله نصاً",
+  "sendAsFile": "أرسله كملف",
+  "captionHint": "أضف تعليقاً (اختياري)",
+  "originalNotFound": "الرسالة الأصلية لم تعد موجودة"
 }

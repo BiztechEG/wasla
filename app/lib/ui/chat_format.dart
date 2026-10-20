@@ -179,3 +179,36 @@ List<String> linksIn(String text) => [
   for (final m in _link.allMatches(text))
     m[0]!.replaceFirst(RegExp(r'[.,;:!?)\]،؛]+$'), ''),
 ];
+
+/// The most characters one message holds (the database allows no more).
+const maxMessageLength = 4000;
+
+/// [text] in pieces of at most [max] characters, cut at a line break or a
+/// space where there is one, so words stay whole.
+List<String> splitLongText(String text, int max) {
+  final runes = text.runes.toList();
+  final parts = <String>[];
+  var start = 0;
+  while (start < runes.length) {
+    var end = start + max;
+    if (end >= runes.length) {
+      end = runes.length;
+    } else {
+      // Look back over the last quarter of the piece for a good place.
+      final floor = start + max * 3 ~/ 4;
+      var cut = -1;
+      for (var i = end; i > floor; i--) {
+        if (runes[i - 1] == 0x0A) {
+          cut = i;
+          break;
+        }
+        if (cut == -1 && runes[i - 1] == 0x20) cut = i;
+      }
+      if (cut != -1) end = cut;
+    }
+    final part = String.fromCharCodes(runes, start, end).trim();
+    if (part.isNotEmpty) parts.add(part);
+    start = end;
+  }
+  return parts;
+}
