@@ -71,6 +71,33 @@ Deno.test("billing and announcements", () => {
   assertEquals([a.title, a.body], ["نشرة · Delta HQ", "Sami: Closed Thursday"]);
 });
 
+Deno.test("attendance", () => {
+  const q = {
+    ...base,
+    kind: "attendance_in",
+    title: "Delta HQ",
+    actor: null,
+    body: null,
+    data: { type: "attendance", workspace: "w" },
+  };
+  assertEquals(format(q).body, "بدأت ورديتك ولم تسجّل حضورك بعد");
+  assertEquals(format({ ...q, locale: "en" }).title, "Delta HQ");
+  const review = { ...q, kind: "attendance_review", actor: "Hoda", body: "At a client" };
+  assertEquals(format(review).body, "سجّل Hoda حضوره من خارج الفرع: At a client");
+  assertEquals(
+    format({ ...review, body: null, locale: "en" }).body,
+    "Hoda checked in away from the branch",
+  );
+  const fix = {
+    ...q,
+    kind: "attendance_fix_accepted",
+    actor: "Omar",
+    body: "2026-10-20",
+    locale: "en",
+  };
+  assertEquals(format(fix).body, "Omar accepted your correction for 2026-10-20");
+});
+
 Deno.test("dead tokens are told apart from passing failures", () => {
   assertEquals(isGone(404, "{}"), true);
   assertEquals(isGone(400, '{"errorCode":"UNREGISTERED"}'), true);
