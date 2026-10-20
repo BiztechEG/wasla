@@ -680,3 +680,92 @@ class LocationFix {
   final double lng;
   final int? accuracyM;
 }
+
+/// One person's day in an attendance report.
+class ReportRow {
+  const ReportRow({
+    required this.personId,
+    required this.name,
+    required this.day,
+    this.jobTitle,
+    this.code,
+    this.hasApp = true,
+    this.project,
+    this.dayOff = false,
+    this.inAt,
+    this.outAt,
+    this.lateMinutes = 0,
+    this.site,
+    this.outside = false,
+    this.review = AttendanceReview.none,
+    this.inBy,
+    this.outBy,
+  });
+
+  final String personId;
+  final String name;
+  final DateTime day;
+  final String? jobTitle;
+  final String? code;
+  final bool hasApp;
+  final String? project;
+  final bool dayOff;
+  final DateTime? inAt;
+  final DateTime? outAt;
+  final int lateMinutes;
+  final String? site;
+  final bool outside;
+  final AttendanceReview review;
+  final String? inBy;
+  final String? outBy;
+
+  /// Time between checking in and out, when both are known.
+  Duration? get worked => inAt != null && outAt != null && outAt!.isAfter(inAt!)
+      ? outAt!.difference(inAt!)
+      : null;
+
+  factory ReportRow.fromJson(Json json) => ReportRow(
+    personId: json['person_id'] as String,
+    name: json['name'] as String? ?? '',
+    day: _day(json['day']),
+    jobTitle: json['job_title'] as String?,
+    code: json['code'] as String?,
+    hasApp: json['has_app'] as bool? ?? true,
+    project: json['project'] as String?,
+    dayOff: json['day_off'] as bool? ?? false,
+    inAt: _time(json['in_at']),
+    outAt: _time(json['out_at']),
+    lateMinutes: (json['late_minutes'] as num?)?.toInt() ?? 0,
+    site: json['site'] as String?,
+    outside: json['outside'] as bool? ?? false,
+    review: AttendanceReview.parse(json['review']),
+    inBy: json['in_by'] as String?,
+    outBy: json['out_by'] as String?,
+  );
+}
+
+/// Every day of a period for the people a manager chose.
+class AttendanceReport {
+  const AttendanceReport({
+    required this.workspace,
+    required this.from,
+    required this.to,
+    this.rows = const [],
+  });
+
+  final String workspace;
+  final DateTime from;
+
+  /// Never past today.
+  final DateTime to;
+
+  /// By name, then day.
+  final List<ReportRow> rows;
+
+  factory AttendanceReport.fromJson(Json json) => AttendanceReport(
+    workspace: json['workspace'] as String? ?? '',
+    from: _day(json['from']),
+    to: _day(json['to']),
+    rows: _list(json['rows']).map(ReportRow.fromJson).toList(),
+  );
+}

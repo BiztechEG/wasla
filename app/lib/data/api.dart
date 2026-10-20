@@ -403,6 +403,16 @@ abstract class WaslaApi {
     String? projectId,
   });
   Future<PersonDay> personDay(String personId, DateTime day);
+
+  /// Every day from [from] to [to] for the people the signed-in manager
+  /// looks after, optionally only [projectId]'s people or [personIds].
+  Future<AttendanceReport> attendanceReport(
+    String workspaceId, {
+    required DateTime from,
+    required DateTime to,
+    String? projectId,
+    List<String>? personIds,
+  });
   Future<void> reviewAttendance(String recordId, {required bool accept});
 
   /// Adds a worker without the app when [id] is null. Returns their id.
@@ -1863,6 +1873,28 @@ class SupabaseWaslaApi implements WaslaApi {
           'p_workspace': workspaceId,
           'p_day': day == null ? null : _date(day),
           'p_project': projectId,
+        },
+      ) as Map,
+    ),
+  );
+
+  @override
+  Future<AttendanceReport> attendanceReport(
+    String workspaceId, {
+    required DateTime from,
+    required DateTime to,
+    String? projectId,
+    List<String>? personIds,
+  }) async => AttendanceReport.fromJson(
+    Json.from(
+      await _client.rpc(
+        'attendance_report',
+        params: {
+          'p_workspace': workspaceId,
+          'p_from': _date(from),
+          'p_to': _date(to),
+          'p_project': projectId,
+          'p_people': personIds,
         },
       ) as Map,
     ),

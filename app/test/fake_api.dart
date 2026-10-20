@@ -1858,6 +1858,51 @@ class FakeApi implements WaslaApi {
   }
 
   @override
+  Future<AttendanceReport> attendanceReport(
+    String workspaceId, {
+    required DateTime from,
+    required DateTime to,
+    String? projectId,
+    List<String>? personIds,
+  }) async {
+    String d(DateTime t) => '${t.month}/${t.day}';
+    attendanceCalls.add(
+      'report ${d(from)}-${d(to)} ${projectId ?? '-'} '
+      '${personIds?.join(',') ?? '-'}',
+    );
+    final last = to.isAfter(_today) ? _today : to;
+    return AttendanceReport(
+      workspace: 'Acme',
+      from: from,
+      to: last,
+      rows: [
+        for (final p in teamPeople)
+          if ((projectId == null || p.projectId == projectId) &&
+              (personIds == null || personIds.contains(p.id)))
+            for (
+              var day = from;
+              !day.isAfter(last);
+              day = DateTime(day.year, day.month, day.day + 1)
+            )
+              ReportRow(
+                personId: p.id,
+                name: p.name,
+                day: day,
+                jobTitle: p.jobTitle,
+                hasApp: p.hasApp,
+                project: p.projectName,
+                inAt: day == _today ? teamRecords[p.id]?.inAt : null,
+                outAt: day == _today ? teamRecords[p.id]?.outAt : null,
+                lateMinutes: day == _today
+                    ? teamRecords[p.id]?.lateMinutes ?? 0
+                    : 0,
+                inBy: day == _today ? teamRecords[p.id]?.inByName : null,
+              ),
+      ],
+    );
+  }
+
+  @override
   Future<PersonDay> personDay(String personId, DateTime day) async {
     final p = teamPeople.firstWhere((p) => p.id == personId);
     return PersonDay(

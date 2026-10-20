@@ -11,6 +11,7 @@ import '../l10n/app_localizations.dart';
 import '../state/attendance_providers.dart';
 import '../state/chat_providers.dart';
 import '../state/providers.dart';
+import 'attendance_report_screen.dart';
 import 'attendance_screen.dart';
 import 'billing_format.dart';
 import 'chat_format.dart';
@@ -181,6 +182,15 @@ class _TeamAttendanceScreenState extends ConsumerState<TeamAttendanceScreen> {
             onPressed: () =>
                 _push(AttendanceRequestsScreen(membership: widget.membership)),
           ),
+          if (b != null)
+            IconButton(
+              key: const Key('attendanceReport'),
+              tooltip: l.attendanceReport,
+              icon: const Icon(LucideIcons.fileSpreadsheet),
+              onPressed: () => _push(
+                AttendanceReportScreen(membership: widget.membership, board: b),
+              ),
+            ),
           IconButton(
             key: const Key('workers'),
             tooltip: l.workersWithoutApp,

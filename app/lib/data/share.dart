@@ -6,8 +6,9 @@ import 'package:share_plus/share_plus.dart';
 /// to other apps. Tests swap in a fake.
 abstract class Sharer {
   /// False when there is no share sheet here (some browsers and desktops),
-  /// so the caller can copy or download instead.
-  Future<bool> share({String? text, SharedFile? file});
+  /// so the caller can copy or download instead. With [download], a file is
+  /// downloaded there instead.
+  Future<bool> share({String? text, SharedFile? file, bool download = false});
 }
 
 /// A file's contents, to share as the file itself rather than a link.
@@ -25,7 +26,11 @@ class SharedFile {
 
 class DeviceSharer implements Sharer {
   @override
-  Future<bool> share({String? text, SharedFile? file}) async {
+  Future<bool> share({
+    String? text,
+    SharedFile? file,
+    bool download = false,
+  }) async {
     final body = (text?.trim().isEmpty ?? true) ? null : text;
     if (body == null && file == null) return true;
     try {
@@ -42,7 +47,7 @@ class DeviceSharer implements Sharer {
                   ),
                 ],
           fileNameOverrides: file == null ? null : [file.name],
-          downloadFallbackEnabled: false,
+          downloadFallbackEnabled: download,
           mailToFallbackEnabled: false,
         ),
       );

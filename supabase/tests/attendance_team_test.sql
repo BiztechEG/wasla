@@ -400,3 +400,48 @@ select pg_temp.fails($$select public.admin_set_plan_workers('basic', 5, 1)$$, 'n
 reset role;
 delete from public.platform_admins where user_id = pg_temp.uid(941);
 update public.plans set price_usd_month = 0 where id = 'basic';
+
+-- 11. Reports: every day of the period for the people one manages.
+select pg_temp.login(941);
+select pg_temp.check(
+  (select count(*) = 2 from jsonb_array_elements(
+     public.attendance_report(pg_temp.v('ws'), (select v::date from ctx where k = 'today') - 1,
+                              (select v::date from ctx where k = 'today'), null,
+                              array[pg_temp.person(944)]) -> 'rows')),
+  'a report has a row for each day of the period');
+select pg_temp.check(
+  (select bool_and(x ->> 'name' = 'Hoda' and x ->> 'in_at' is not null)
+   from jsonb_array_elements(
+     public.attendance_report(pg_temp.v('ws'), (select v::date from ctx where k = 'today') - 1,
+                              (select v::date from ctx where k = 'today'), null,
+                              array[pg_temp.person(944)]) -> 'rows') x),
+  'with the records of those days');
+select pg_temp.check(
+  (public.attendance_report(pg_temp.v('ws'), (select v::date from ctx where k = 'today'),
+     (select v::date from ctx where k = 'today') + 30) ->> 'to')::date
+   = (select v::date from ctx where k = 'today'),
+  'a report never goes past today');
+select pg_temp.check(
+  exists (select 1 from jsonb_array_elements(
+            public.attendance_report(pg_temp.v('ws'), (select v::date from ctx where k = 'today'),
+              (select v::date from ctx where k = 'today')) -> 'rows') x
+          where x ->> 'name' = 'Kamal' and x ->> 'in_at' is null),
+  'workers without a record show as absent');
+select pg_temp.fails($$select public.attendance_report(pg_temp.v('ws'), current_date, current_date - 1)$$,
+  'invalid_period', 'the period must run forwards');
+select pg_temp.fails($$select public.attendance_report(pg_temp.v('ws'), current_date - 500, current_date)$$,
+  'invalid_period', 'at most about a year');
+select pg_temp.login(942);
+select pg_temp.check(
+  not exists (select 1 from jsonb_array_elements(
+                public.attendance_report(pg_temp.v('ws'), (select v::date from ctx where k = 'today'),
+                  (select v::date from ctx where k = 'today')) -> 'rows') x
+              where x ->> 'name' in ('Hoda', 'Kamal', 'Nour'))
+  and exists (select 1 from jsonb_array_elements(
+                public.attendance_report(pg_temp.v('ws'), (select v::date from ctx where k = 'today'),
+                  (select v::date from ctx where k = 'today'), pg_temp.v('tower')) -> 'rows') x
+              where x ->> 'name' = 'Sami'),
+  'a lead reports on their own people only');
+select pg_temp.login(944);
+select pg_temp.fails($$select public.attendance_report(pg_temp.v('ws'), current_date, current_date)$$,
+  'not_allowed', 'members cannot make reports');
