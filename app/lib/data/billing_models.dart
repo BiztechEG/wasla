@@ -30,6 +30,8 @@ class PlanOption {
     this.storageGb,
     this.offered = true,
     this.workspaces = 0,
+    this.freeWorkers,
+    this.extraWorkerUsd = 0,
   });
 
   final String id;
@@ -47,6 +49,14 @@ class PlanOption {
   /// How many workspaces are on it; only platform admins see this.
   final int workspaces;
 
+  /// Workers without the app included free; null means twice the seats.
+  /// Only platform admins see this.
+  final int? freeWorkers;
+
+  /// The monthly price of each worker past [freeWorkers]; 0 means no more
+  /// can be added.
+  final double extraWorkerUsd;
+
   bool get isFree => id == 'free';
 
   factory PlanOption.fromJson(Json json) => PlanOption(
@@ -58,6 +68,8 @@ class PlanOption {
     priceLocal: _money(json['price_local']),
     offered: json['offered'] as bool? ?? true,
     workspaces: _intOrNull(json['workspaces']) ?? 0,
+    freeWorkers: _intOrNull(json['free_workers']),
+    extraWorkerUsd: _money(json['extra_worker_usd']),
   );
 }
 
@@ -196,6 +208,8 @@ class InvoiceLine {
     required this.amountUsd,
     required this.amountLocal,
     this.workspaceId,
+    this.extraWorkers = 0,
+    this.extraWorkerUsd = 0,
   });
 
   final String? workspaceId;
@@ -209,6 +223,11 @@ class InvoiceLine {
   final double amountUsd;
   final double amountLocal;
 
+  /// Workers without the app past the plan's free number, and the monthly
+  /// price of each.
+  final int extraWorkers;
+  final double extraWorkerUsd;
+
   factory InvoiceLine.fromJson(Json json) => InvoiceLine(
     workspaceId: json['workspace_id'] as String?,
     workspaceName: _text(json['workspace_name']),
@@ -218,6 +237,8 @@ class InvoiceLine {
     unitUsd: _money(json['unit_usd']),
     amountUsd: _money(json['amount_usd']),
     amountLocal: _money(json['amount_local']),
+    extraWorkers: (json['extra_workers'] as num?)?.toInt() ?? 0,
+    extraWorkerUsd: _money(json['extra_worker_usd']),
   );
 }
 

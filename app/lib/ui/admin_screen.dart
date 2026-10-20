@@ -761,6 +761,22 @@ class _PricesTab extends ConsumerWidget {
             initial: plan.priceUsd > 0 ? plan.priceUsd.toString() : '',
             number: true,
           ),
+        FieldSpec(
+          l.freeWorkersLabel,
+          initial: plan.freeWorkers?.toString() ?? '',
+          number: true,
+          optional: true,
+          hint: l.freeWorkersHint,
+        ),
+        FieldSpec(
+          l.extraWorkerPrice,
+          initial: plan.extraWorkerUsd > 0
+              ? plan.extraWorkerUsd.toString()
+              : '',
+          number: true,
+          optional: true,
+          hint: l.extraWorkerPriceHint,
+        ),
       ],
       toggle: plan.isFree ? null : l.offeredToggle,
       toggleInitial: plan.offered,
@@ -768,23 +784,26 @@ class _PricesTab extends ConsumerWidget {
     if (answer == null || !context.mounted) return;
     final v = answer.values;
     int? whole(String s) => s.isEmpty ? null : double.parse(s).round();
-    final ok = await runAction(
-      context,
-      () => ref
-          .read(apiProvider)
-          .adminUpdatePlan(
-            PlanOption(
-              id: plan.id,
-              name: v[0],
-              maxMembers: whole(v[1]),
-              storageGb: whole(v[2]),
-              priceUsd: plan.isFree ? 0 : double.parse(v[3]),
-              priceLocal: 0,
-              offered: plan.isFree ? plan.offered : answer.toggle,
-            ),
-          ),
-      done: l.saved,
-    );
+    final workers = plan.isFree ? 3 : 4;
+    final api = ref.read(apiProvider);
+    final ok = await runAction(context, () async {
+      await api.adminUpdatePlan(
+        PlanOption(
+          id: plan.id,
+          name: v[0],
+          maxMembers: whole(v[1]),
+          storageGb: whole(v[2]),
+          priceUsd: plan.isFree ? 0 : double.parse(v[3]),
+          priceLocal: 0,
+          offered: plan.isFree ? plan.offered : answer.toggle,
+        ),
+      );
+      await api.adminSetPlanWorkers(
+        plan.id,
+        freeWorkers: whole(v[workers]),
+        extraUsd: v[workers + 1].isEmpty ? 0 : double.parse(v[workers + 1]),
+      );
+    }, done: l.saved);
     if (ok) refreshBilling(ref);
   }
 

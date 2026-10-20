@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/providers.dart';
 import '../ui/admin_screen.dart';
 import '../ui/announcements_view.dart';
+import '../ui/attendance_screen.dart';
+import '../ui/attendance_team_screen.dart';
 import '../ui/billing_screen.dart';
 import '../ui/chat_screen.dart';
 import '../ui/my_tasks_tab.dart';
@@ -57,6 +59,10 @@ Future<void> openFromPush(
             );
           }
         }
+      case 'attendance':
+        openAttendance(context, m);
+      case 'attendance_team':
+        openAttendanceRequests(context, m);
       case 'billing':
         openBilling(context, ref, m.workspaceId);
       default:

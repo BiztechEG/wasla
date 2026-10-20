@@ -13,6 +13,7 @@ import '../state/attendance_providers.dart';
 import 'admin_screen.dart';
 import 'attendance_screen.dart';
 import 'attendance_setup_screen.dart';
+import 'attendance_team_screen.dart';
 import 'announcements_view.dart';
 import 'billing_format.dart';
 import 'billing_screen.dart';
@@ -41,8 +42,8 @@ class MoreTab extends ConsumerWidget {
     final requests = canManage
         ? ref.watch(joinRequestsProvider(ws)).value
         : null;
-    final attendanceOn =
-        ref.watch(attendanceTodayProvider(ws)).value?.enabled ?? false;
+    final attendance = ref.watch(attendanceTodayProvider(ws)).value;
+    final attendanceOn = attendance?.enabled ?? false;
 
     void push(Widget screen) =>
         Navigator.of(context)
@@ -127,6 +128,15 @@ class MoreTab extends ConsumerWidget {
                 title: Text(l.attendance),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => openAttendance(context, membership),
+              ),
+            if (attendanceOn && attendance!.isManager)
+              ListTile(
+                key: const Key('teamAttendanceTile'),
+                leading: const Icon(Icons.groups_2_outlined),
+                title: Text(l.teamAttendance),
+                subtitle: Text(l.teamAttendanceHint),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => openTeamAttendance(context, membership),
               ),
             if (canManage) ...[
               ListTile(

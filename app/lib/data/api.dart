@@ -311,6 +311,14 @@ abstract class WaslaApi {
 
   /// Saves [plan]'s name, limits, price and whether companies can ask for it.
   Future<void> adminUpdatePlan(PlanOption plan);
+
+  /// Free workers without the app on a plan (null = twice its seats), and
+  /// the monthly price of each one past that (0 = no more).
+  Future<void> adminSetPlanWorkers(
+    String planId, {
+    int? freeWorkers,
+    double extraUsd = 0,
+  });
   Future<void> adminUpdatePaymentInfo(PaymentInfo info);
 
   /// Issues an invoice and returns its id.
@@ -384,6 +392,77 @@ abstract class WaslaApi {
     int radiusM = 150,
   });
   Future<void> deleteSite(String workspaceId, String id);
+
+  // Attendance for managers
+
+  /// Everyone the signed-in manager looks after, on [day] (today when
+  /// null), optionally only [projectId]'s people.
+  Future<TeamBoard> teamAttendance(
+    String workspaceId, {
+    DateTime? day,
+    String? projectId,
+  });
+  Future<PersonDay> personDay(String personId, DateTime day);
+  Future<void> reviewAttendance(String recordId, {required bool accept});
+
+  /// Adds a worker without the app when [id] is null. Returns their id.
+  Future<String> saveWorker(
+    String workspaceId, {
+    String? id,
+    required String name,
+    String? jobTitle,
+    String? phone,
+    String? code,
+    String? projectId,
+    String? siteId,
+    String? shiftId,
+  });
+  Future<void> removeWorker(String personId);
+
+  /// The branch and shift of someone with the app (null = the default).
+  Future<void> assignAttendance(
+    String personId, {
+    String? siteId,
+    String? shiftId,
+  });
+
+  /// Checks people in (or out) at their own times. [at] is the manager's
+  /// place; [photo] an optional group photo.
+  Future<RollCallResult> rollCall(
+    String workspaceId, {
+    required bool checkIn,
+    required Map<String, DateTime> times,
+    LocationFix? at,
+    Upload? photo,
+  });
+  Future<void> setAttendanceTimes(
+    String recordId, {
+    required DateTime inAt,
+    DateTime? outAt,
+    String? note,
+  });
+  Future<void> deleteAttendanceRecord(String recordId, {String? note});
+
+  /// The signed-in user asks to correct [day].
+  Future<void> requestAttendanceFix(
+    String workspaceId,
+    DateTime day, {
+    DateTime? inAt,
+    DateTime? outAt,
+    required String note,
+  });
+  Future<void> cancelAttendanceFix(String fixId);
+  Future<void> decideAttendanceFix(
+    String fixId, {
+    required bool accept,
+    String? note,
+  });
+  Future<List<AttendanceFix>> myAttendanceFixes(
+    String workspaceId,
+    DateTime from,
+    DateTime to,
+  );
+  Future<AttendanceRequests> attendanceRequests(String workspaceId);
 }
 
 class SupabaseWaslaApi implements WaslaApi {
@@ -1520,6 +1599,16 @@ class SupabaseWaslaApi implements WaslaApi {
   );
 
   @override
+  Future<void> adminSetPlanWorkers(
+    String planId, {
+    int? freeWorkers,
+    double extraUsd = 0,
+  }) => _client.rpc(
+    'admin_set_plan_workers',
+    params: {'p_plan': planId, 'p_free': freeWorkers, 'p_extra_usd': extraUsd},
+  );
+
+  @override
   Future<void> adminUpdatePaymentInfo(PaymentInfo info) => _client.rpc(
     'admin_update_billing_settings',
     params: {
@@ -1760,4 +1849,197 @@ class SupabaseWaslaApi implements WaslaApi {
     'delete_attendance_site',
     params: {'p_workspace': workspaceId, 'p_id': id},
   );
+
+  @override
+  Future<TeamBoard> teamAttendance(
+    String workspaceId, {
+    DateTime? day,
+    String? projectId,
+  }) async => TeamBoard.fromJson(
+    Json.from(
+      await _client.rpc(
+        'attendance_board',
+        params: {
+          'p_workspace': workspaceId,
+          'p_day': day == null ? null : _date(day),
+          'p_project': projectId,
+        },
+      ) as Map,
+    ),
+  );
+
+  @override
+  Future<PersonDay> personDay(String personId, DateTime day) async =>
+      PersonDay.fromJson(
+        Json.from(
+          await _client.rpc(
+            'attendance_person_day',
+            params: {'p_person': personId, 'p_day': _date(day)},
+          ) as Map,
+        ),
+      );
+
+  @override
+  Future<void> reviewAttendance(String recordId, {required bool accept}) =>
+      _client.rpc(
+        'review_attendance',
+        params: {'p_record': recordId, 'p_accept': accept},
+      );
+
+  @override
+  Future<String> saveWorker(
+    String workspaceId, {
+    String? id,
+    required String name,
+    String? jobTitle,
+    String? phone,
+    String? code,
+    String? projectId,
+    String? siteId,
+    String? shiftId,
+  }) async => await _client.rpc(
+    'save_attendance_worker',
+    params: {
+      'p_workspace': workspaceId,
+      'p_id': id,
+      'p_name': name,
+      'p_job': jobTitle,
+      'p_phone': phone,
+      'p_code': code,
+      'p_project': projectId,
+      'p_site': siteId,
+      'p_shift': shiftId,
+    },
+  ) as String;
+
+  @override
+  Future<void> removeWorker(String personId) =>
+      _client.rpc('remove_attendance_worker', params: {'p_person': personId});
+
+  @override
+  Future<void> assignAttendance(
+    String personId, {
+    String? siteId,
+    String? shiftId,
+  }) => _client.rpc(
+    'assign_attendance',
+    params: {'p_person': personId, 'p_site': siteId, 'p_shift': shiftId},
+  );
+
+  @override
+  Future<RollCallResult> rollCall(
+    String workspaceId, {
+    required bool checkIn,
+    required Map<String, DateTime> times,
+    LocationFix? at,
+    Upload? photo,
+  }) async {
+    final path = photo == null ? null : await _upload(workspaceId, photo);
+    try {
+      return RollCallResult.fromJson(
+        Json.from(
+          await _client.rpc(
+            'attendance_roll_call',
+            params: {
+              'p_workspace': workspaceId,
+              'p_kind': checkIn ? 'in' : 'out',
+              'p_entries': [
+                for (final e in times.entries)
+                  {'person': e.key, 'at': e.value.toUtc().toIso8601String()},
+              ],
+              'p_lat': at?.lat,
+              'p_lng': at?.lng,
+              'p_accuracy': at?.accuracyM,
+              'p_photo': path,
+            },
+          ) as Map,
+        ),
+      );
+    } catch (_) {
+      await _remove(path);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> setAttendanceTimes(
+    String recordId, {
+    required DateTime inAt,
+    DateTime? outAt,
+    String? note,
+  }) => _client.rpc(
+    'set_attendance_times',
+    params: {
+      'p_record': recordId,
+      'p_in': inAt.toUtc().toIso8601String(),
+      'p_out': outAt?.toUtc().toIso8601String(),
+      'p_note': note,
+    },
+  );
+
+  @override
+  Future<void> deleteAttendanceRecord(String recordId, {String? note}) =>
+      _client.rpc(
+        'delete_attendance_record',
+        params: {'p_record': recordId, 'p_note': note},
+      );
+
+  @override
+  Future<void> requestAttendanceFix(
+    String workspaceId,
+    DateTime day, {
+    DateTime? inAt,
+    DateTime? outAt,
+    required String note,
+  }) => _client.rpc(
+    'request_attendance_fix',
+    params: {
+      'p_workspace': workspaceId,
+      'p_day': _date(day),
+      'p_in': inAt?.toUtc().toIso8601String(),
+      'p_out': outAt?.toUtc().toIso8601String(),
+      'p_note': note,
+    },
+  );
+
+  @override
+  Future<void> cancelAttendanceFix(String fixId) =>
+      _client.rpc('cancel_attendance_fix', params: {'p_fix': fixId});
+
+  @override
+  Future<void> decideAttendanceFix(
+    String fixId, {
+    required bool accept,
+    String? note,
+  }) => _client.rpc(
+    'decide_attendance_fix',
+    params: {'p_fix': fixId, 'p_accept': accept, 'p_note': note},
+  );
+
+  @override
+  Future<List<AttendanceFix>> myAttendanceFixes(
+    String workspaceId,
+    DateTime from,
+    DateTime to,
+  ) async => _rows(
+    await _client.rpc(
+      'my_attendance_fixes',
+      params: {
+        'p_workspace': workspaceId,
+        'p_from': _date(from),
+        'p_to': _date(to),
+      },
+    ),
+  ).map(AttendanceFix.fromJson).toList();
+
+  @override
+  Future<AttendanceRequests> attendanceRequests(String workspaceId) async =>
+      AttendanceRequests.fromJson(
+        Json.from(
+          await _client.rpc(
+            'attendance_requests',
+            params: {'p_workspace': workspaceId},
+          ) as Map,
+        ),
+      );
 }

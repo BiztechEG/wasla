@@ -63,6 +63,17 @@ const notes: Record<Locale, Record<string, Note>> = {
     plan_active: (_, d, l) => `فُعّلت خطة ${plans[l][d] ?? d}`,
     plan_ending: (_, d, l) => `تنتهي خطة ${plans[l][d] ?? d} خلال أسبوع، جدّد الاشتراك للاستمرار`,
     plan_expired: (_, d, l) => `انتهت خطة ${plans[l][d] ?? d} وانتقلت المساحة إلى الخطة المجانية`,
+    attendance_in: () => "بدأت ورديتك ولم تسجّل حضورك بعد",
+    attendance_out: () => "انتهت ورديتك ولم تسجّل انصرافك بعد",
+    attendance_review: (
+      n,
+      d,
+    ) => (d ? `سجّل ${n} حضوره من خارج الفرع: ${d}` : `سجّل ${n} حضوره من خارج الفرع`),
+    attendance_fix: (n, d) => `طلب ${n} تصحيح حضور يوم ${d}`,
+    attendance_accepted: (n, d) => `قَبِل ${n} تسجيل حضورك من خارج الفرع يوم ${d}`,
+    attendance_rejected: (n, d) => `رفض ${n} تسجيل حضورك من خارج الفرع يوم ${d}`,
+    attendance_fix_accepted: (n, d) => `قَبِل ${n} تصحيح يوم ${d}`,
+    attendance_fix_rejected: (n, d) => `رفض ${n} تصحيح يوم ${d}`,
   },
   en: {
     assigned: (n) => `New task for you from ${n}`,
@@ -81,6 +92,19 @@ const notes: Record<Locale, Record<string, Note>> = {
     plan_ending: (_, d, l) => `The ${plans[l][d] ?? d} plan ends within a week; renew to keep it`,
     plan_expired: (_, d, l) =>
       `The ${plans[l][d] ?? d} plan ran out, so the workspace is on the free plan`,
+    attendance_in: () => "Your shift has started and you haven't checked in",
+    attendance_out: () => "Your shift has ended and you haven't checked out",
+    attendance_review: (
+      n,
+      d,
+    ) => (d
+      ? `${n} checked in away from the branch: ${d}`
+      : `${n} checked in away from the branch`),
+    attendance_fix: (n, d) => `${n} asked to correct ${d}`,
+    attendance_accepted: (n, d) => `${n} accepted your check-in away from the branch on ${d}`,
+    attendance_rejected: (n, d) => `${n} rejected your check-in away from the branch on ${d}`,
+    attendance_fix_accepted: (n, d) => `${n} accepted your correction for ${d}`,
+    attendance_fix_rejected: (n, d) => `${n} rejected your correction for ${d}`,
   },
 };
 
