@@ -69,11 +69,15 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.membership,
     required this.target,
     this.projectFilter,
+    this.initialMessageId,
   });
 
   final Membership membership;
   final ChatTarget target;
   final String? projectFilter;
+
+  /// Opens the chat at this message, lit up, as when jumping to a quote.
+  final String? initialMessageId;
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -81,6 +85,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   late String? _filter = widget.projectFilter;
+
+  /// The chat as shown with each project filter, for the calendar button.
+  final _views = <String?, GlobalKey<_ChatViewState>>{};
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +214,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
               ],
             ),
+          IconButton(
+            key: const Key('jumpToDate'),
+            tooltip: l.jumpToDate,
+            icon: const Icon(LucideIcons.calendarSearch, size: 21),
+            onPressed: () => _views[_filter]?.currentState?._pickDate(),
+          ),
           if (openDetails != null)
             IconButton(
               key: const Key('chatDetails'),
@@ -249,10 +262,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           Expanded(
             child: ChatView(
-              key: ValueKey(_filter),
+              key: _views.putIfAbsent(_filter, GlobalKey.new),
               membership: widget.membership,
               target: target,
               projectFilter: _filter,
+              initialMessageId: _filter == widget.projectFilter
+                  ? widget.initialMessageId
+                  : null,
             ),
           ),
         ],
@@ -307,11 +323,15 @@ class ChatView extends ConsumerStatefulWidget {
     required this.membership,
     required this.target,
     this.projectFilter,
+    this.initialMessageId,
   });
 
   final Membership membership;
   final ChatTarget target;
   final String? projectFilter;
+
+  /// Opens the chat at this message, lit up.
+  final String? initialMessageId;
 
   @override
   ConsumerState<ChatView> createState() => _ChatViewState();
@@ -349,10 +369,147 @@ class _ChatViewState extends ConsumerState<ChatView> {
     projectId: widget.projectFilter,
   );
 
+  /// Wraps the list, to tell which messages are below the screen.
+  final _listKey = GlobalKey();
+
+  /// Messages newer than the newest one on screen; null when the newest
+  /// messages are in view (and "Latest" is hidden).
+  int? _newer;
+
   @override
   void initState() {
     super.initState();
     _text.addListener(_onText);
+    _scroll.addListener(_countNewer);
+    if (widget.initialMessageId case final id?) {
+      var done = false;
+      ref.listenManual(chatProvider(_key), (_, next) {
+        if (done || !next.hasValue) return;
+        done = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _jumpTo(id);
+        });
+      }, fireImmediately: true);
+    }
+  }
+
+  /// Far from the bottom, counts the messages below the screen.
+  void _countNewer() {
+    if (!_scroll.hasClients || !mounted) return;
+    final at = _scroll.position;
+    int? count;
+    if (at.pixels > at.viewportDimension * 1.5) {
+      count = 0;
+      final list = _listKey.currentContext?.findRenderObject() as RenderBox?;
+      final messages = ref.read(chatProvider(_key)).value?.messages;
+      if (list != null && list.attached && messages != null) {
+        final bottom = list.localToGlobal(Offset(0, list.size.height)).dy;
+        for (final m in messages) {
+          final box = _keys[m.id]?.currentContext?.findRenderObject();
+          if (box is RenderBox && box.attached && box.hasSize) {
+            if (box.localToGlobal(Offset.zero).dy < bottom - 24) break;
+          }
+          count = count! + 1;
+        }
+      }
+    }
+    if (count != _newer) setState(() => _newer = count);
+  }
+
+  void _toLatest() {
+    if (!_scroll.hasClients) return;
+    final at = _scroll.position;
+    if (at.pixels > at.viewportDimension * 6) {
+      _scroll.jumpTo(0);
+    } else {
+      _scroll.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  /// The calendar: picks a day and opens the chat at its first message.
+  Future<void> _pickDate([DateTime? initial]) async {
+    final key = (
+      conversationId: widget.target.conversationId,
+      projectId: widget.projectFilter,
+    );
+    ref.invalidate(messageDaysProvider(key));
+    final day = await showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _DateSheet(days: key, initial: initial),
+    );
+    if (day != null && mounted) await _jumpToDay(day, key);
+  }
+
+  Future<void> _jumpToDay(DateTime day, DaysKey key) async {
+    if (_jumping) return;
+    _jumping = true;
+    try {
+      final days = await ref.read(messageDaysProvider(key).future);
+      DateTime? target;
+      for (final d in days) {
+        if (!d.isBefore(day) && (target == null || d.isBefore(target))) {
+          target = d;
+        }
+      }
+      if (!mounted) return;
+      if (target == null) {
+        _toLatest();
+        return;
+      }
+      final start = DateTime(target.year, target.month, target.day);
+      final chat = ref.read(chatProvider(_key).notifier);
+      // Loads back to that day; up to 20000 messages.
+      for (var tries = 0; tries < 100; tries++) {
+        final now = ref.read(chatProvider(_key)).value;
+        if (now == null || !mounted) return;
+        if (now.messages.isEmpty ||
+            !now.hasMore ||
+            now.messages.last.createdAt.isBefore(start)) {
+          break;
+        }
+        if (now.loadingOlder) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        } else {
+          await chat.loadOlder(limit: 200);
+        }
+      }
+      final messages = ref.read(chatProvider(_key)).value?.messages ?? [];
+      ChatMessage? first;
+      for (final m in messages.reversed) {
+        if (!m.createdAt.toLocal().isBefore(start)) {
+          first = m;
+          break;
+        }
+      }
+      if (first == null || !mounted) return;
+      await _jump(first.id);
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(context.l10n, e));
+    } finally {
+      _jumping = false;
+    }
+  }
+
+  /// A message's replies on their own screen; a reply tapped there is
+  /// shown in the chat.
+  Future<void> _openThread(ChatMessage root) async {
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => ReplyThreadScreen(
+          membership: widget.membership,
+          target: widget.target,
+          chat: _key,
+          rootId: root.id,
+        ),
+      ),
+    );
+    if (id != null && mounted) await _jumpTo(id);
   }
 
   void _onText() {
@@ -374,6 +531,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
   void dispose() {
     _text.dispose();
     _focus.dispose();
+    _scroll.removeListener(_countNewer);
     _scroll.dispose();
     _flashTimer?.cancel();
     _recTick?.cancel();
@@ -781,43 +939,75 @@ class _ChatViewState extends ConsumerState<ChatView> {
               target.otherId!,
           ];
 
+    // New or older messages move what is below the screen.
+    ref.listen(chatProvider(_key), (_, _) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _countNewer());
+    });
+
     return Column(
       children: [
         Expanded(
-          child: AsyncView(
-            value: chat,
-            onRetry: () => ref.invalidate(chatProvider(_key)),
-            builder: (state) => _MessageList(
-              state: state,
-              me: me,
-              showSenders: target.isProject,
-              showTags: !target.isProject && widget.projectFilter == null,
-              projects: projects,
-              readers: readers,
-              names: names,
-              controller: _scroll,
-              keyFor: (id) => _keys.putIfAbsent(id, GlobalKey.new),
-              flash: _flash,
-              onLoadOlder: () =>
-                  ref.read(chatProvider(_key).notifier).loadOlder(),
-              onMenu: (m, at) =>
-                  _actions(m, me, canModerate, members, closed: closed, at: at),
-              onReply: closed ? null : (m) => setState(() => _replyTo = m),
-              onQuoteTap: _jumpTo,
-              onProfile: _profile,
-              onReact: closed ? null : _react,
-              onReactMenu: closed ? null : (m, at) => _reactMenu(m, me, at),
-              onReactions: (m) => _showReactions(m, names, me),
-              onRetry: (p) async {
-                try {
-                  await ref.read(chatProvider(_key).notifier).retry(p);
-                } catch (e) {
-                  if (context.mounted) showMessage(context, errorText(l, e));
-                }
-              },
-              onDiscard: (p) =>
-                  ref.read(chatProvider(_key).notifier).discard(p),
-            ),
+          child: Stack(
+            children: [
+              KeyedSubtree(
+                key: _listKey,
+                child: AsyncView(
+                  value: chat,
+                  onRetry: () => ref.invalidate(chatProvider(_key)),
+                  builder: (state) => _MessageList(
+                    state: state,
+                    me: me,
+                    showSenders: target.isProject,
+                    showTags: !target.isProject && widget.projectFilter == null,
+                    projects: projects,
+                    readers: readers,
+                    names: names,
+                    controller: _scroll,
+                    keyFor: (id) => _keys.putIfAbsent(id, GlobalKey.new),
+                    flash: _flash,
+                    onLoadOlder: () =>
+                        ref.read(chatProvider(_key).notifier).loadOlder(),
+                    onMenu: (m, at) => _actions(
+                      m,
+                      me,
+                      canModerate,
+                      members,
+                      closed: closed,
+                      at: at,
+                    ),
+                    onReply: closed
+                        ? null
+                        : (m) => setState(() => _replyTo = m),
+                    onQuoteTap: _jumpTo,
+                    onProfile: _profile,
+                    onReact: closed ? null : _react,
+                    onReactMenu: closed
+                        ? null
+                        : (m, at) => _reactMenu(m, me, at),
+                    onReactions: (m) => _showReactions(m, names, me),
+                    onRetry: (p) async {
+                      try {
+                        await ref.read(chatProvider(_key).notifier).retry(p);
+                      } catch (e) {
+                        if (context.mounted) {
+                          showMessage(context, errorText(l, e));
+                        }
+                      }
+                    },
+                    onDiscard: (p) =>
+                        ref.read(chatProvider(_key).notifier).discard(p),
+                    onDayTap: _pickDate,
+                    onThread: _openThread,
+                  ),
+                ),
+              ),
+              if (_newer != null)
+                PositionedDirectional(
+                  end: 14,
+                  bottom: 12,
+                  child: _LatestButton(count: _newer!, onTap: _toLatest),
+                ),
+            ],
           ),
         ),
         if (_rec == _Rec.locked && !closed)
@@ -911,6 +1101,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
       if (m.file != null)
         _Action('drive', Icons.add_to_drive_outlined, l.saveToDrive),
       if (!closed) _Action('task', Icons.add_task, l.makeTask),
+      if (widget.membership.allowSharing && (hasText || m.file != null))
+        _Action('share', LucideIcons.share2, l.share),
       if (mine && widget.target.isProject)
         _Action('seen', Icons.done_all, l.seenByTitle),
       if (mine || canModerate)
@@ -1007,6 +1199,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
         await saveFileToDrive(context, ref, m.file!);
       case 'download':
         await downloadFile(context, ref, m.file!);
+      case 'share':
+        await shareOut(context, ref, text: m.body, file: m.file);
       case 'copy':
         await Clipboard.setData(ClipboardData(text: m.body!));
         if (mounted) showMessage(context, l.copied);
@@ -1260,6 +1454,8 @@ class _MessageList extends StatelessWidget {
     required this.onReactions,
     required this.onRetry,
     required this.onDiscard,
+    required this.onDayTap,
+    required this.onThread,
   });
 
   final ChatState state;
@@ -1291,6 +1487,12 @@ class _MessageList extends StatelessWidget {
   final void Function(ChatMessage) onReactions;
   final void Function(PendingMessage) onRetry;
   final void Function(PendingMessage) onDiscard;
+
+  /// Opens the calendar at the day tapped.
+  final void Function(DateTime day) onDayTap;
+
+  /// Opens a message's replies.
+  final void Function(ChatMessage root) onThread;
 
   static bool _sameDay(DateTime a, DateTime b) {
     final x = a.toLocal(), y = b.toLocal();
@@ -1355,7 +1557,10 @@ class _MessageList extends StatelessWidget {
             );
           }
           return switch (items[i]) {
-            _DayItem(:final day) => _DayLine(day: day),
+            _DayItem(:final day) => _DayLine(
+              day: day,
+              onTap: () => onDayTap(day.toLocal()),
+            ),
             _PendingItem(:final message) => _PendingBubble(
               message: message,
               onRetry: () => onRetry(message),
@@ -1392,6 +1597,8 @@ class _MessageList extends StatelessWidget {
                     ? null
                     : (at) => onReactMenu!(message, at),
                 onReactions: () => onReactions(message),
+                names: names,
+                onThread: () => onThread(message),
               ),
           };
         },
@@ -1411,26 +1618,36 @@ class _MessageList extends StatelessWidget {
 }
 
 class _DayLine extends StatelessWidget {
-  const _DayLine({required this.day});
+  const _DayLine({required this.day, this.onTap});
 
   final DateTime day;
+
+  /// Opens the calendar.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        decoration: BoxDecoration(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Material(
           color: theme.colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          dayLabel(context, day),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
+          child: InkWell(
+            key: const Key('dayLine'),
+            borderRadius: BorderRadius.circular(99),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+              child: Text(
+                dayLabel(context, day),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1515,6 +1732,10 @@ class _Bubble extends ConsumerWidget {
     required this.onReact,
     required this.onReactMenu,
     required this.onReactions,
+    this.names = const {},
+    this.onThread,
+    this.replyLabel,
+    this.showQuote = true,
   });
 
   final ChatMessage message;
@@ -1526,7 +1747,9 @@ class _Bubble extends ConsumerWidget {
   final bool showSender;
   final Project? tag;
   final bool read;
-  final void Function(Offset? at) onMenu;
+
+  /// Null where a message has no actions (in a reply chain).
+  final void Function(Offset? at)? onMenu;
   final VoidCallback? onReply;
   final VoidCallback? onQuoteTap;
   final String? me;
@@ -1535,6 +1758,16 @@ class _Bubble extends ConsumerWidget {
   final void Function(String emoji)? onReact;
   final void Function(Offset at)? onReactMenu;
   final VoidCallback onReactions;
+
+  /// The workspace's people by id, for who replied.
+  final Map<String, String> names;
+
+  /// Opens its replies; null where they are not shown (in a reply chain).
+  final VoidCallback? onThread;
+
+  /// In a reply chain: "In reply to X", shown instead of the quote.
+  final String? replyLabel;
+  final bool showQuote;
 
   /// One to three emoji and nothing else: big, without a bubble.
   bool get _bigEmoji =>
@@ -1601,7 +1834,26 @@ class _Bubble extends ConsumerWidget {
           ],
         )
       else ...[
-        if (m.replyTo != null) _Quote(message: m, onTap: onQuoteTap),
+        if (replyLabel != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.reply, size: 14, color: muted),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    replyLabel!,
+                    key: const Key('replyLabel'),
+                    style: theme.textTheme.labelSmall?.copyWith(color: muted),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (m.replyTo != null && showQuote)
+          _Quote(message: m, onTap: onQuoteTap),
         if (file != null && (file.isImage || file.isVideo))
           ChatMedia(
             file: file,
@@ -1695,6 +1947,16 @@ class _Bubble extends ConsumerWidget {
               Flexible(child: _TagChip(project: tag!)),
               const SizedBox(width: 8),
             ],
+            if (m.fromFiles && !m.deleted) ...[
+              Icon(LucideIcons.folderUp, size: 12, color: muted),
+              const SizedBox(width: 3),
+              Text(
+                l.fromFilesTab,
+                key: const Key('fromFiles'),
+                style: theme.textTheme.labelSmall?.copyWith(color: muted),
+              ),
+              const SizedBox(width: 6),
+            ],
             Text(
               clockTime(context, m.createdAt),
               style: theme.textTheme.labelSmall?.copyWith(color: muted),
@@ -1749,7 +2011,7 @@ class _Bubble extends ConsumerWidget {
                         : CrossAxisAlignment.start,
                     children: [
                       _HoverActions(
-                        onReply: m.deleted ? null : onReply,
+                        onReply: m.deleted || onMenu == null ? null : onReply,
                         onMenu: m.deleted ? null : onMenu,
                         onReact: m.deleted ? null : onReactMenu,
                         child: _bubbleBody(
@@ -1766,6 +2028,14 @@ class _Bubble extends ConsumerWidget {
                           me: me,
                           onTap: onReact,
                           onLongPress: onReactions,
+                        ),
+                      if (onThread != null && m.replyCount > 0)
+                        _ThreadPill(
+                          count: m.replyCount,
+                          people: [
+                            for (final id in m.repliers) names[id] ?? '',
+                          ],
+                          onTap: onThread!,
                         ),
                     ],
                   ),
@@ -1797,8 +2067,10 @@ class _Bubble extends ConsumerWidget {
           customBorder: RoundedRectangleBorder(
             borderRadius: _bubbleShape(mine),
           ),
-          onLongPress: () => onMenu(null),
-          onSecondaryTapUp: (d) => onMenu(d.globalPosition),
+          onLongPress: onMenu == null ? null : () => onMenu!(null),
+          onSecondaryTapUp: onMenu == null
+              ? null
+              : (d) => onMenu!(d.globalPosition),
           child: Padding(
             padding: media
                 ? const EdgeInsets.fromLTRB(4, 4, 4, 4)
@@ -3227,6 +3499,585 @@ class _LongTextCard extends StatelessWidget {
             icon: const Icon(Icons.close, size: 18),
             onPressed: onDrop,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Far up a chat: back to the newest message, with how many are below.
+class _LatestButton extends StatelessWidget {
+  const _LatestButton({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(99),
+      child: InkWell(
+        key: const Key('jumpLatest'),
+        borderRadius: BorderRadius.circular(99),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.l10n.latest,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.arrow_downward, size: 18, color: scheme.primary),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Badge(
+                  key: const Key('latestCount'),
+                  backgroundColor: scheme.primary,
+                  textColor: scheme.onPrimary,
+                  label: Text('$count'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Under a message with replies: how many, and who wrote the latest.
+class _ThreadPill extends StatelessWidget {
+  const _ThreadPill({
+    required this.count,
+    required this.people,
+    required this.onTap,
+  });
+
+  final int count;
+  final List<String> people;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shown = people.where((p) => p.isNotEmpty).take(3).toList();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(99),
+        child: InkWell(
+          key: const Key('threadPill'),
+          borderRadius: BorderRadius.circular(99),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(6, 4, 12, 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (shown.isNotEmpty)
+                  SizedBox(
+                    width: 20.0 + (shown.length - 1) * 13,
+                    height: 20,
+                    child: Stack(
+                      children: [
+                        for (final (i, name) in shown.indexed)
+                          PositionedDirectional(
+                            start: i * 13.0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.colorScheme.surfaceContainerHigh,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Avatar(name: name, radius: 8.5),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                Text(
+                  context.l10n.replyCount(count),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A month to pick a day from: weeks start on Saturday, days with messages
+/// carry a dot, and today a ring.
+class _DateSheet extends ConsumerStatefulWidget {
+  const _DateSheet({required this.days, this.initial});
+
+  final DaysKey days;
+  final DateTime? initial;
+
+  @override
+  ConsumerState<_DateSheet> createState() => _DateSheetState();
+}
+
+class _DateSheetState extends ConsumerState<_DateSheet> {
+  late final DateTime _today = _dateOnly(DateTime.now());
+  late DateTime? _picked = widget.initial == null
+      ? null
+      : _dateOnly(widget.initial!);
+  late DateTime _month = DateTime(
+    (_picked ?? _today).year,
+    (_picked ?? _today).month,
+  );
+
+  static DateTime _dateOnly(DateTime t) => DateTime(t.year, t.month, t.day);
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final days = ref.watch(messageDaysProvider(widget.days)).value ?? const {};
+    final first = DateTime(_month.year, _month.month);
+    // Saturday is the first column.
+    final lead = (first.weekday - DateTime.saturday) % 7;
+    final inMonth = DateUtils.getDaysInMonth(_month.year, _month.month);
+    final isThisMonth =
+        _month.year == _today.year && _month.month == _today.month;
+    final weekdays = l.weekdaysShort.split(',');
+    final picked = _picked;
+
+    return SafeArea(
+      child: Padding(
+        key: const Key('dateSheet'),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  key: const Key('prevMonth'),
+                  tooltip: l.previousMonth,
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () => setState(
+                    () => _month = DateTime(_month.year, _month.month - 1),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    monthLabel(context, _month),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  key: const Key('nextMonth'),
+                  tooltip: l.nextMonth,
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: isThisMonth
+                      ? null
+                      : () => setState(
+                          () =>
+                              _month = DateTime(_month.year, _month.month + 1),
+                        ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                for (final w in weekdays)
+                  Expanded(
+                    child: Text(
+                      w,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            for (var week = 0; week * 7 < lead + inMonth; week++)
+              Row(
+                children: [
+                  for (var col = 0; col < 7; col++)
+                    Expanded(
+                      child: Builder(
+                        builder: (context) {
+                          final n = week * 7 + col - lead + 1;
+                          if (n < 1 || n > inMonth) {
+                            return const SizedBox(height: 44);
+                          }
+                          final day = DateTime(_month.year, _month.month, n);
+                          final future = day.isAfter(_today);
+                          final has = days.contains(
+                            DateTime(day.year, day.month, day.day),
+                          );
+                          final selected = picked == day;
+                          final today = day == _today;
+                          return InkWell(
+                            key: Key('day-$n'),
+                            customBorder: const CircleBorder(),
+                            onTap: future
+                                ? null
+                                : () => setState(() => _picked = day),
+                            child: SizedBox(
+                              height: 44,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: selected ? scheme.primary : null,
+                                      border: today && !selected
+                                          ? Border.all(
+                                              color: scheme.primary,
+                                              width: 1.5,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      '$n',
+                                      style: TextStyle(
+                                        fontWeight: has || today
+                                            ? FontWeight.w700
+                                            : FontWeight.w400,
+                                        color: selected
+                                            ? scheme.onPrimary
+                                            : future
+                                            ? scheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.4)
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 4,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: has
+                                          ? scheme.primary
+                                          : Colors.transparent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton(
+                  key: const Key('todayButton'),
+                  onPressed: () => Navigator.pop(context, _today),
+                  child: Text(l.today),
+                ),
+                const Spacer(),
+                FilledButton(
+                  key: const Key('goToDay'),
+                  onPressed: picked == null
+                      ? null
+                      : () => Navigator.pop(context, picked),
+                  child: Text(
+                    picked == null
+                        ? l.pickADay
+                        : l.goToDay(dayMonth(context, picked)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A message and all the replies under it, oldest first. Writing here
+/// replies to the message, so it shows in the chat too; tapping a reply
+/// shows it in the chat.
+class ReplyThreadScreen extends ConsumerStatefulWidget {
+  const ReplyThreadScreen({
+    super.key,
+    required this.membership,
+    required this.target,
+    required this.chat,
+    required this.rootId,
+  });
+
+  final Membership membership;
+  final ChatTarget target;
+
+  /// The chat it is in, to send replies through.
+  final ChatKey chat;
+  final String rootId;
+
+  @override
+  ConsumerState<ReplyThreadScreen> createState() => _ReplyThreadScreenState();
+}
+
+class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
+  final _text = TextEditingController();
+  bool _sending = false;
+
+  ThreadKey get _key => (
+    workspaceId: widget.membership.workspaceId,
+    conversationId: widget.target.conversationId,
+    rootId: widget.rootId,
+  );
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send(ChatMessage root) async {
+    final body = _text.text.trim();
+    if (body.isEmpty || _sending) return;
+    final l = context.l10n;
+    setState(() => _sending = true);
+    try {
+      await ref
+          .read(chatProvider(widget.chat).notifier)
+          .send(
+            body: body,
+            replyTo: root,
+            projectId: widget.target.isProject ? null : widget.chat.projectId,
+          );
+      _text.clear();
+      ref.invalidate(replyChainProvider(_key));
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(l, e));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final me = ref.watch(authProvider).value;
+    final target = widget.target;
+    final ws = widget.membership.workspaceId;
+    final chain = ref.watch(replyChainProvider(_key));
+    final names = {
+      for (final m in ref.watch(membersProvider(ws)).value ?? const <Member>[])
+        m.userId: m.fullName,
+    };
+    final project = (ref.watch(projectsProvider(ws)).value ?? const [])
+        .where((p) => p.id == target.projectId)
+        .firstOrNull;
+    final closed = target.isProject
+        ? (project != null && project.status != ProjectStatus.active)
+        : !target.otherActive;
+    final replies = (chain.value?.length ?? 1) - 1;
+
+    Widget bubble(ChatMessage m, {String? label}) => GestureDetector(
+      onTap: () => Navigator.pop(context, m.id),
+      child: _Bubble(
+        key: Key('thread-${m.id}'),
+        message: m,
+        mine: m.senderId == me,
+        showSender: m.senderId != me,
+        tag: null,
+        read: false,
+        onMenu: null,
+        onReply: null,
+        onQuoteTap: null,
+        me: me,
+        mentions: mentionTargets(m.mentions, names, me),
+        onProfile: (id, name) => showProfileCard(
+          context,
+          ref,
+          membership: widget.membership,
+          userId: id,
+          name: name,
+          projectId: target.projectId,
+        ),
+        onReact: null,
+        onReactMenu: null,
+        onReactions: () {},
+        showQuote: false,
+        replyLabel: label,
+      ),
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.replyThread,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              '${target.title} · ${l.replyCount(math.max(replies, 0))}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: AsyncView(
+              value: chain,
+              onRetry: () => ref.invalidate(replyChainProvider(_key)),
+              builder: (list) {
+                if (list.isEmpty) {
+                  return EmptyState(
+                    icon: Icons.forum_outlined,
+                    title: l.originalNotFound,
+                  );
+                }
+                final root = list.first;
+                return ListView(
+                  key: const Key('replyThread'),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.06,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          bubble(root),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
+                            child: Text(
+                              dayLabel(context, root.createdAt),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          Text(
+                            l.replyCount(list.length - 1),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                    ),
+                    for (final r in list.skip(1))
+                      bubble(
+                        r,
+                        label: r.replyTo == root.id
+                            ? null
+                            : l.inReplyTo(r.replySenderName ?? ''),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+          if (closed)
+            _ClosedNote(
+              text: target.isProject
+                  ? l.chatClosedProject
+                  : l.chatClosedPerson(target.title),
+            )
+          else if (chain.value?.firstOrNull case final root?)
+            Material(
+              color: theme.appBarTheme.backgroundColor,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: const Key('threadField'),
+                          controller: _text,
+                          minLines: 1,
+                          maxLines: 5,
+                          maxLength: maxMessageLength,
+                          buildCounter: (
+                            _, {
+                            required currentLength,
+                            required isFocused,
+                            required maxLength,
+                          }) => null,
+                          textInputAction: TextInputAction.newline,
+                          decoration: InputDecoration(
+                            hintText: l.replyInThread,
+                            isDense: true,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton.filled(
+                        key: const Key('threadSend'),
+                        tooltip: l.send,
+                        onPressed: _sending || _text.text.trim().isEmpty
+                            ? null
+                            : () => _send(root),
+                        icon: const Icon(Icons.send),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

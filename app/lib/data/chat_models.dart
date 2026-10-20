@@ -137,6 +137,9 @@ class ChatMessage {
     this.file,
     this.mentions = const [],
     this.reactions = const {},
+    this.fromFiles = false,
+    this.replyCount = 0,
+    this.repliers = const [],
   });
 
   final String id;
@@ -160,29 +163,48 @@ class ChatMessage {
   /// Each emoji people reacted with, and who, in the order they did.
   final Map<String, List<String>> reactions;
 
+  /// Its file was added from the project's Files tab.
+  final bool fromFiles;
+
+  /// Replies under it, replies to replies included (only for a message
+  /// that is not itself a reply).
+  final int replyCount;
+
+  /// Who wrote the latest replies, latest first (up to three).
+  final List<String> repliers;
+
   /// A copy with [userId]'s [emoji] reaction added, or taken back.
   ChatMessage withReaction(String emoji, String userId) {
     final next = {for (final e in reactions.entries) e.key: List.of(e.value)};
     final users = next.putIfAbsent(emoji, () => []);
     if (!users.remove(userId)) users.add(userId);
     if (users.isEmpty) next.remove(emoji);
-    return ChatMessage(
-      id: id,
-      senderId: senderId,
-      senderName: senderName,
-      createdAt: createdAt,
-      body: body,
-      projectId: projectId,
-      deleted: deleted,
-      replyTo: replyTo,
-      replySenderName: replySenderName,
-      replyBody: replyBody,
-      replyFileName: replyFileName,
-      file: file,
-      mentions: mentions,
-      reactions: next,
-    );
+    return copyWith(reactions: next);
   }
+
+  ChatMessage copyWith({
+    Map<String, List<String>>? reactions,
+    int? replyCount,
+    List<String>? repliers,
+  }) => ChatMessage(
+    id: id,
+    senderId: senderId,
+    senderName: senderName,
+    createdAt: createdAt,
+    body: body,
+    projectId: projectId,
+    deleted: deleted,
+    replyTo: replyTo,
+    replySenderName: replySenderName,
+    replyBody: replyBody,
+    replyFileName: replyFileName,
+    file: file,
+    mentions: mentions,
+    reactions: reactions ?? this.reactions,
+    fromFiles: fromFiles,
+    replyCount: replyCount ?? this.replyCount,
+    repliers: repliers ?? this.repliers,
+  );
 
   factory ChatMessage.fromJson(Json json) => ChatMessage(
     id: json['id'] as String,
@@ -214,6 +236,12 @@ class ChatMessage {
         if ((e.value as List).isNotEmpty)
           e.key as String: [for (final id in e.value as List) id as String],
     },
+    fromFiles: json['file_from_files'] as bool? ?? false,
+    replyCount: json['reply_count'] as int? ?? 0,
+    repliers: [
+      for (final id in (json['repliers'] as List? ?? const []))
+        if (id != null) id as String,
+    ],
   );
 }
 
@@ -239,6 +267,28 @@ class Upload {
   final String mime;
 }
 
+/// Where a project's file came from.
+enum FileSource {
+  /// The project's chat.
+  project,
+
+  /// A private chat tagged with the project.
+  direct,
+
+  /// The project's Files tab.
+  files,
+
+  /// A task's attachments.
+  task;
+
+  static FileSource parse(Object? value) => switch (value) {
+    'project' => FileSource.project,
+    'direct' => FileSource.direct,
+    'task' => FileSource.task,
+    _ => FileSource.files,
+  };
+}
+
 class ProjectFile {
   const ProjectFile({
     required this.file,
@@ -248,6 +298,10 @@ class ProjectFile {
     required this.createdAt,
     this.conversationId,
     this.privateChat = false,
+    this.source = FileSource.files,
+    this.otherId,
+    this.otherName,
+    this.messageId,
   });
 
   final ChatFile file;
@@ -259,6 +313,17 @@ class ProjectFile {
   /// The chat it was sent in; null when added to the project directly.
   final String? conversationId;
   final bool privateChat;
+  final FileSource source;
+
+  /// For a private chat's file: the other person in it.
+  final String? otherId;
+  final String? otherName;
+
+  /// The chat message it was sent in, to open the chat at it.
+  final String? messageId;
+
+  /// Removed from the Files tab (others go with their message).
+  bool get removable => source == FileSource.files || source == FileSource.task;
 
   factory ProjectFile.fromJson(Json json) => ProjectFile(
     file: ChatFile(
@@ -274,6 +339,10 @@ class ProjectFile {
     createdAt: _time(json['created_at']),
     conversationId: json['conversation_id'] as String?,
     privateChat: json['private_chat'] as bool? ?? false,
+    source: FileSource.parse(json['source']),
+    otherId: json['other_id'] as String?,
+    otherName: json['other_name'] as String?,
+    messageId: json['message_id'] as String?,
   );
 }
 

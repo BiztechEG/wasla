@@ -170,8 +170,8 @@ class ProjectScreen extends ConsumerWidget {
                             ),
                     ),
                   ProjectFilesView(
-                    workspaceId: current.workspaceId,
-                    projectId: current.id,
+                    project: current,
+                    membership: membership,
                     canManage: canEdit,
                     canAdd: active,
                   ),

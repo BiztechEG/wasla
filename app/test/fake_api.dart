@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:wasla/data/api.dart';
 import 'package:wasla/data/billing_models.dart';
@@ -152,18 +153,23 @@ class FakeApi implements WaslaApi {
         ],
   );
 
-  static Membership membership(String id, String name, WorkspaceRole role) =>
-      Membership(
-        workspaceId: id,
-        workspaceName: name,
-        companyId: 'c1',
-        companyName: 'Al Nour',
-        isCompanyOwner: role == WorkspaceRole.owner,
-        role: role,
-        planName: 'Free',
-        maxMembers: 10,
-        discoverable: false,
-      );
+  static Membership membership(
+    String id,
+    String name,
+    WorkspaceRole role, {
+    bool allowSharing = true,
+  }) => Membership(
+    workspaceId: id,
+    workspaceName: name,
+    companyId: 'c1',
+    companyName: 'Al Nour',
+    isCompanyOwner: role == WorkspaceRole.owner,
+    role: role,
+    planName: 'Free',
+    maxMembers: 10,
+    discoverable: false,
+    allowSharing: allowSharing,
+  );
 
   // Not used by the tests yet.
   @override
@@ -173,6 +179,13 @@ class FakeApi implements WaslaApi {
   }) => throw UnimplementedError();
   @override
   Future<void> setDiscoverable(String workspaceId, bool discoverable) async {}
+
+  /// Each change to a workspace's sharing setting.
+  final sharingChanges = <(String, bool)>[];
+
+  @override
+  Future<void> setAllowSharing(String workspaceId, bool allow) async =>
+      sharingChanges.add((workspaceId, allow));
 
   final deleted = <DeletedWorkspace>[];
 
@@ -281,6 +294,9 @@ class FakeApi implements WaslaApi {
   int _seq = 0;
   DateTime _clock = DateTime.utc(2026, 10, 8, 9);
 
+  /// Moves the clock on, as if time passed between messages.
+  void skip(Duration time) => _clock = _clock.add(time);
+
   DateTime _tick() => _clock = _clock.add(const Duration(minutes: 1));
 
   /// A project's group chat, as the server creates with each project.
@@ -306,8 +322,14 @@ class FakeApi implements WaslaApi {
     String body, {
     String? projectId,
     List<String> mentions = const [],
+    String? replyTo,
+    ChatFile? file,
   }) {
-    chatMessages[conversationId]!.insert(
+    final list = chatMessages[conversationId]!;
+    final quoted = replyTo == null
+        ? null
+        : list.firstWhere((m) => m.id == replyTo);
+    list.insert(
       0,
       ChatMessage(
         id: 'm${_seq++}',
@@ -317,6 +339,10 @@ class FakeApi implements WaslaApi {
         body: body,
         projectId: projectId ?? chats[conversationId]!.projectId,
         mentions: mentions,
+        replyTo: replyTo,
+        replySenderName: quoted?.senderName,
+        replyBody: quoted?.body,
+        file: file,
       ),
     );
     _events.add(ChatEvent(conversationId: conversationId));
@@ -420,15 +446,74 @@ class FakeApi implements WaslaApi {
     DateTime? after,
     String? projectId,
     int limit = 50,
-  }) async => (chatMessages[conversationId] ?? const <ChatMessage>[])
-      .where(
+  }) async {
+    final all = chatMessages[conversationId] ?? const <ChatMessage>[];
+    return [
+      for (final m in all.where(
         (m) =>
             (projectId == null || m.projectId == projectId) &&
             (before == null || m.createdAt.isBefore(before)) &&
             (after == null || m.createdAt.isAfter(after)),
-      )
-      .take(limit)
-      .toList();
+      ))
+        _withReplies(m, all),
+    ].take(limit).toList();
+  }
+
+  /// Every reply under [root], replies to replies included, oldest first.
+  List<ChatMessage> _repliesTo(ChatMessage root, List<ChatMessage> all) {
+    final ids = {root.id};
+    final found = <ChatMessage>[];
+    for (final m in all.reversed) {
+      if (m.replyTo != null && ids.contains(m.replyTo)) {
+        ids.add(m.id);
+        found.add(m);
+      }
+    }
+    return found;
+  }
+
+  /// As the server counts a message's replies.
+  ChatMessage _withReplies(ChatMessage m, List<ChatMessage> all) {
+    if (m.replyTo != null) return m;
+    final replies = _repliesTo(m, all).where((r) => !r.deleted).toList();
+    final people = <String>[];
+    for (final r in replies.reversed) {
+      if (!people.contains(r.senderId)) people.add(r.senderId);
+    }
+    return m.copyWith(
+      replyCount: replies.length,
+      repliers: people.take(3).toList(),
+    );
+  }
+
+  @override
+  Future<List<ChatMessage>> replyChain(String messageId) async {
+    for (final all in chatMessages.values) {
+      final root = all.where((m) => m.id == messageId).firstOrNull;
+      if (root != null) {
+        return [_withReplies(root, all), ..._repliesTo(root, all)];
+      }
+    }
+    return const [];
+  }
+
+  @override
+  Future<Set<DateTime>> messageDays(
+    String conversationId, {
+    String? projectId,
+  }) async => {
+    for (final m in chatMessages[conversationId] ?? const <ChatMessage>[])
+      if (!m.deleted && (projectId == null || m.projectId == projectId))
+        DateTime(
+          m.createdAt.toLocal().year,
+          m.createdAt.toLocal().month,
+          m.createdAt.toLocal().day,
+        ),
+  };
+
+  @override
+  Future<Uint8List> fileBytes(String path) async =>
+      Uint8List.fromList([1, 2, 3]);
 
   @override
   Future<void> sendMessage(
@@ -588,22 +673,42 @@ class FakeApi implements WaslaApi {
     String projectId,
     Upload file,
   ) async {
+    final stored = ChatFile(
+      id: 'f${_seq++}',
+      name: file.name,
+      mime: file.mime,
+      size: file.bytes.length,
+      path: 'ws/me/${file.name}',
+    );
+    // It is also sent in the project's chat, marked as from the Files tab.
+    final chat = await projectConversation(projectId);
+    String? messageId;
+    if (chat != null) {
+      final sent = ChatMessage(
+        id: 'm${_seq++}',
+        senderId: 'me',
+        senderName: name,
+        createdAt: _tick(),
+        projectId: projectId,
+        file: stored,
+        fromFiles: true,
+      );
+      chatMessages[chat]!.insert(0, sent);
+      messageId = sent.id;
+      _events.add(ChatEvent(conversationId: chat));
+    }
     projectFileList
         .putIfAbsent(projectId, () => [])
         .insert(
           0,
           ProjectFile(
-            file: ChatFile(
-              id: 'f${_seq++}',
-              name: file.name,
-              mime: file.mime,
-              size: file.bytes.length,
-              path: 'ws/me/${file.name}',
-            ),
+            file: stored,
             pinned: false,
             uploadedBy: 'me',
             uploaderName: name,
             createdAt: _tick(),
+            conversationId: chat,
+            messageId: messageId,
           ),
         );
   }

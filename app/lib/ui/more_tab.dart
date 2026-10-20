@@ -150,6 +150,22 @@ class MoreTab extends ConsumerWidget {
                   }
                 },
               ),
+              SwitchListTile(
+                key: const Key('allowSharing'),
+                secondary: const Icon(Icons.ios_share),
+                title: Text(l.allowSharing),
+                subtitle: Text(l.allowSharingHint),
+                value: membership.allowSharing,
+                onChanged: (value) async {
+                  final ok = await runAction(
+                    context,
+                    () => ref.read(apiProvider).setAllowSharing(ws, value),
+                  );
+                  if (ok && context.mounted) {
+                    ref.invalidate(membershipsProvider);
+                  }
+                },
+              ),
             ],
             if (membership.isCompanyOwner)
               ListTile(

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -40,6 +41,9 @@ abstract class WaslaApi {
     required String name,
   });
   Future<void> setDiscoverable(String workspaceId, bool discoverable);
+
+  /// Whether people may share messages and files to other apps.
+  Future<void> setAllowSharing(String workspaceId, bool allow);
   Future<void> renameWorkspace(String workspaceId, String name);
   Future<void> leaveWorkspace(String workspaceId);
 
@@ -124,6 +128,12 @@ abstract class WaslaApi {
   /// Adds the signed-in user's [emoji] reaction, or takes it back.
   Future<void> toggleReaction(String messageId, String emoji);
 
+  /// A message and every reply under it, oldest first.
+  Future<List<ChatMessage>> replyChain(String messageId);
+
+  /// The days, in the device's time zone, that a chat has messages on.
+  Future<Set<DateTime>> messageDays(String conversationId, {String? projectId});
+
   /// [filePath]: the message's file, when the signed-in user sent it, so the
   /// stored copy is removed too.
   Future<void> deleteMessage(String messageId, {String? filePath});
@@ -160,6 +170,9 @@ abstract class WaslaApi {
 
   /// A short-lived link for viewing or downloading a stored file.
   Future<String> fileUrl(String path);
+
+  /// A stored file's contents, to share it as a file.
+  Future<Uint8List> fileBytes(String path);
 
   // Announcements
 
@@ -392,7 +405,7 @@ class SupabaseWaslaApi implements WaslaApi {
     final data = await _client
         .from('workspace_members')
         .select(
-          'role, workspaces(id, name, company_id, discoverable, '
+          'role, workspaces(id, name, company_id, discoverable, allow_sharing, '
           'plans(name, max_members), companies(name, owner_id))',
         )
         .eq('user_id', me)
@@ -444,6 +457,12 @@ class SupabaseWaslaApi implements WaslaApi {
   Future<void> setDiscoverable(String workspaceId, bool discoverable) => _client
       .from('workspaces')
       .update({'discoverable': discoverable})
+      .eq('id', workspaceId);
+
+  @override
+  Future<void> setAllowSharing(String workspaceId, bool allow) => _client
+      .from('workspaces')
+      .update({'allow_sharing': allow})
       .eq('id', workspaceId);
 
   @override
@@ -815,6 +834,33 @@ class SupabaseWaslaApi implements WaslaApi {
   );
 
   @override
+  Future<List<ChatMessage>> replyChain(String messageId) async =>
+      _rows(await _client.rpc('reply_chain', params: {'p_message': messageId}))
+          .map(ChatMessage.fromJson)
+          .toList();
+
+  @override
+  Future<Set<DateTime>> messageDays(
+    String conversationId, {
+    String? projectId,
+  }) async {
+    final days =
+        (await _client.rpc(
+          'conversation_days',
+          params: {
+            'p_conversation': conversationId,
+            'p_project': projectId,
+            'p_utc_offset': DateTime.now().timeZoneOffset.inMinutes,
+          },
+        ) as List?) ??
+        const [];
+    return {
+      for (final d in days)
+        if (d is String) DateTime.parse(d),
+    };
+  }
+
+  @override
   Future<void> deleteMessage(String messageId, {String? filePath}) async {
     await _client.rpc('delete_message', params: {'p_message': messageId});
     await _remove(filePath);
@@ -989,6 +1035,10 @@ class SupabaseWaslaApi implements WaslaApi {
   @override
   Future<String> fileUrl(String path) =>
       _client.storage.from('files').createSignedUrl(path, 3600);
+
+  @override
+  Future<Uint8List> fileBytes(String path) =>
+      _client.storage.from('files').download(path);
 
   // Announcements
 

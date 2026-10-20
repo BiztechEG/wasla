@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
 import '../data/chat_models.dart';
 import '../data/picker.dart';
+import '../data/share.dart';
 import '../data/voice.dart';
 import '../state/chat_providers.dart';
+import '../state/providers.dart';
 import '../state/google_providers.dart';
 import 'chat_format.dart';
 import 'modern.dart';
@@ -137,6 +140,43 @@ Future<void> saveFileToDrive(
     final url = await ref.read(fileUrlProvider(file.path).future);
     await google.saveToDrive(name: file.name, mime: file.mime, source: url);
   }, done: l.savedToDrive);
+}
+
+/// Sends a message's text, its file (as the file itself), or both to
+/// another app through the share sheet. Where there is none, the text is
+/// copied or the file downloaded instead.
+Future<void> shareOut(
+  BuildContext context,
+  WidgetRef ref, {
+  String? text,
+  ChatFile? file,
+}) async {
+  final l = context.l10n;
+  SharedFile? shared;
+  if (file != null) {
+    showMessage(context, l.preparingShare);
+    try {
+      shared = SharedFile(
+        bytes: await ref.read(apiProvider).fileBytes(file.path),
+        name: file.name,
+        mime: file.mime,
+      );
+    } catch (e) {
+      if (context.mounted) showMessage(context, errorText(l, e));
+      return;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  }
+  final shown = await ref.read(sharerProvider).share(text: text, file: shared);
+  if (shown || !context.mounted) return;
+  if (file != null) {
+    showMessage(context, l.shareUnavailableDownload);
+    await downloadFile(context, ref, file);
+  } else if (text != null && text.isNotEmpty) {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (context.mounted) showMessage(context, l.shareUnavailableCopied);
+  }
 }
 
 /// A stored photo, loaded through a short-lived link.

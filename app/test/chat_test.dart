@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/models.dart';
@@ -64,6 +65,7 @@ Future<void> _openProjectChat(WidgetTester tester) async {
 
 void main() {
   group('mentions, reactions and profiles', mentionTests);
+  group('files, sharing, dates and reply chains', stage3Tests);
   testWidgets('a project message arrives live, is read, and gets an answer', (
     tester,
   ) async {
@@ -1040,5 +1042,371 @@ void mentionTests() {
       ),
       isNull,
     );
+  });
+}
+
+/// A text exactly as shown, whether plain or with mentions drawn in it.
+Finder _says(String text) => find.byWidgetPredicate(
+  (w) => w is Text && (w.data ?? w.textSpan?.toPlainText()) == text,
+);
+
+Future<void> _openFilesTab(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('المشاريع'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('New Branch'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('الملفات'));
+  await tester.pumpAndSettle();
+}
+
+void stage3Tests() {
+  testWidgets('the files list says where each file came from and leads to '
+      'its message', (tester) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    const photo = ChatFile(
+      id: 'f-photo',
+      name: 'site.png',
+      mime: 'image/png',
+      size: 2048,
+      path: 'ws1/u2/site.png',
+    );
+    api.receive(chat, 'u2', 'Mona Adel', 'Site photo', file: photo);
+    final sent = api.chatMessages[chat]!.first;
+    for (var i = 0; i < 70; i++) {
+      api.receive(chat, 'u3', 'Sara Ali', 'later $i');
+    }
+    api.projectFileList['p1'] = [
+      ProjectFile(
+        file: const ChatFile(
+          id: 'f-budget',
+          name: 'budget.xlsx',
+          mime: 'application/vnd.ms-excel',
+          size: 4096,
+          path: 'ws1/me/budget.xlsx',
+        ),
+        pinned: true,
+        uploadedBy: 'me',
+        uploaderName: 'Amr',
+        createdAt: DateTime.utc(2026, 10, 8, 12),
+      ),
+      ProjectFile(
+        file: photo,
+        pinned: false,
+        uploadedBy: 'u2',
+        uploaderName: 'Mona Adel',
+        createdAt: sent.createdAt,
+        conversationId: chat,
+        source: FileSource.project,
+        messageId: sent.id,
+      ),
+      ProjectFile(
+        file: const ChatFile(
+          id: 'f-quote',
+          name: 'quote.pdf',
+          mime: 'application/pdf',
+          size: 1024,
+          path: 'ws1/u2/quote.pdf',
+        ),
+        pinned: false,
+        uploadedBy: 'u2',
+        uploaderName: 'Mona Adel',
+        createdAt: DateTime.utc(2026, 9, 14, 10),
+        conversationId: 'd-u2',
+        privateChat: true,
+        source: FileSource.direct,
+        otherId: 'u2',
+        otherName: 'Mona Adel',
+      ),
+    ];
+    await startApp(tester, api);
+    await _openFilesTab(tester);
+
+    expect(find.text('ملفات New Branch'), findsOneWidget);
+    expect(find.text('أكتوبر 2026'), findsOneWidget);
+    expect(find.text('سبتمبر 2026'), findsOneWidget);
+    expect(find.text('ملفان'), findsOneWidget);
+    expect(find.textContaining('من الملفات ·'), findsOneWidget);
+    expect(find.textContaining('محادثة المشروع ·'), findsOneWidget);
+    expect(find.textContaining('خاصة بينك وبين'), findsOneWidget);
+    expect(find.byKey(const Key('pinnedMark')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('fileFilter-media')));
+    await tester.pumpAndSettle();
+    expect(find.text('site.png'), findsOneWidget);
+    expect(find.text('budget.xlsx'), findsNothing);
+    await tester.tap(find.byKey(const Key('fileFilter-all')));
+    await tester.enterText(find.byKey(const Key('fileSearch')), 'QUO');
+    await tester.pumpAndSettle();
+    expect(find.text('quote.pdf'), findsOneWidget);
+    expect(find.text('site.png'), findsNothing);
+    await tester.enterText(find.byKey(const Key('fileSearch')), '');
+    await tester.pumpAndSettle();
+
+    // A file from the Files tab, never sent in a chat, has no message.
+    await tester.tap(find.byKey(const Key('fileMenu-f-budget')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pickedFile')), findsOneWidget);
+    expect(find.text('New Branch · من الملفات'), findsOneWidget);
+    expect(find.byKey(const Key('fileAction-goto')), findsNothing);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fileMenu')), findsNothing);
+
+    // The photo opens the chat at its message, far back.
+    await tester.tap(find.byKey(const Key('fileMenu-f-photo')));
+    await tester.pumpAndSettle();
+    expect(find.text('New Branch · محادثة المشروع'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('fileAction-goto')));
+    await tester.pumpAndSettle();
+    expect(_says('Site photo').hitTestable(), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a file added from the Files tab is sent in the chat too', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    final picker = FakePicker(
+      Upload(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        name: 'plan.pdf',
+        mime: 'application/pdf',
+      ),
+    );
+    await startApp(tester, api, picker: picker);
+    await _openFilesTab(tester);
+
+    await tester.tap(find.byKey(const Key('addFile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ملف'));
+    await tester.pumpAndSettle();
+    expect(find.text('plan.pdf'), findsOneWidget);
+    expect(api.chatMessages[chat]!.first.fromFiles, isTrue);
+
+    await tester.tap(
+      find.byKey(Key('fileMenu-${api.projectFileList['p1']!.first.file.id}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('fileAction-goto')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fromFiles')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('a message is shared out, unless the workspace turned it off', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'The client approved the quote');
+    final sharer = FakeSharer();
+    await startApp(tester, api, sharer: sharer);
+    await _openProjectChat(tester);
+
+    await tester.longPress(_says('The client approved the quote'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('مشاركة'));
+    await tester.tap(find.text('مشاركة'));
+    await tester.pumpAndSettle();
+    expect(sharer.shared, [('The client approved the quote', null)]);
+  });
+
+  testWidgets('without a share sheet the text is copied instead', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'Copy me');
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    await startApp(tester, api, sharer: FakeSharer(available: false));
+    await _openProjectChat(tester);
+
+    await tester.longPress(_says('Copy me'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('مشاركة'));
+    await tester.tap(find.text('مشاركة'));
+    await tester.pumpAndSettle();
+    expect(find.text('المشاركة غير متاحة هنا، لذا نُسخ النص'), findsOneWidget);
+    expect(copied, 'Copy me');
+  });
+
+  testWidgets('with sharing off there is no share button, and admins set it', (
+    tester,
+  ) async {
+    final api = _team();
+    api.memberships
+      ..clear()
+      ..add(
+        FakeApi.membership(
+          'ws1',
+          'Engineering',
+          WorkspaceRole.owner,
+          allowSharing: false,
+        ),
+      );
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'Not for outside');
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    await tester.longPress(_says('Not for outside'));
+    await tester.pumpAndSettle();
+    expect(find.text('مشاركة'), findsNothing);
+    expect(find.text('نسخ'), findsOneWidget);
+  });
+
+  testWidgets('an admin turns sharing outside Wasla on and off', (
+    tester,
+  ) async {
+    final api = _team();
+    api.memberships
+      ..clear()
+      ..add(
+        FakeApi.membership(
+          'ws1',
+          'Engineering',
+          WorkspaceRole.owner,
+          allowSharing: false,
+        ),
+      );
+    await startApp(tester, api);
+    await tester.tap(find.byTooltip('المزيد'));
+    await tester.pumpAndSettle();
+    final toggle = find.byKey(const Key('allowSharing'));
+    await tester.scrollUntilVisible(
+      toggle,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final tile = tester.widget<SwitchListTile>(toggle);
+    expect(tile.value, isFalse);
+    tile.onChanged!(true);
+    await tester.pumpAndSettle();
+    expect(api.sharingChanges, [('ws1', true)]);
+  });
+
+  testWidgets('the calendar opens a day at its first message, and Latest '
+      'comes back', (tester) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'Good morning, phase two starts');
+    for (var i = 0; i < 5; i++) {
+      api.receive(chat, 'u3', 'Sara Ali', 'day one $i');
+    }
+    api.skip(const Duration(days: 2));
+    api.receive(chat, 'u2', 'Mona Adel', 'First on day three');
+    for (var i = 0; i < 80; i++) {
+      api.receive(chat, 'u3', 'Sara Ali', 'day three $i');
+    }
+    await startApp(tester, api);
+    await tester.tap(find.textContaining('day three 79'));
+    await tester.pumpAndSettle();
+    expect(_says('day three 79'), findsOneWidget);
+
+    Future<void> openOctober() async {
+      await tester.tap(find.byKey(const Key('jumpToDate')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('dateSheet')), findsOneWidget);
+      for (
+        var i = 0;
+        i < 36 && find.text('أكتوبر 2026').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.tap(find.byKey(const Key('prevMonth')));
+        await tester.pump();
+      }
+    }
+
+    await openOctober();
+    await tester.tap(find.byKey(const Key('day-8')));
+    await tester.pump();
+    expect(find.text('اذهب لـ 8 أكتوبر'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('goToDay')));
+    await tester.pumpAndSettle();
+    expect(
+      _says('Good morning, phase two starts').hitTestable(),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 3));
+
+    // Far from the newest: "Latest" counts them and goes back.
+    expect(find.byKey(const Key('jumpLatest')), findsOneWidget);
+    expect(find.byKey(const Key('latestCount')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('jumpLatest')));
+    await tester.pumpAndSettle();
+    expect(_says('day three 79').hitTestable(), findsOneWidget);
+    expect(find.byKey(const Key('jumpLatest')), findsNothing);
+
+    // A day without messages opens the next day that has some.
+    await openOctober();
+    await tester.tap(find.byKey(const Key('day-9')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('goToDay')));
+    await tester.pumpAndSettle();
+    expect(_says('First on day three').hitTestable(), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('replies gather under the message and open as one chain', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'Who takes the payment page?');
+    final root = api.chatMessages[chat]!.first;
+    api.receive(
+      chat,
+      'u3',
+      'Sara Ali',
+      'I can start tomorrow',
+      replyTo: root.id,
+    );
+    final first = api.chatMessages[chat]!.first;
+    api.receive(
+      chat,
+      'u2',
+      'Mona Adel',
+      'Great, I will review',
+      replyTo: first.id,
+    );
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    expect(find.byKey(const Key('threadPill')), findsOneWidget);
+    expect(find.text('ردّان'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('threadPill')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('سلسلة الردود'), findsOneWidget);
+    expect(find.byKey(const Key('replyThread')), findsOneWidget);
+    expect(find.text('ردًا على Sara Ali'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('threadField')), 'On it');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('threadSend')));
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat]!.first.replyTo, root.id);
+    expect(api.chatMessages[chat]!.first.body, 'On it');
+    expect(_says('On it'), findsOneWidget);
+
+    // A reply tapped there is shown in the chat.
+    await tester.tap(_says('I can start tomorrow'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('replyThread')), findsNothing);
+    expect(find.text('3 ردود'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    expect(tester.takeException(), isNull);
   });
 }
