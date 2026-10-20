@@ -1036,5 +1036,25 @@
   "sendAsText": "Send as text",
   "sendAsFile": "Send as a file",
   "captionHint": "Add a comment (optional)",
-  "originalNotFound": "The original message is no longer here"
+  "originalNotFound": "The original message is no longer here",
+  "mentionEveryone": "all",
+  "tapForProfile": "Tap for profile",
+  "sendMessage": "Message",
+  "assignTask": "Assign task",
+  "sharedProjects": "Shared projects · {count}",
+  "@sharedProjects": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noRecentEmoji": "No recent emoji yet",
+  "searchEmoji": "Search in English or Arabic",
+  "moreEmoji": "More emoji",
+  "react": "React",
+  "emoji": "Emoji",
+  "keyboard": "Keyboard",
+  "formerMember": "Former member",
+  "mentionsYou": "Mentions you"
 }

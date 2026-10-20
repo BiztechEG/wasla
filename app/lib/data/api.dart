@@ -117,8 +117,12 @@ abstract class WaslaApi {
     String? replyTo,
     String? projectId,
     Upload? file,
+    List<String> mentions = const [],
   });
   Future<void> markRead(String conversationId, DateTime until);
+
+  /// Adds the signed-in user's [emoji] reaction, or takes it back.
+  Future<void> toggleReaction(String messageId, String emoji);
 
   /// [filePath]: the message's file, when the signed-in user sent it, so the
   /// stored copy is removed too.
@@ -132,6 +136,9 @@ abstract class WaslaApi {
   /// Projects a private chat's messages can be tagged with: active ones both
   /// people are in.
   Future<List<String>> sharedProjects(String conversationId);
+
+  /// Active projects that both the signed-in user and [userId] are part of.
+  Future<List<String>> projectsWith(String workspaceId, String userId);
 
   /// Fires whenever a message arrives, changes or is read in [workspaceId],
   /// and with [ChatEvent.everything] when changes may have been missed.
@@ -769,6 +776,7 @@ class SupabaseWaslaApi implements WaslaApi {
     String? replyTo,
     String? projectId,
     Upload? file,
+    List<String> mentions = const [],
   }) async {
     Future<void> send(String? path) => _client.rpc(
       'send_message',
@@ -781,6 +789,7 @@ class SupabaseWaslaApi implements WaslaApi {
         'p_file_name': file?.name,
         'p_file_mime': file?.mime,
         'p_file_size': file?.bytes.length,
+        if (mentions.isNotEmpty) 'p_mentions': mentions,
       },
     );
     if (file == null) {
@@ -797,6 +806,12 @@ class SupabaseWaslaApi implements WaslaApi {
       'p_conversation': conversationId,
       'p_until': until.toUtc().toIso8601String(),
     },
+  );
+
+  @override
+  Future<void> toggleReaction(String messageId, String emoji) => _client.rpc(
+    'toggle_reaction',
+    params: {'p_message': messageId, 'p_emoji': emoji},
   );
 
   @override
@@ -843,6 +858,15 @@ class SupabaseWaslaApi implements WaslaApi {
       ((await _client.rpc(
                 'shared_projects',
                 params: {'p_conversation': conversationId},
+              ) as List?) ??
+              const [])
+          .cast<String>();
+
+  @override
+  Future<List<String>> projectsWith(String workspaceId, String userId) async =>
+      ((await _client.rpc(
+                'projects_with',
+                params: {'p_workspace': workspaceId, 'p_user': userId},
               ) as List?) ??
               const [])
           .cast<String>();

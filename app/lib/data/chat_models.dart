@@ -37,6 +37,7 @@ class Conversation {
     this.lastFileName,
     this.lastDeleted = false,
     this.unread = 0,
+    this.unreadMentions = 0,
     this.tagProjectIds = const [],
   });
 
@@ -57,6 +58,9 @@ class Conversation {
   final String? lastFileName;
   final bool lastDeleted;
   final int unread;
+
+  /// Unread messages that mention the signed-in user.
+  final int unreadMentions;
 
   /// Projects this chat's messages are tagged with.
   final List<String> tagProjectIds;
@@ -85,6 +89,7 @@ class Conversation {
       lastFileName: json['last_file_name'] as String?,
       lastDeleted: json['last_deleted'] as bool? ?? false,
       unread: json['unread'] as int? ?? 0,
+      unreadMentions: json['unread_mentions'] as int? ?? 0,
       tagProjectIds: [
         for (final id in (json['tag_project_ids'] as List? ?? const []))
           if (id != null) id as String,
@@ -130,6 +135,8 @@ class ChatMessage {
     this.replyBody,
     this.replyFileName,
     this.file,
+    this.mentions = const [],
+    this.reactions = const {},
   });
 
   final String id;
@@ -146,6 +153,36 @@ class ChatMessage {
   final String? replyBody;
   final String? replyFileName;
   final ChatFile? file;
+
+  /// The people the message mentions.
+  final List<String> mentions;
+
+  /// Each emoji people reacted with, and who, in the order they did.
+  final Map<String, List<String>> reactions;
+
+  /// A copy with [userId]'s [emoji] reaction added, or taken back.
+  ChatMessage withReaction(String emoji, String userId) {
+    final next = {for (final e in reactions.entries) e.key: List.of(e.value)};
+    final users = next.putIfAbsent(emoji, () => []);
+    if (!users.remove(userId)) users.add(userId);
+    if (users.isEmpty) next.remove(emoji);
+    return ChatMessage(
+      id: id,
+      senderId: senderId,
+      senderName: senderName,
+      createdAt: createdAt,
+      body: body,
+      projectId: projectId,
+      deleted: deleted,
+      replyTo: replyTo,
+      replySenderName: replySenderName,
+      replyBody: replyBody,
+      replyFileName: replyFileName,
+      file: file,
+      mentions: mentions,
+      reactions: next,
+    );
+  }
 
   factory ChatMessage.fromJson(Json json) => ChatMessage(
     id: json['id'] as String,
@@ -168,6 +205,15 @@ class ChatMessage {
             size: json['file_size'] as int? ?? 0,
             path: _text(json['file_path']),
           ),
+    mentions: [
+      for (final id in (json['mentions'] as List? ?? const []))
+        if (id != null) id as String,
+    ],
+    reactions: {
+      for (final e in ((json['reactions'] as Map?) ?? const {}).entries)
+        if ((e.value as List).isNotEmpty)
+          e.key as String: [for (final id in e.value as List) id as String],
+    },
   );
 }
 

@@ -8,7 +8,9 @@ import 'package:wasla/data/models.dart';
 import 'package:wasla/data/search_models.dart';
 import 'package:wasla/data/task_models.dart';
 import 'package:wasla/ui/chat_format.dart';
+import 'package:wasla/ui/emoji.dart';
 import 'package:wasla/ui/files_common.dart';
+import 'package:wasla/ui/mentions.dart';
 import 'package:wasla/ui/modern.dart';
 
 import 'fake_api.dart';
@@ -61,6 +63,7 @@ Future<void> _openProjectChat(WidgetTester tester) async {
 }
 
 void main() {
+  group('mentions, reactions and profiles', mentionTests);
   testWidgets('a project message arrives live, is read, and gets an answer', (
     tester,
   ) async {
@@ -632,7 +635,9 @@ void main() {
     // The quote of a message far back loads it and brings it on screen.
     final original = find.byWidgetPredicate(
       (w) =>
-          w is Text && w.data == 'أول رسالة في المشروع' && w.maxLines == null,
+          w is Text &&
+          (w.data ?? w.textSpan?.toPlainText()) == 'أول رسالة في المشروع' &&
+          w.maxLines == null,
     );
     expect(original, findsNothing);
     await tester.tap(find.byKey(const Key('quote')).last);
@@ -788,5 +793,252 @@ void main() {
     await tester.tap(find.byKey(const Key('chatDetails')));
     await tester.pumpAndSettle();
     expect(find.text('الحالة'), findsWidgets);
+  });
+}
+
+FakeApi _team() {
+  final api = _company();
+  api.membersByWorkspace['ws1']!.add(
+    const Member(
+      userId: 'u3',
+      fullName: 'Sara Ali',
+      role: WorkspaceRole.member,
+    ),
+  );
+  api.projectMembersById['p1'] = const [
+    ProjectMember(userId: 'me', fullName: 'Amr', role: ProjectRole.lead),
+    ProjectMember(
+      userId: 'u2',
+      fullName: 'Mona Adel',
+      role: ProjectRole.member,
+    ),
+    ProjectMember(userId: 'u3', fullName: 'Sara Ali', role: ProjectRole.member),
+  ];
+  return api;
+}
+
+void mentionTests() {
+  testWidgets('typing @ suggests people, and the message mentions them', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    final field = find.byKey(const Key('messageField'));
+    await tester.enterText(field, 'محتاجين @');
+    await tester.pump();
+    expect(find.byKey(const Key('mention-everyone')), findsOneWidget);
+    expect(find.byKey(const Key('mention-u2')), findsOneWidget);
+    expect(find.byKey(const Key('mention-me')), findsNothing);
+
+    await tester.enterText(field, 'محتاجين @mo');
+    await tester.pump();
+    expect(find.byKey(const Key('mention-u3')), findsNothing);
+    await tester.tap(find.byKey(const Key('mention-u2')));
+    await tester.pump();
+    expect(find.byKey(const Key('mentionSuggestions')), findsNothing);
+    final text = tester.widget<TextField>(field).controller!.text;
+    expect(text, 'محتاجين @Mona Adel ');
+
+    await tester.enterText(field, '$textالصور');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sendButton')));
+    await tester.pumpAndSettle();
+    expect(api.sentMentions.last, ['u2']);
+    expect(api.chatMessages[chat]!.first.mentions, ['u2']);
+
+    // "@الكل" is everyone in the project but oneself.
+    await tester.enterText(field, '@ال');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('mention-everyone')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sendButton')));
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat]!.first.body, '@الكل');
+    expect(api.sentMentions.last, ['u2', 'u3']);
+  });
+
+  testWidgets(
+    'a mention opens the person\'s card, and the chat list marks it',
+    (tester) async {
+      final api = _team();
+      final chat = api.addProjectChat('ws1', _branch);
+      api.receive(
+        chat,
+        'u3',
+        'Sara Ali',
+        '@Amr و @Mona Adel راجعوا الملف',
+        mentions: ['me', 'u2'],
+      );
+      await startApp(tester, api);
+      expect(find.byKey(const Key('mentionBadge')), findsOneWidget);
+
+      await _openProjectChat(tester);
+      // The names are tappable: Mona's opens her card.
+      await tester.tapOnText(find.textRange.ofSubstring('@Mona Adel'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('profileCard')), findsOneWidget);
+      expect(find.text('mona@example.com'), findsOneWidget);
+      expect(find.text('New Branch'), findsWidgets);
+    },
+  );
+
+  testWidgets('a name in the chat opens a card to message or give a task', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'رفعت الميزانية');
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    await tester.tap(find.byKey(const Key('senderName')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileCard')), findsOneWidget);
+    expect(find.text('عضو'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('profileMessage')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileCard')), findsNothing);
+    expect(api.chats.containsKey('d-u2'), isTrue);
+
+    // In the private chat, ⓘ is the same card; "Message" stays here.
+    await tester.tap(find.byKey(const Key('chatDetails')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileCard')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profileMessage')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('messageField')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('chatDetails')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profileAssign')));
+    await tester.pumpAndSettle();
+    expect(find.text('Mona Adel'), findsWidgets);
+  });
+
+  testWidgets('people react to a message and see who did', (tester) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'العميل وافق على التصميم');
+    final m = api.chatMessages[chat]!.first;
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    await tester.longPress(find.text('العميل وافق على التصميم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('react-🎉')));
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat]!.first.reactions, {
+      '🎉': ['me'],
+    });
+    expect(find.byKey(const Key('reaction-🎉')), findsOneWidget);
+
+    // Someone else adds the same one: the count goes up.
+    api.react(m.id, '🎉', 'u3');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text('🎉 2'), findsOneWidget);
+
+    // A long press shows who.
+    await tester.longPress(find.byKey(const Key('reaction-🎉')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('whoReacted')),
+        matching: find.text('Sara Ali'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    // Tapping one's own takes it back.
+    await tester.tap(find.byKey(const Key('reaction-🎉')));
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat]!.first.reactions, {
+      '🎉': ['u3'],
+    });
+    expect(find.text('🎉 2'), findsNothing);
+  });
+
+  testWidgets('the mouse reacts from the message, and emoji alone show big', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'تمام كده');
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.text('تمام كده')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('hoverReact')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('react-👍')));
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat]!.first.reactions.keys, ['👍']);
+
+    // The emoji button opens the picker in place of the keyboard.
+    await tester.tap(find.byKey(const Key('emojiButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('emojiPanel')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('emojiButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('emojiPanel')), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('messageField')), '👏👏');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sendButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('bigEmoji')), findsOneWidget);
+  });
+
+  test('which messages are emoji alone', () {
+    expect(isBigEmoji('👍'), isTrue);
+    expect(isBigEmoji('👏👏'), isTrue);
+    expect(isBigEmoji('❤️ 🎉 ✅'), isTrue);
+    expect(isBigEmoji('👨‍👩‍👧'), isTrue);
+    expect(isBigEmoji('🇪🇬'), isTrue);
+    expect(isBigEmoji('👍👍👍👍'), isFalse);
+    expect(isBigEmoji('تمام 👍'), isFalse);
+    expect(isBigEmoji('123'), isFalse);
+    expect(isBigEmoji(''), isFalse);
+  });
+
+  test('mentions are found by name, and @all means everyone', () {
+    const people = [
+      MentionCandidate(id: null, name: 'الكل'),
+      MentionCandidate(id: 'a', name: 'Ali'),
+      MentionCandidate(id: 'b', name: 'Ali Hassan'),
+    ];
+    expect(mentionedIds('@Ali Hassan hi', people), ['b']);
+    expect(mentionedIds('@Ali, hi', people), ['a']);
+    expect(mentionedIds('mail ali@x.com', people), isEmpty);
+    expect(mentionedIds('@all', people), ['a', 'b']);
+    expect(matchMentions(people, 'has').map((c) => c.id), ['b']);
+    expect(
+      mentionQuery(
+        const TextEditingValue(
+          text: 'hi @Al',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
+      ),
+      (start: 3, query: 'Al'),
+    );
+    expect(
+      mentionQuery(
+        const TextEditingValue(
+          text: 'a@b',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      ),
+      isNull,
+    );
   });
 }

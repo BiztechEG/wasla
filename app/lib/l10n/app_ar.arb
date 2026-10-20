@@ -1242,5 +1242,25 @@
   "sendAsText": "أرسله نصاً",
   "sendAsFile": "أرسله كملف",
   "captionHint": "أضف تعليقاً (اختياري)",
-  "originalNotFound": "الرسالة الأصلية لم تعد موجودة"
+  "originalNotFound": "الرسالة الأصلية لم تعد موجودة",
+  "mentionEveryone": "الكل",
+  "tapForProfile": "اضغط لعرض البروفايل",
+  "sendMessage": "رسالة",
+  "assignTask": "إسناد مهمة",
+  "sharedProjects": "مشاريع مشتركة · {count}",
+  "@sharedProjects": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noRecentEmoji": "لم تستخدم إيموجي بعد",
+  "searchEmoji": "ابحث بالعربي أو الإنجليزي",
+  "moreEmoji": "إيموجي آخر",
+  "react": "تفاعل",
+  "emoji": "إيموجي",
+  "keyboard": "لوحة المفاتيح",
+  "formerMember": "عضو سابق",
+  "mentionsYou": "فيها إشارة لك"
 }

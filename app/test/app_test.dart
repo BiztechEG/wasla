@@ -230,7 +230,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('الأعضاء'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mona'));
+    await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

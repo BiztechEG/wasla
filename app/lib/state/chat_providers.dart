@@ -126,6 +126,7 @@ class PendingMessage {
     this.file,
     this.replyTo,
     this.projectId,
+    this.mentions = const [],
     this.failed = false,
   });
 
@@ -134,6 +135,7 @@ class PendingMessage {
   final Upload? file;
   final ChatMessage? replyTo;
   final String? projectId;
+  final List<String> mentions;
   final bool failed;
 
   PendingMessage asFailed() => PendingMessage(
@@ -142,6 +144,7 @@ class PendingMessage {
     file: file,
     replyTo: replyTo,
     projectId: projectId,
+    mentions: mentions,
     failed: true,
   );
 }
@@ -311,6 +314,7 @@ class ChatController extends AsyncNotifier<ChatState> {
     Upload? file,
     ChatMessage? replyTo,
     String? projectId,
+    List<String> mentions = const [],
   }) => _send(
     PendingMessage(
       localId: _nextLocalId++,
@@ -318,6 +322,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       file: file,
       replyTo: replyTo,
       projectId: projectId,
+      mentions: mentions,
     ),
   );
 
@@ -330,6 +335,7 @@ class ChatController extends AsyncNotifier<ChatState> {
         file: message.file,
         replyTo: message.replyTo,
         projectId: message.projectId,
+        mentions: message.mentions,
       ),
     );
   }
@@ -350,6 +356,7 @@ class ChatController extends AsyncNotifier<ChatState> {
             file: message.file,
             replyTo: message.replyTo?.id,
             projectId: message.projectId,
+            mentions: message.mentions,
           );
     } catch (_) {
       final current = ref.mounted ? state.value : null;
@@ -393,6 +400,27 @@ class ChatController extends AsyncNotifier<ChatState> {
         .read(apiProvider)
         .deleteMessage(message.id, filePath: mine ? message.file?.path : null);
     if (ref.mounted) await refresh();
+  }
+
+  /// Adds or takes back the signed-in user's reaction. It shows straight
+  /// away; if the server refuses, the chat is reloaded and the error thrown.
+  Future<void> react(ChatMessage message, String emoji) async {
+    final me = ref.read(authProvider).value;
+    final now = state.value;
+    if (me == null || now == null) return;
+    state = AsyncData(
+      now.copyWith(
+        messages: [
+          for (final m in now.messages)
+            m.id == message.id ? m.withReaction(emoji, me) : m,
+        ],
+      ),
+    );
+    try {
+      await ref.read(apiProvider).toggleReaction(message.id, emoji);
+    } finally {
+      if (ref.mounted) await refresh().catchError((Object _) {});
+    }
   }
 
   void _markRead(ChatState chat) {
@@ -444,4 +472,15 @@ final projectConversationProvider = FutureProvider.autoDispose
       final api = ref.watch(apiProvider);
       await ref.watch(authProvider.future);
       return api.projectConversation(projectId);
+    });
+
+/// Active projects the signed-in user shares with someone, for their card.
+final projectsWithProvider = FutureProvider.autoDispose
+    .family<List<String>, ({String workspaceId, String userId})>((
+      ref,
+      key,
+    ) async {
+      final api = ref.watch(apiProvider);
+      await ref.watch(authProvider.future);
+      return api.projectsWith(key.workspaceId, key.userId);
     });

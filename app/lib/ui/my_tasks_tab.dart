@@ -33,6 +33,7 @@ Future<void> newTask(
   String? title,
   String? description,
   String? sourceMessageId,
+  List<String>? assigneeIds,
 }) async {
   final navigator = Navigator.of(context);
   final id = await navigator.push<String>(
@@ -45,6 +46,7 @@ Future<void> newTask(
         title: title,
         description: description,
         sourceMessageId: sourceMessageId,
+        assigneeIds: assigneeIds,
       ),
     ),
   );
