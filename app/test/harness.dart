@@ -164,7 +164,11 @@ class FakeSharer implements Sharer {
   final shared = <(String?, String?)>[];
 
   @override
-  Future<bool> share({String? text, SharedFile? file}) async {
+  Future<bool> share({
+    String? text,
+    SharedFile? file,
+    bool download = false,
+  }) async {
     if (!available) return false;
     shared.add((text, file?.name));
     return true;
