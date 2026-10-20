@@ -84,6 +84,10 @@ const notes: Record<Locale, Record<string, Note>> = {
   },
 };
 
+const mentioned: Record<Locale, (name: string) => string> = {
+  ar: (n) => `${n} أشار إليك`,
+  en: (n) => `${n} mentioned you`,
+};
 const announcement: Record<Locale, string> = { ar: "نشرة", en: "Announcement" };
 const appName: Record<Locale, string> = { ar: "وصلة", en: "Wasla" };
 
@@ -103,11 +107,13 @@ export function format(q: Queued): Shown {
   const data = strings({ ...q.data, kind: q.kind });
   const ws = data.workspace ?? "";
 
-  if (q.kind === "message") {
+  if (q.kind === "message" || q.kind === "mention") {
     const direct = data.direct === "true";
+    // A mention always says who mentioned you, even in a private chat.
+    const who = q.kind === "mention" && actor ? mentioned[l](actor) : actor;
     return {
       title: (direct ? actor : q.title) || appName[l],
-      body: direct || !actor ? body : `${actor}: ${body}`,
+      body: (direct && q.kind === "message") || !who ? body : `${who}: ${body}`,
       tag: `chat-${data.conversation ?? ws}`,
       data,
     };

@@ -570,8 +570,27 @@ class _ChatRow extends StatelessWidget {
                       Expanded(
                         child: _Preview(chat: chat, me: me, unread: unread),
                       ),
-                      if (unread) ...[
+                      if (chat.unreadMentions > 0) ...[
                         const SizedBox(width: 8),
+                        Tooltip(
+                          message: l.mentionsYou,
+                          child: CircleAvatar(
+                            key: const Key('mentionBadge'),
+                            radius: 11,
+                            backgroundColor: scheme.primary,
+                            child: Text(
+                              '@',
+                              style: TextStyle(
+                                color: scheme.onPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (unread) ...[
+                        const SizedBox(width: 6),
                         CountPill(count: chat.unread),
                       ],
                     ],

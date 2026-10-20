@@ -31,6 +31,17 @@ Deno.test("a private message is titled with the sender", () => {
   assertEquals([n.title, n.body], ["Sami", "Concrete at 7"]);
 });
 
+Deno.test("a mention says who mentioned you, in the same chat notification", () => {
+  const n = format({ ...base, kind: "mention" });
+  assertEquals([n.title, n.body, n.tag], ["Bridge", "Sami أشار إليك: Concrete at 7", "chat-c"]);
+  assertEquals(
+    format({ ...base, kind: "mention", locale: "en" }).body,
+    "Sami mentioned you: Concrete at 7",
+  );
+  const direct = format({ ...base, kind: "mention", data: { ...base.data, direct: true } });
+  assertEquals([direct.title, direct.body], ["Sami", "Sami أشار إليك: Concrete at 7"]);
+});
+
 Deno.test("task notifications use the app's wording in the phone's language", () => {
   const q = {
     ...base,

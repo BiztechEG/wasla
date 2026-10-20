@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models.dart';
 import '../state/providers.dart';
 import 'invite_sheet.dart';
+import 'profile_card.dart';
 import 'widgets.dart';
 
 /// Everyone in the workspace. Admins change roles, remove people and see
@@ -56,11 +57,21 @@ class MembersScreen extends ConsumerWidget {
                       tag: roleLabel(l, m.role),
                       strongTag: m.role != WorkspaceRole.member,
                       trailing: _canChange(m, me)
-                          ? const Icon(Icons.more_vert)
+                          ? IconButton(
+                              tooltip: l.moreActions,
+                              icon: const Icon(Icons.more_vert),
+                              onPressed: () => _showActions(context, ref, m),
+                            )
                           : null,
-                      onTap: _canChange(m, me)
-                          ? () => _showActions(context, ref, m)
-                          : null,
+                      onTap: m.userId == me
+                          ? null
+                          : () => showProfileCard(
+                              context,
+                              ref,
+                              membership: membership,
+                              userId: m.userId,
+                              name: m.fullName,
+                            ),
                     ),
                 ],
               ),

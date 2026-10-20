@@ -305,6 +305,7 @@ class FakeApi implements WaslaApi {
     String senderName,
     String body, {
     String? projectId,
+    List<String> mentions = const [],
   }) {
     chatMessages[conversationId]!.insert(
       0,
@@ -315,6 +316,7 @@ class FakeApi implements WaslaApi {
         createdAt: _tick(),
         body: body,
         projectId: projectId ?? chats[conversationId]!.projectId,
+        mentions: mentions,
       ),
     );
     _events.add(ChatEvent(conversationId: conversationId));
@@ -354,6 +356,14 @@ class FakeApi implements WaslaApi {
               .where(
                 (m) =>
                     m.senderId != 'me' &&
+                    !m.deleted &&
+                    (myRead == null || m.createdAt.isAfter(myRead)),
+              )
+              .length,
+          unreadMentions: messages
+              .where(
+                (m) =>
+                    m.mentions.contains('me') &&
                     !m.deleted &&
                     (myRead == null || m.createdAt.isAfter(myRead)),
               )
@@ -428,7 +438,9 @@ class FakeApi implements WaslaApi {
     String? replyTo,
     String? projectId,
     Upload? file,
+    List<String> mentions = const [],
   }) async {
+    sentMentions.add(mentions);
     final list = chatMessages[conversationId]!;
     final quoted = replyTo == null
         ? null
@@ -443,6 +455,7 @@ class FakeApi implements WaslaApi {
       replyTo: replyTo,
       replySenderName: quoted?.senderName,
       replyBody: quoted?.body,
+      mentions: mentions,
       file: file == null
           ? null
           : ChatFile(
@@ -456,6 +469,29 @@ class FakeApi implements WaslaApi {
     list.insert(0, sent);
     reads.putIfAbsent(conversationId, () => {})['me'] = sent.createdAt;
     _events.add(ChatEvent(conversationId: conversationId));
+  }
+
+  /// The mentions each sent message carried, in order.
+  final sentMentions = <List<String>>[];
+
+  @override
+  Future<void> toggleReaction(String messageId, String emoji) async {
+    for (final entry in chatMessages.entries) {
+      final i = entry.value.indexWhere((m) => m.id == messageId);
+      if (i < 0) continue;
+      entry.value[i] = entry.value[i].withReaction(emoji, 'me');
+      _events.add(ChatEvent(conversationId: entry.key));
+    }
+  }
+
+  /// Someone else reacting.
+  void react(String messageId, String emoji, String userId) {
+    for (final entry in chatMessages.entries) {
+      final i = entry.value.indexWhere((m) => m.id == messageId);
+      if (i < 0) continue;
+      entry.value[i] = entry.value[i].withReaction(emoji, userId);
+      _events.add(ChatEvent(conversationId: entry.key));
+    }
   }
 
   @override
@@ -523,6 +559,17 @@ class FakeApi implements WaslaApi {
         in projectsByWorkspace[chatWorkspace[conversationId]] ??
             const <Project>[])
       if (p.status == ProjectStatus.active) p.id,
+  ];
+
+  @override
+  Future<List<String>> projectsWith(
+    String workspaceId,
+    String userId,
+  ) async => [
+    for (final p in projectsByWorkspace[workspaceId] ?? const <Project>[])
+      if (p.status == ProjectStatus.active &&
+          (projectMembersById[p.id]?.any((m) => m.userId == userId) ?? false))
+        p.id,
   ];
 
   /// What the phone would hear after being offline.

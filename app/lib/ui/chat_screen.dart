@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,8 +17,11 @@ import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../theme.dart';
 import 'chat_format.dart';
+import 'emoji.dart';
 import 'files_common.dart';
+import 'mentions.dart';
 import 'my_tasks_tab.dart';
+import 'profile_card.dart';
 import 'project_screen.dart';
 import 'widgets.dart';
 
@@ -94,16 +99,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? const <Project>[]
         : [for (final id in target.tagProjectIds) ?projectOf(id)];
 
-    final openDetails = project == null
-        ? null
-        : () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ProjectScreen(
-                project: project,
-                initialTab: ProjectTab.status,
-              ),
-            ),
-          );
+    // A project's status, or the other person's card.
+    final VoidCallback? openDetails;
+    if (project != null) {
+      openDetails = () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              ProjectScreen(project: project, initialTab: ProjectTab.status),
+        ),
+      );
+    } else if (target.otherId case final other?) {
+      openDetails = () => showProfileCard(
+        context,
+        ref,
+        membership: widget.membership,
+        userId: other,
+        name: target.title,
+        inPrivateChat: true,
+      );
+    } else {
+      openDetails = null;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -150,6 +166,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     else if (!target.otherActive)
                       Text(
                         l.leftWorkspace,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    else if (openDetails != null)
+                      Text(
+                        l.tapForProfile,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -294,8 +319,15 @@ class ChatView extends ConsumerStatefulWidget {
 
 class _ChatViewState extends ConsumerState<ChatView> {
   final _text = TextEditingController();
+  final _focus = FocusNode();
   final _scroll = ScrollController();
   ChatMessage? _replyTo;
+
+  /// The emoji picker is open under the message field.
+  bool _emojiOpen = false;
+
+  /// Who can be mentioned here, as of the last build.
+  List<MentionCandidate> _candidates = const [];
   late String? _tag = widget.projectFilter;
 
   /// Text too long for one message, waiting to go as a file (or, if the
@@ -341,6 +373,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
   @override
   void dispose() {
     _text.dispose();
+    _focus.dispose();
     _scroll.dispose();
     _flashTimer?.cancel();
     _recTick?.cancel();
@@ -358,6 +391,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     final messenger = ScaffoldMessenger.of(context);
     final reply = _replyTo;
     final asFile = _longAsFile;
+    final candidates = _candidates;
     _text.clear();
     setState(() {
       _replyTo = null;
@@ -376,6 +410,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
           ),
           replyTo: reply,
           projectId: project,
+          mentions: mentionedIds(body, candidates),
         );
       } else if (long != null) {
         final parts = [
@@ -387,6 +422,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
             body: part,
             replyTo: i == 0 ? reply : null,
             projectId: project,
+            mentions: mentionedIds(part, candidates),
           );
         }
       } else {
@@ -395,6 +431,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
           file: file,
           replyTo: reply,
           projectId: project,
+          mentions: mentionedIds(body, candidates),
         );
       }
     } catch (e) {
@@ -566,6 +603,119 @@ class _ChatViewState extends ConsumerState<ChatView> {
     }
   }
 
+  /// On a phone the emoji picker takes the keyboard's place; with a
+  /// keyboard (web, a computer) both stay.
+  bool get _touch =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  void _toggleEmoji() {
+    if (_emojiOpen) {
+      setState(() => _emojiOpen = false);
+      if (_touch) _focus.requestFocus();
+    } else {
+      if (_touch) _focus.unfocus();
+      setState(() => _emojiOpen = true);
+    }
+  }
+
+  void _pickMention(int start, MentionCandidate c) {
+    _text.value = applyMention(_text.value, start, c.name);
+    _focus.requestFocus();
+  }
+
+  Future<void> _react(ChatMessage m, String emoji) async {
+    try {
+      await ref.read(chatProvider(_key).notifier).react(m, emoji);
+    } catch (e) {
+      if (mounted) showMessage(context, errorText(context.l10n, e));
+    }
+  }
+
+  Future<void> _reactMore(ChatMessage m) async {
+    final emoji = await pickEmoji(context);
+    if (emoji != null && mounted) await _react(m, emoji);
+  }
+
+  /// The quick reactions in a small menu where the mouse is.
+  Future<void> _reactMenu(ChatMessage m, String? me, Offset at) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        at & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [_ReactionMenuEntry(mine: _mine(m, me))],
+    );
+    if (!mounted || choice == null) return;
+    await _onReactChoice(m, choice);
+  }
+
+  Future<void> _onReactChoice(ChatMessage m, String choice) async {
+    if (choice == _moreReactions) {
+      await _reactMore(m);
+    } else if (choice.startsWith(_reactPrefix)) {
+      await _react(m, choice.substring(_reactPrefix.length));
+    }
+  }
+
+  static Set<String> _mine(ChatMessage m, String? me) => {
+    for (final e in m.reactions.entries)
+      if (e.value.contains(me)) e.key,
+  };
+
+  void _profile(String userId, String name) {
+    if (userId == ref.read(authProvider).value) return;
+    showProfileCard(
+      context,
+      ref,
+      membership: widget.membership,
+      userId: userId,
+      name: name,
+      inPrivateChat: userId == widget.target.otherId,
+      projectId: widget.target.projectId ?? widget.projectFilter,
+    );
+  }
+
+  /// Who reacted with what.
+  void _showReactions(ChatMessage m, Map<String, String> names, String? me) {
+    final l = context.l10n;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          key: const Key('whoReacted'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final e in m.reactions.entries) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: Text(
+                    '${e.key}  ${e.value.length}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                for (final id in e.value)
+                  ListTile(
+                    leading: Avatar(name: names[id] ?? '', radius: 18),
+                    title: Text(id == me ? l.you : names[id] ?? l.formerMember),
+                  ),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _attach() async {
     if (!ref.read(chatProvider(_key)).hasValue) return;
     final upload = await pickUpload(context, ref);
@@ -596,6 +746,30 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 ) ??
                 false));
 
+    final names = {
+      for (final m in ref.watch(membersProvider(ws)).value ?? const <Member>[])
+        m.userId: m.fullName,
+    };
+    final others = [
+      for (final p in members ?? const <ProjectMember>[])
+        if (p.userId != me) p,
+    ];
+    _candidates = target.isProject
+        ? [
+            if (others.length > 1)
+              MentionCandidate(id: null, name: l.mentionEveryone),
+            for (final p in others)
+              MentionCandidate(id: p.userId, name: p.fullName),
+          ]
+        : [
+            if (target.otherId case final other? when target.otherActive)
+              MentionCandidate(id: other, name: target.title),
+          ];
+    final mentionAt = closed ? null : mentionQuery(_text.value);
+    final suggestions = mentionAt == null
+        ? const <MentionCandidate>[]
+        : matchMentions(_candidates, mentionAt.query);
+
     // Everyone who should read a message (besides its sender).
     List<String> readers(ChatMessage m) => target.isProject
         ? [
@@ -620,6 +794,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
               showTags: !target.isProject && widget.projectFilter == null,
               projects: projects,
               readers: readers,
+              names: names,
               controller: _scroll,
               keyFor: (id) => _keys.putIfAbsent(id, GlobalKey.new),
               flash: _flash,
@@ -629,6 +804,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
                   _actions(m, me, canModerate, members, closed: closed, at: at),
               onReply: closed ? null : (m) => setState(() => _replyTo = m),
               onQuoteTap: _jumpTo,
+              onProfile: _profile,
+              onReact: closed ? null : _react,
+              onReactMenu: closed ? null : (m, at) => _reactMenu(m, me, at),
+              onReactions: (m) => _showReactions(m, names, me),
               onRetry: (p) async {
                 try {
                   await ref.read(chatProvider(_key).notifier).retry(p);
@@ -653,9 +832,21 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 ? l.chatClosedProject
                 : l.chatClosedPerson(target.title),
           )
-        else
+        else ...[
+          if (suggestions.isNotEmpty)
+            MentionSuggestions(
+              choices: suggestions,
+              memberCount: others.length,
+              onPick: (c) => _pickMention(mentionAt!.start, c),
+            ),
           _Composer(
             controller: _text,
+            focusNode: _focus,
+            emojiOpen: _emojiOpen,
+            onEmoji: _toggleEmoji,
+            onFieldTap: () {
+              if (_emojiOpen && _touch) setState(() => _emojiOpen = false);
+            },
             replyTo: _replyTo,
             onCancelReply: () => setState(() => _replyTo = null),
             long: _long,
@@ -690,6 +881,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                   )
                 : null,
           ),
+        ],
       ],
     );
   }
@@ -741,6 +933,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
           Offset.zero & overlay.size,
         ),
         items: [
+          if (!closed) ...[
+            _ReactionMenuEntry(mine: _mine(m, me)),
+            const PopupMenuDivider(),
+          ],
           for (final a in choices)
             PopupMenuItem(
               value: a.id,
@@ -767,6 +963,19 @@ class _ChatViewState extends ConsumerState<ChatView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (!closed)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: ReactionBar(
+                          mine: _mine(m, me),
+                          onPick: (e) =>
+                              Navigator.pop(context, '$_reactPrefix$e'),
+                          onMore: () => Navigator.pop(context, _moreReactions),
+                        ),
+                      ),
+                    ),
                   for (final a in choices)
                     ListTile(
                       leading: Icon(
@@ -787,6 +996,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
       );
     }
     if (!mounted) return;
+    if (choice != null &&
+        (choice == _moreReactions || choice.startsWith(_reactPrefix))) {
+      return _onReactChoice(m, choice);
+    }
     switch (choice) {
       case 'reply':
         setState(() => _replyTo = m);
@@ -1033,6 +1246,7 @@ class _MessageList extends StatelessWidget {
     required this.showTags,
     required this.projects,
     required this.readers,
+    required this.names,
     required this.controller,
     required this.keyFor,
     required this.flash,
@@ -1040,6 +1254,10 @@ class _MessageList extends StatelessWidget {
     required this.onMenu,
     required this.onReply,
     required this.onQuoteTap,
+    required this.onProfile,
+    required this.onReact,
+    required this.onReactMenu,
+    required this.onReactions,
     required this.onRetry,
     required this.onDiscard,
   });
@@ -1050,6 +1268,9 @@ class _MessageList extends StatelessWidget {
   final bool showTags;
   final List<Project> projects;
   final List<String> Function(ChatMessage) readers;
+
+  /// The workspace's people by id, for mentions and reactions.
+  final Map<String, String> names;
   final ScrollController controller;
   final GlobalKey Function(String id) keyFor;
   final String? flash;
@@ -1062,6 +1283,12 @@ class _MessageList extends StatelessWidget {
   /// Null where replying is not possible (a closed chat).
   final void Function(ChatMessage)? onReply;
   final void Function(String id) onQuoteTap;
+  final void Function(String userId, String name) onProfile;
+
+  /// Null where reacting is not possible (a closed chat).
+  final void Function(ChatMessage, String emoji)? onReact;
+  final void Function(ChatMessage, Offset at)? onReactMenu;
+  final void Function(ChatMessage) onReactions;
   final void Function(PendingMessage) onRetry;
   final void Function(PendingMessage) onDiscard;
 
@@ -1157,6 +1384,14 @@ class _MessageList extends StatelessWidget {
                 onQuoteTap: message.replyTo == null
                     ? null
                     : () => onQuoteTap(message.replyTo!),
+                me: me,
+                mentions: mentionTargets(message.mentions, names, me),
+                onProfile: onProfile,
+                onReact: onReact == null ? null : (e) => onReact!(message, e),
+                onReactMenu: onReactMenu == null
+                    ? null
+                    : (at) => onReactMenu!(message, at),
+                onReactions: () => onReactions(message),
               ),
           };
         },
@@ -1274,6 +1509,12 @@ class _Bubble extends ConsumerWidget {
     required this.onMenu,
     required this.onReply,
     required this.onQuoteTap,
+    required this.me,
+    required this.mentions,
+    required this.onProfile,
+    required this.onReact,
+    required this.onReactMenu,
+    required this.onReactions,
   });
 
   final ChatMessage message;
@@ -1288,11 +1529,25 @@ class _Bubble extends ConsumerWidget {
   final void Function(Offset? at) onMenu;
   final VoidCallback? onReply;
   final VoidCallback? onQuoteTap;
+  final String? me;
+  final List<MentionTarget> mentions;
+  final void Function(String userId, String name) onProfile;
+  final void Function(String emoji)? onReact;
+  final void Function(Offset at)? onReactMenu;
+  final VoidCallback onReactions;
+
+  /// One to three emoji and nothing else: big, without a bubble.
+  bool get _bigEmoji =>
+      !message.deleted &&
+      message.file == null &&
+      message.replyTo == null &&
+      isBigEmoji(message.body ?? '');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final theme = _bubbleTheme(context, mine);
+    final big = _bigEmoji;
+    final theme = big ? Theme.of(context) : _bubbleTheme(context, mine);
     final muted = theme.colorScheme.onSurfaceVariant;
     final m = message;
     final file = m.file;
@@ -1309,17 +1564,21 @@ class _Bubble extends ConsumerWidget {
           padding: media
               ? const EdgeInsets.fromLTRB(6, 2, 6, 4)
               : const EdgeInsets.only(bottom: 2),
-          child: Text(
-            m.senderName,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: WaslaColors.onTint(
-                WaslaColors.project(
-                  WaslaColors.projectColors[m.senderName.hashCode.abs() %
-                      WaslaColors.projectColors.length],
+          child: GestureDetector(
+            onTap: () => onProfile(m.senderId, m.senderName),
+            child: Text(
+              m.senderName,
+              key: const Key('senderName'),
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: WaslaColors.onTint(
+                  WaslaColors.project(
+                    WaslaColors.projectColors[m.senderName.hashCode.abs() %
+                        WaslaColors.projectColors.length],
+                    theme.brightness,
+                  ),
                   theme.brightness,
                 ),
-                theme.brightness,
               ),
             ),
           ),
@@ -1402,7 +1661,13 @@ class _Bubble extends ConsumerWidget {
               ),
             ),
           ),
-        if (m.body != null && m.body!.isNotEmpty)
+        if (big)
+          Text(
+            m.body!.trim(),
+            key: const Key('bigEmoji'),
+            style: const TextStyle(fontSize: 44, height: 1.2),
+          )
+        else if (m.body != null && m.body!.isNotEmpty)
           Padding(
             padding: media
                 ? const EdgeInsets.fromLTRB(6, 6, 6, 0)
@@ -1410,6 +1675,8 @@ class _Bubble extends ConsumerWidget {
             child: _FoldText(
               m.body!,
               style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
+              mentions: mentions,
+              onMention: (t) => onProfile(t.id!, t.name),
             ),
           ),
         for (final link in linksIn(m.body ?? '').take(3))
@@ -1467,15 +1734,40 @@ class _Bubble extends ConsumerWidget {
               children: [
                 if (avatar != null) ...[
                   avatar
-                      ? Avatar(name: m.senderName, radius: 14)
+                      ? GestureDetector(
+                          onTap: () => onProfile(m.senderId, m.senderName),
+                          child: Avatar(name: m.senderName, radius: 14),
+                        )
                       : const SizedBox(width: 28),
                   const SizedBox(width: 8),
                 ],
                 Flexible(
-                  child: _HoverActions(
-                    onReply: m.deleted ? null : onReply,
-                    onMenu: m.deleted ? null : onMenu,
-                    child: _bubbleBody(context, theme, content, maxWidth),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: mine
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                    children: [
+                      _HoverActions(
+                        onReply: m.deleted ? null : onReply,
+                        onMenu: m.deleted ? null : onMenu,
+                        onReact: m.deleted ? null : onReactMenu,
+                        child: _bubbleBody(
+                          context,
+                          theme,
+                          content,
+                          maxWidth,
+                          big: big,
+                        ),
+                      ),
+                      if (m.reactions.isNotEmpty && !m.deleted)
+                        _Reactions(
+                          reactions: m.reactions,
+                          me: me,
+                          onTap: onReact,
+                          onLongPress: onReactions,
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -1490,15 +1782,16 @@ class _Bubble extends ConsumerWidget {
     BuildContext context,
     ThemeData theme,
     List<Widget> content,
-    double maxWidth,
-  ) {
+    double maxWidth, {
+    required bool big,
+  }) {
     final m = message;
     final file = m.file;
     final media = !m.deleted && file != null && (file.isImage || file.isVideo);
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: Material(
-        color: _bubbleColor(context, mine),
+        color: big ? Colors.transparent : _bubbleColor(context, mine),
         borderRadius: _bubbleShape(mine),
         child: InkWell(
           customBorder: RoundedRectangleBorder(
@@ -1527,10 +1820,19 @@ class _Bubble extends ConsumerWidget {
 
 /// A message's text; a long one shows its first lines and "Read more".
 class _FoldText extends StatefulWidget {
-  const _FoldText(this.text, {this.style});
+  const _FoldText(
+    this.text, {
+    this.style,
+    this.mentions = const [],
+    this.onMention,
+  });
 
   final String text;
   final TextStyle? style;
+
+  /// Names the message mentions, drawn and (people) tappable.
+  final List<MentionTarget> mentions;
+  final void Function(MentionTarget)? onMention;
 
   @override
   State<_FoldText> createState() => _FoldTextState();
@@ -1538,29 +1840,53 @@ class _FoldText extends StatefulWidget {
 
 class _FoldTextState extends State<_FoldText> {
   bool _open = false;
+  final _recognizers = <GestureRecognizer>[];
+
+  void _dropRecognizers() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  void dispose() {
+    _dropRecognizers();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
+    _dropRecognizers();
+    final spans = mentionSpans(
+      context,
+      widget.text,
+      widget.mentions,
+      recognizers: _recognizers,
+      onTap: (t) => widget.onMention?.call(t),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final style = DefaultTextStyle.of(context).style.merge(widget.style);
         final painter = TextPainter(
-          text: TextSpan(text: widget.text, style: style),
+          text: TextSpan(children: spans, style: style),
           maxLines: _foldLines,
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
         )..layout(maxWidth: constraints.maxWidth);
         final long = painter.didExceedMaxLines;
         painter.dispose();
-        if (!long) return Text(widget.text, style: widget.style);
+        if (!long) {
+          return Text.rich(TextSpan(children: spans), style: widget.style);
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              widget.text,
+            Text.rich(
+              TextSpan(children: spans),
               style: widget.style,
               maxLines: _open ? null : _foldLines,
               overflow: _open ? null : TextOverflow.ellipsis,
@@ -1683,11 +2009,13 @@ class _HoverActions extends StatefulWidget {
   const _HoverActions({
     required this.onReply,
     required this.onMenu,
+    this.onReact,
     required this.child,
   });
 
   final VoidCallback? onReply;
   final void Function(Offset? at)? onMenu;
+  final void Function(Offset at)? onReact;
   final Widget child;
 
   @override
@@ -1721,6 +2049,13 @@ class _HoverActionsState extends State<_HoverActions> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (widget.onReact != null)
+                      _HoverButton(
+                        key: const Key('hoverReact'),
+                        icon: Icons.add_reaction_outlined,
+                        tooltip: l.react,
+                        onTap: widget.onReact!,
+                      ),
                     if (widget.onReply != null)
                       _HoverButton(
                         key: const Key('hoverReply'),
@@ -1773,6 +2108,111 @@ class _HoverButton extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// What the reaction row hands back to the menu or sheet it is in.
+const _reactPrefix = 'react:';
+const _moreReactions = 'react+';
+
+/// The quick reactions as the first row of a message's menu.
+class _ReactionMenuEntry extends PopupMenuEntry<String> {
+  const _ReactionMenuEntry({required this.mine});
+
+  final Set<String> mine;
+
+  @override
+  double get height => 52;
+
+  @override
+  bool represents(String? value) => false;
+
+  @override
+  State<_ReactionMenuEntry> createState() => _ReactionMenuEntryState();
+}
+
+class _ReactionMenuEntryState extends State<_ReactionMenuEntry> {
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: ReactionBar(
+        mine: widget.mine,
+        onPick: (e) => Navigator.pop(context, '$_reactPrefix$e'),
+        onMore: () => Navigator.pop(context, _moreReactions),
+      ),
+    ),
+  );
+}
+
+/// The reactions under a message, each with how many chose it; one's own
+/// are outlined. A tap adds or takes back one's own, a long press shows who.
+class _Reactions extends StatelessWidget {
+  const _Reactions({
+    required this.reactions,
+    required this.me,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final Map<String, List<String>> reactions;
+  final String? me;
+
+  /// Null in a closed chat.
+  final void Function(String emoji)? onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 2),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          for (final e in reactions.entries)
+            Builder(
+              builder: (context) {
+                final mine = e.value.contains(me);
+                return Material(
+                  color: mine ? scheme.primaryContainer : scheme.surface,
+                  shape: StadiumBorder(
+                    side: BorderSide(
+                      color: mine ? scheme.primary : scheme.outlineVariant,
+                      width: mine ? 1.5 : 1,
+                    ),
+                  ),
+                  child: InkWell(
+                    key: Key('reaction-${e.key}'),
+                    customBorder: const StadiumBorder(),
+                    onTap: onTap == null ? onLongPress : () => onTap!(e.key),
+                    onLongPress: onLongPress,
+                    onSecondaryTap: onLongPress,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        e.value.length > 1
+                            ? '${e.key} ${e.value.length}'
+                            : e.key,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: mine ? scheme.primary : scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// One entry in a message's actions.
@@ -2413,6 +2853,10 @@ class _LockHint extends StatelessWidget {
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
+    required this.focusNode,
+    required this.emojiOpen,
+    required this.onEmoji,
+    required this.onFieldTap,
     required this.replyTo,
     required this.onCancelReply,
     required this.long,
@@ -2428,6 +2872,12 @@ class _Composer extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
+
+  /// The emoji picker is open under the field; [onEmoji] opens or closes it.
+  final bool emojiOpen;
+  final VoidCallback onEmoji;
+  final VoidCallback onFieldTap;
   final ChatMessage? replyTo;
   final VoidCallback onCancelReply;
 
@@ -2607,10 +3057,32 @@ class _Composer extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  start: 3,
+                                  bottom: 3,
+                                ),
+                                child: IconButton(
+                                  key: const Key('emojiButton'),
+                                  tooltip: emojiOpen ? l.keyboard : l.emoji,
+                                  onPressed: onEmoji,
+                                  color: emojiOpen
+                                      ? theme.colorScheme.primary
+                                      : muted,
+                                  icon: Icon(
+                                    emojiOpen
+                                        ? Icons.keyboard_outlined
+                                        : LucideIcons.smile,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
                               Expanded(
                                 child: TextField(
                                   key: const Key('messageField'),
                                   controller: controller,
+                                  focusNode: focusNode,
+                                  onTap: onFieldTap,
                                   minLines: 1,
                                   maxLines: 5,
                                   textCapitalization:
@@ -2626,7 +3098,7 @@ class _Composer extends StatelessWidget {
                                     focusedBorder: InputBorder.none,
                                     contentPadding:
                                         const EdgeInsetsDirectional.fromSTEB(
-                                          18,
+                                          2,
                                           15,
                                           4,
                                           15,
@@ -2671,6 +3143,11 @@ class _Composer extends StatelessWidget {
                   ),
                 ],
               ),
+              if (emojiOpen)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: EmojiPanel(controller: controller),
+                ),
             ],
           ),
         ),
