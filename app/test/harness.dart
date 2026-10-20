@@ -100,6 +100,16 @@ class FakePicker implements Picker {
 
   @override
   Future<Upload?> pickFile() async => file;
+
+  /// What the multiple picks hand over; [file] alone unless set.
+  List<Upload>? many;
+
+  @override
+  Future<Picked> pickImages({int limit = maxFilesPerPick}) async =>
+      (files: many ?? [file], tooLarge: 0);
+
+  @override
+  Future<Picked> pickFiles() async => (files: many ?? [file], tooLarge: 0);
 }
 
 /// A Google account that keeps Drive files and calendar events in memory.

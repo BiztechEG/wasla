@@ -17,8 +17,10 @@ import 'chat_format.dart';
 import 'modern.dart';
 import 'widgets.dart';
 
-/// Asks where to pick from (gallery, camera or files) and returns the pick.
-Future<Upload?> pickUpload(BuildContext context, WidgetRef ref) async {
+/// Asks where to pick from (gallery, camera or files) and returns what was
+/// picked: up to [maxFilesPerPick] photos or files, or one video or camera
+/// shot. Empty when nothing was picked.
+Future<List<Upload>> pickUploads(BuildContext context, WidgetRef ref) async {
   final l = context.l10n;
   final source = await showModalBottomSheet<String>(
     context: context,
@@ -55,21 +57,40 @@ Future<Upload?> pickUpload(BuildContext context, WidgetRef ref) async {
       ),
     ),
   );
-  if (source == null || !context.mounted) return null;
+  if (source == null || !context.mounted) return const [];
   final picker = ref.read(pickerProvider);
   try {
-    return switch (source) {
-      'file' => await picker.pickFile(),
-      'video' => await picker.pickVideo(camera: false),
-      'record' => await picker.pickVideo(camera: true),
-      _ => await picker.pickImage(camera: source == 'camera'),
+    final Picked picked = switch (source) {
+      'file' => await picker.pickFiles(),
+      'gallery' => await picker.pickImages(),
+      _ => (
+        files: [
+          ?switch (source) {
+            'video' => await picker.pickVideo(camera: false),
+            'record' => await picker.pickVideo(camera: true),
+            _ => await picker.pickImage(camera: true),
+          },
+        ],
+        tooLarge: 0,
+      ),
     };
+    final files = picked.files;
+    if (!context.mounted) return const [];
+    if (files.length > maxFilesPerPick) {
+      showMessage(context, l.tooManyFiles(maxFilesPerPick));
+    } else if (picked.tooLarge > 0) {
+      showMessage(
+        context,
+        files.isEmpty ? l.fileTooLarge : l.filesTooLarge(picked.tooLarge),
+      );
+    }
+    return files.take(maxFilesPerPick).toList();
   } on FileTooLarge {
     if (context.mounted) showMessage(context, l.fileTooLarge);
   } catch (e) {
     if (context.mounted) showMessage(context, errorText(l, e));
   }
-  return null;
+  return const [];
 }
 
 /// Photos and videos open full screen; anything else opens in the phone's

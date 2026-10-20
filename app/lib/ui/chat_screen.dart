@@ -337,9 +337,38 @@ class ChatView extends ConsumerStatefulWidget {
   ConsumerState<ChatView> createState() => _ChatViewState();
 }
 
+/// A phone's on-screen keyboard; with a real keyboard (web, a computer)
+/// Enter sends.
+bool get _onPhone =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
+
+/// Enter sends (through [onEnter]) and Shift+Enter starts a new line, as in
+/// WhatsApp Web. On a phone Enter keeps making new lines.
+FocusOnKeyEventCallback _enterSends(
+  TextEditingController text,
+  VoidCallback onEnter,
+) => (node, event) {
+  if (_onPhone || event is! KeyDownEvent) return KeyEventResult.ignored;
+  final key = event.logicalKey;
+  if (key != LogicalKeyboardKey.enter &&
+      key != LogicalKeyboardKey.numpadEnter) {
+    return KeyEventResult.ignored;
+  }
+  // Shift+Enter is a new line; Enter while typing with an input method
+  // (composing a word) belongs to it.
+  if (HardwareKeyboard.instance.isShiftPressed ||
+      text.value.composing.isValid) {
+    return KeyEventResult.ignored;
+  }
+  onEnter();
+  return KeyEventResult.handled;
+};
+
 class _ChatViewState extends ConsumerState<ChatView> {
   final _text = TextEditingController();
-  final _focus = FocusNode();
+  late final _focus = FocusNode(onKeyEvent: _enterSends(_text, _onEnter));
   final _scroll = ScrollController();
   ChatMessage? _replyTo;
 
@@ -348,6 +377,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
   /// Who can be mentioned here, as of the last build.
   List<MentionCandidate> _candidates = const [];
+
+  /// The mention being typed and who it could be, as of the last build.
+  ({int start, String query})? _mentionAt;
+  List<MentionCandidate> _suggestions = const [];
   late String? _tag = widget.projectFilter;
 
   /// Text too long for one message, waiting to go as a file (or, if the
@@ -539,10 +572,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
     super.dispose();
   }
 
-  Future<void> _send({Upload? file}) async {
+  Future<void> _send({List<Upload> files = const []}) async {
     final body = _text.text.trim();
-    final long = file == null ? _long : null;
-    if (body.isEmpty && file == null && long == null) return;
+    final long = files.isEmpty ? _long : null;
+    if (body.isEmpty && files.isEmpty && long == null) return;
     // Keep what was typed until the chat has loaded.
     if (!ref.read(chatProvider(_key)).hasValue) return;
     final l = context.l10n;
@@ -583,10 +616,17 @@ class _ChatViewState extends ConsumerState<ChatView> {
             mentions: mentionedIds(part, candidates),
           );
         }
+      } else if (files.isNotEmpty) {
+        await chat.sendFiles(
+          files,
+          body: body.isEmpty ? null : body,
+          replyTo: reply,
+          projectId: project,
+          mentions: mentionedIds(body, candidates),
+        );
       } else {
         await chat.send(
-          body: body.isEmpty ? null : body,
-          file: file,
+          body: body,
           replyTo: reply,
           projectId: project,
           mentions: mentionedIds(body, candidates),
@@ -755,7 +795,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     }
     try {
       final voice = await recorder.stop(length);
-      if (voice != null && mounted) await _send(file: voice);
+      if (voice != null && mounted) await _send(files: [voice]);
     } catch (e) {
       if (mounted) showMessage(context, errorText(l, e));
     }
@@ -763,10 +803,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
   /// On a phone the emoji picker takes the keyboard's place; with a
   /// keyboard (web, a computer) both stay.
-  bool get _touch =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+  bool get _touch => _onPhone;
 
   void _toggleEmoji() {
     if (_emojiOpen) {
@@ -780,7 +817,32 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
   void _pickMention(int start, MentionCandidate c) {
     _text.value = applyMention(_text.value, start, c.name);
-    _focus.requestFocus();
+    _focusField();
+  }
+
+  /// Enter picks the first suggested name while a mention is being typed,
+  /// and sends otherwise.
+  void _onEnter() {
+    final at = _mentionAt;
+    if (at != null && _suggestions.isNotEmpty) {
+      _pickMention(at.start, _suggestions.first);
+    } else if (ref.read(chatProvider(_key)).hasValue) {
+      _send();
+    }
+  }
+
+  void _replyWith(ChatMessage m) {
+    setState(() => _replyTo = m);
+    _focusField();
+  }
+
+  /// Puts the cursor back in the message field, after the frame so a
+  /// closing menu or the tap that got here does not take it away again.
+  void _focusField() {
+    if (_emojiOpen && _touch) setState(() => _emojiOpen = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
   }
 
   Future<void> _react(ChatMessage m, String emoji) async {
@@ -876,8 +938,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
   Future<void> _attach() async {
     if (!ref.read(chatProvider(_key)).hasValue) return;
-    final upload = await pickUpload(context, ref);
-    if (upload != null && mounted) await _send(file: upload);
+    final uploads = await pickUploads(context, ref);
+    if (uploads.isNotEmpty && mounted) await _send(files: uploads);
   }
 
   @override
@@ -927,6 +989,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
     final suggestions = mentionAt == null
         ? const <MentionCandidate>[]
         : matchMentions(_candidates, mentionAt.query);
+    _mentionAt = mentionAt;
+    _suggestions = suggestions;
 
     // Everyone who should read a message (besides its sender).
     List<String> readers(ChatMessage m) => target.isProject
@@ -975,9 +1039,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                       closed: closed,
                       at: at,
                     ),
-                    onReply: closed
-                        ? null
-                        : (m) => setState(() => _replyTo = m),
+                    onReply: closed ? null : _replyWith,
                     onQuoteTap: _jumpTo,
                     onProfile: _profile,
                     onReact: closed ? null : _react,
@@ -1024,10 +1086,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
           )
         else ...[
           if (suggestions.isNotEmpty)
-            MentionSuggestions(
-              choices: suggestions,
-              memberCount: others.length,
-              onPick: (c) => _pickMention(mentionAt!.start, c),
+            // Clicking a name does not take the cursor out of the field.
+            TextFieldTapRegion(
+              child: MentionSuggestions(
+                choices: suggestions,
+                memberCount: others.length,
+                onPick: (c) => _pickMention(mentionAt!.start, c),
+              ),
             ),
           _Composer(
             controller: _text,
@@ -1194,7 +1259,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     }
     switch (choice) {
       case 'reply':
-        setState(() => _replyTo = m);
+        _replyWith(m);
       case 'drive':
         await saveFileToDrive(context, ref, m.file!);
       case 'download':
@@ -3849,6 +3914,12 @@ class ReplyThreadScreen extends ConsumerStatefulWidget {
 
 class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
   final _text = TextEditingController();
+  late final _focus = FocusNode(
+    onKeyEvent: _enterSends(_text, () {
+      final root = ref.read(replyChainProvider(_key)).value?.firstOrNull;
+      if (root != null) _send(root);
+    }),
+  );
   bool _sending = false;
 
   ThreadKey get _key => (
@@ -3860,6 +3931,7 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
   @override
   void dispose() {
     _text.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -4047,6 +4119,7 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
                         child: TextField(
                           key: const Key('threadField'),
                           controller: _text,
+                          focusNode: _focus,
                           minLines: 1,
                           maxLines: 5,
                           maxLength: maxMessageLength,

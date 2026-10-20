@@ -254,8 +254,8 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
   }
 
   Future<void> _attach() async {
-    final file = await pickUpload(context, ref);
-    if (file != null) setState(() => _files.add(file));
+    final files = await pickUploads(context, ref);
+    if (files.isNotEmpty && mounted) setState(() => _files.addAll(files));
   }
 
   @override

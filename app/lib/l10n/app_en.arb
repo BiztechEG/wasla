@@ -188,6 +188,8 @@
   "videoFailed": "The video couldn't be played",
   "attachFile": "File",
   "fileTooLarge": "The file is larger than 50 MB",
+  "tooManyFiles": "Up to {count} files at a time; only the first {count} were taken",
+  "filesTooLarge": "{count, plural, =1{1 file over 50 MB was left out} other{{count} files over 50 MB were left out}}",
   "sendTo": "Filed under:",
   "noProjectTag": "No project",
   "viewing": "Showing:",

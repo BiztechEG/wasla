@@ -328,6 +328,42 @@ class ChatController extends AsyncNotifier<ChatState> {
     ),
   );
 
+  /// Sends several files in a row, all shown straight away; the text, the
+  /// reply and the mentions go with the first. A file that fails stays on
+  /// screen, marked, and the rest still go; the first error is thrown.
+  Future<void> sendFiles(
+    List<Upload> files, {
+    String? body,
+    ChatMessage? replyTo,
+    String? projectId,
+    List<String> mentions = const [],
+  }) async {
+    final now = state.value;
+    if (now == null) throw StateError('chat_not_loaded');
+    final messages = [
+      for (final (i, file) in files.indexed)
+        PendingMessage(
+          localId: _nextLocalId++,
+          body: i == 0 ? body : null,
+          file: file,
+          replyTo: i == 0 ? replyTo : null,
+          projectId: projectId,
+          mentions: i == 0 ? mentions : const [],
+        ),
+    ];
+    state = AsyncData(now.copyWith(pending: [...now.pending, ...messages]));
+    Object? failed;
+    for (final message in messages) {
+      try {
+        await _deliver(message);
+      } catch (e) {
+        failed ??= e;
+      }
+      if (!ref.mounted) return;
+    }
+    if (failed != null) throw failed;
+  }
+
   Future<void> retry(PendingMessage message) {
     _drop(message.localId);
     return _send(
@@ -348,6 +384,11 @@ class ChatController extends AsyncNotifier<ChatState> {
     final now = state.value;
     if (now == null) throw StateError('chat_not_loaded');
     state = AsyncData(now.copyWith(pending: [...now.pending, message]));
+    await _deliver(message);
+  }
+
+  /// Sends a message already on screen as pending.
+  Future<void> _deliver(PendingMessage message) async {
     try {
       await ref
           .read(apiProvider)

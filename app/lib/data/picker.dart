@@ -9,6 +9,9 @@ const maxUploadBytes = 50 * 1024 * 1024;
 /// The largest logo the server accepts.
 const maxLogoBytes = 2 * 1024 * 1024;
 
+/// The most files one send (or one upload) takes.
+const maxFilesPerPick = 5;
+
 class FileTooLarge implements Exception {
   const FileTooLarge();
 }
@@ -38,7 +41,15 @@ abstract class Picker {
   });
   Future<Upload?> pickVideo({required bool camera});
   Future<Upload?> pickFile();
+
+  /// Several gallery photos, or several files. Files over [maxUploadBytes]
+  /// are left out and counted in `tooLarge`.
+  Future<Picked> pickImages({int limit = maxFilesPerPick});
+  Future<Picked> pickFiles();
 }
+
+/// What a multiple pick brought back.
+typedef Picked = ({List<Upload> files, int tooLarge});
 
 class DevicePicker implements Picker {
   @override
@@ -92,5 +103,54 @@ class DevicePicker implements Picker {
     final bytes = await file.readAsBytes();
     if (bytes.length > maxUploadBytes) throw const FileTooLarge();
     return Upload(bytes: bytes, name: file.name, mime: mimeFor(file.name));
+  }
+
+  @override
+  Future<Picked> pickImages({int limit = maxFilesPerPick}) async {
+    final images = await ImagePicker().pickMultiImage(
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 80,
+      limit: limit,
+    );
+    final files = <Upload>[];
+    var tooLarge = 0;
+    for (final image in images) {
+      final bytes = await image.readAsBytes();
+      if (bytes.length > maxUploadBytes) {
+        tooLarge++;
+        continue;
+      }
+      files.add(
+        Upload(
+          bytes: bytes,
+          name: image.name,
+          mime: image.mimeType ?? mimeFor(image.name),
+        ),
+      );
+    }
+    return (files: files, tooLarge: tooLarge);
+  }
+
+  @override
+  Future<Picked> pickFiles() async {
+    final picked = await FilePicker.pickFiles();
+    final files = <Upload>[];
+    var tooLarge = 0;
+    for (final file in picked) {
+      if ((await file.length() ?? 0) > maxUploadBytes) {
+        tooLarge++;
+        continue;
+      }
+      final bytes = await file.readAsBytes();
+      if (bytes.length > maxUploadBytes) {
+        tooLarge++;
+        continue;
+      }
+      files.add(
+        Upload(bytes: bytes, name: file.name, mime: mimeFor(file.name)),
+      );
+    }
+    return (files: files, tooLarge: tooLarge);
   }
 }
