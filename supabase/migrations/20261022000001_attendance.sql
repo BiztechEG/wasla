@@ -477,7 +477,7 @@ begin
       raise exception 'outside_not_allowed';
     end if;
     if p_reason_kind is null or p_reason_kind not in ('client', 'field', 'home', 'other') then
-      raise exception 'reason_required';
+      raise exception 'attendance_reason_required';
     end if;
   end if;
 

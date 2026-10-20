@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'attendance_models.dart';
 import 'billing_models.dart';
 import 'chat_models.dart';
 import 'models.dart';
@@ -329,6 +331,59 @@ abstract class WaslaApi {
     String planId, {
     DateTime? until,
   });
+
+  // Attendance
+
+  Future<AttendanceToday> attendanceToday(String workspaceId);
+
+  /// [photo] is a selfie; [reason] is needed away from one's branch.
+  Future<AttendanceRecord> checkIn(
+    String workspaceId,
+    LocationFix at, {
+    Upload? photo,
+    OutsideReason? reason,
+    String? note,
+  });
+  Future<AttendanceRecord> checkOut(
+    String workspaceId,
+    LocationFix at, {
+    Upload? photo,
+  });
+
+  /// The signed-in user's days from [from] to [to], newest first.
+  Future<List<AttendanceRecord>> myAttendance(
+    String workspaceId,
+    DateTime from,
+    DateTime to,
+  );
+
+  /// Turns attendance on; the first time also adds a 9-to-5 shift called
+  /// [shiftName].
+  Future<void> enableAttendance(String workspaceId, String shiftName);
+  Future<AttendanceSetup> attendanceSetup(String workspaceId);
+  Future<void> saveAttendanceSettings(String workspaceId, AttendanceSetup s);
+
+  /// Adds a shift when [id] is null. Returns its id.
+  Future<String> saveShift(
+    String workspaceId, {
+    String? id,
+    required String name,
+    required TimeOfDay start,
+    required TimeOfDay end,
+    required int graceMinutes,
+  });
+  Future<void> deleteShift(String workspaceId, String id);
+
+  /// Adds a branch when [id] is null; no point makes a field branch.
+  Future<String> saveSite(
+    String workspaceId, {
+    String? id,
+    required String name,
+    double? lat,
+    double? lng,
+    int radiusM = 150,
+  });
+  Future<void> deleteSite(String workspaceId, String id);
 }
 
 class SupabaseWaslaApi implements WaslaApi {
@@ -1517,5 +1572,192 @@ class SupabaseWaslaApi implements WaslaApi {
       'p_plan': planId,
       'p_until': until?.toUtc().toIso8601String(),
     },
+  );
+
+  // Attendance
+
+  static String _date(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  @override
+  Future<AttendanceToday> attendanceToday(String workspaceId) async =>
+      AttendanceToday.fromJson(
+        Json.from(
+          await _client.rpc(
+            'attendance_today',
+            params: {'p_workspace': workspaceId},
+          ) as Map,
+        ),
+      );
+
+  /// Uploads [photo] if given, then runs [call] with its path; the upload is
+  /// removed again if the call fails.
+  Future<AttendanceRecord> _withPhoto(
+    String workspaceId,
+    Upload? photo,
+    Future<Object?> Function(String? path) call,
+  ) async {
+    final path = photo == null ? null : await _upload(workspaceId, photo);
+    try {
+      return AttendanceRecord.fromJson(Json.from(await call(path) as Map));
+    } catch (_) {
+      await _remove(path);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<AttendanceRecord> checkIn(
+    String workspaceId,
+    LocationFix at, {
+    Upload? photo,
+    OutsideReason? reason,
+    String? note,
+  }) => _withPhoto(
+    workspaceId,
+    photo,
+    (path) => _client.rpc(
+      'attendance_check_in',
+      params: {
+        'p_workspace': workspaceId,
+        'p_lat': at.lat,
+        'p_lng': at.lng,
+        'p_accuracy': at.accuracyM,
+        'p_photo': path,
+        'p_reason_kind': reason?.name,
+        'p_reason_note': note,
+      },
+    ),
+  );
+
+  @override
+  Future<AttendanceRecord> checkOut(
+    String workspaceId,
+    LocationFix at, {
+    Upload? photo,
+  }) => _withPhoto(
+    workspaceId,
+    photo,
+    (path) => _client.rpc(
+      'attendance_check_out',
+      params: {
+        'p_workspace': workspaceId,
+        'p_lat': at.lat,
+        'p_lng': at.lng,
+        'p_accuracy': at.accuracyM,
+        'p_photo': path,
+      },
+    ),
+  );
+
+  @override
+  Future<List<AttendanceRecord>> myAttendance(
+    String workspaceId,
+    DateTime from,
+    DateTime to,
+  ) async => _rows(
+    await _client.rpc(
+      'my_attendance',
+      params: {
+        'p_workspace': workspaceId,
+        'p_from': _date(from),
+        'p_to': _date(to),
+      },
+    ),
+  ).map(AttendanceRecord.fromJson).toList();
+
+  @override
+  Future<void> enableAttendance(String workspaceId, String shiftName) =>
+      _client.rpc(
+        'enable_attendance',
+        params: {'p_workspace': workspaceId, 'p_shift_name': shiftName},
+      );
+
+  @override
+  Future<AttendanceSetup> attendanceSetup(String workspaceId) async =>
+      AttendanceSetup.fromJson(
+        Json.from(
+          await _client.rpc(
+            'attendance_setup',
+            params: {'p_workspace': workspaceId},
+          ) as Map,
+        ),
+      );
+
+  @override
+  Future<void> saveAttendanceSettings(
+    String workspaceId,
+    AttendanceSetup s,
+  ) => _client.rpc(
+    'save_attendance_settings',
+    params: {
+      'p_workspace': workspaceId,
+      'p_enabled': s.enabled,
+      'p_weekend_days': (s.weekendDays.toList()..sort()),
+      'p_require_selfie': s.requireSelfie,
+      'p_allow_outside': s.allowOutside,
+      'p_reminders': s.reminders,
+      'p_default_shift': s.defaultShiftId,
+      'p_ramadan_from': s.ramadanFrom == null ? null : _date(s.ramadanFrom!),
+      'p_ramadan_to': s.ramadanTo == null ? null : _date(s.ramadanTo!),
+      'p_ramadan_start': s.ramadanStart == null
+          ? null
+          : clockParam(s.ramadanStart!),
+      'p_ramadan_end': s.ramadanEnd == null ? null : clockParam(s.ramadanEnd!),
+    },
+  );
+
+  @override
+  Future<String> saveShift(
+    String workspaceId, {
+    String? id,
+    required String name,
+    required TimeOfDay start,
+    required TimeOfDay end,
+    required int graceMinutes,
+  }) async => await _client.rpc(
+    'save_attendance_shift',
+    params: {
+      'p_workspace': workspaceId,
+      'p_id': id,
+      'p_name': name,
+      'p_start': clockParam(start),
+      'p_end': clockParam(end),
+      'p_grace': graceMinutes,
+    },
+  ) as String;
+
+  @override
+  Future<void> deleteShift(String workspaceId, String id) => _client.rpc(
+    'delete_attendance_shift',
+    params: {'p_workspace': workspaceId, 'p_id': id},
+  );
+
+  @override
+  Future<String> saveSite(
+    String workspaceId, {
+    String? id,
+    required String name,
+    double? lat,
+    double? lng,
+    int radiusM = 150,
+  }) async => await _client.rpc(
+    'save_attendance_site',
+    params: {
+      'p_workspace': workspaceId,
+      'p_id': id,
+      'p_name': name,
+      'p_lat': lat,
+      'p_lng': lng,
+      'p_radius': radiusM,
+    },
+  ) as String;
+
+  @override
+  Future<void> deleteSite(String workspaceId, String id) => _client.rpc(
+    'delete_attendance_site',
+    params: {'p_workspace': workspaceId, 'p_id': id},
   );
 }

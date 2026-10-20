@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart' show TimeOfDay;
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'package:wasla/data/api.dart';
+import 'package:wasla/data/attendance_models.dart';
 import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
+import 'package:wasla/data/location.dart';
 import 'package:wasla/data/models.dart';
 import 'package:wasla/data/picker.dart';
 import 'package:wasla/data/search_models.dart';
@@ -1503,4 +1507,279 @@ class FakeApi implements WaslaApi {
     DateTime? until,
   }) async =>
       billingCalls.add('set $workspaceId $planId ${until ?? 'forever'}');
+
+  // Attendance: one person (the signed-in user), kept in memory.
+
+  AttendanceSetup? attendance;
+  ShiftToday? shiftToday;
+  final attendanceRecords = <AttendanceRecord>[];
+  final attendanceCalls = <String>[];
+  int _attSeq = 0;
+
+  DateTime get _today {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
+  AttendanceRecord? get _todayRecord {
+    for (final r in attendanceRecords) {
+      if (r.day == _today) return r;
+    }
+    return null;
+  }
+
+  @override
+  Future<AttendanceToday> attendanceToday(String workspaceId) async {
+    final a = attendance;
+    final admin = memberships
+        .where((m) => m.workspaceId == workspaceId)
+        .any((m) => m.role.canManage);
+    if (a == null || !a.enabled) {
+      return AttendanceToday(enabled: false, isAdmin: admin);
+    }
+    final recent = attendanceRecords
+        .where((r) => !r.day.isBefore(_today.subtract(const Duration(days: 6))))
+        .toList();
+    return AttendanceToday(
+      enabled: true,
+      isAdmin: admin,
+      today: _today,
+      weekendDays: a.weekendDays,
+      requireSelfie: a.requireSelfie,
+      allowOutside: a.allowOutside,
+      shift: shiftToday,
+      sites: a.sites,
+      record: _todayRecord,
+      recent: recent,
+      monthPresent: attendanceRecords.length,
+      monthLate: attendanceRecords.where((r) => r.lateMinutes > 0).length,
+      monthLateMinutes: attendanceRecords.fold(0, (s, r) => s + r.lateMinutes),
+    );
+  }
+
+  @override
+  Future<AttendanceRecord> checkIn(
+    String workspaceId,
+    LocationFix at, {
+    Upload? photo,
+    OutsideReason? reason,
+    String? note,
+  }) async {
+    final a = attendance;
+    if (a == null || !a.enabled) {
+      throw const PostgrestException(message: 'attendance_off');
+    }
+    if (_todayRecord != null) {
+      throw const PostgrestException(message: 'already_checked_in');
+    }
+    if (a.requireSelfie && photo == null) {
+      throw const PostgrestException(message: 'selfie_required');
+    }
+    final place = PlaceCheck.of(at, sites: a.sites);
+    if (!place.inside && reason == null) {
+      throw const PostgrestException(message: 'attendance_reason_required');
+    }
+    final now = DateTime.now();
+    final late =
+        shiftToday == null ||
+            now.isBefore(
+              shiftToday!.startAt.add(Duration(minutes: shiftToday!.grace)),
+            )
+        ? 0
+        : now.difference(shiftToday!.startAt).inMinutes;
+    final r = AttendanceRecord(
+      id: 'att${_attSeq++}',
+      day: _today,
+      inAt: now,
+      lateMinutes: late,
+      inSite: place.site?.name,
+      inDistanceM: place.distanceM,
+      outside: !place.inside,
+      reason: place.inside ? null : reason,
+      reasonNote: place.inside ? null : note,
+      review: place.inside ? AttendanceReview.none : AttendanceReview.pending,
+      inPhotoPath: photo == null ? null : 'ws/me/${photo.name}',
+    );
+    attendanceRecords.add(r);
+    attendanceCalls.add(
+      'in ${at.lat},${at.lng} ${reason?.name ?? '-'} ${photo?.name ?? '-'}',
+    );
+    return r;
+  }
+
+  @override
+  Future<AttendanceRecord> checkOut(
+    String workspaceId,
+    LocationFix at, {
+    Upload? photo,
+  }) async {
+    final open = _todayRecord;
+    if (open == null || !open.open) {
+      throw const PostgrestException(message: 'not_checked_in');
+    }
+    final r = AttendanceRecord(
+      id: open.id,
+      day: open.day,
+      inAt: open.inAt,
+      outAt: DateTime.now(),
+      lateMinutes: open.lateMinutes,
+      inSite: open.inSite,
+      inDistanceM: open.inDistanceM,
+      outside: open.outside,
+      reason: open.reason,
+      reasonNote: open.reasonNote,
+      review: open.review,
+    );
+    attendanceRecords[attendanceRecords.indexOf(open)] = r;
+    attendanceCalls.add('out ${at.lat},${at.lng}');
+    return r;
+  }
+
+  @override
+  Future<List<AttendanceRecord>> myAttendance(
+    String workspaceId,
+    DateTime from,
+    DateTime to,
+  ) async => [
+    for (final r in attendanceRecords.reversed)
+      if (!r.day.isBefore(from) && !r.day.isAfter(to)) r,
+  ];
+
+  @override
+  Future<void> enableAttendance(String workspaceId, String shiftName) async {
+    attendanceCalls.add('enable $shiftName');
+    attendance = (attendance ?? const AttendanceSetup(enabled: true)).copyWith(
+      enabled: true,
+    );
+    if (attendance!.shifts.isEmpty) {
+      final shift = AttendanceShift(
+        id: 'sh0',
+        name: shiftName,
+        start: const TimeOfDay(hour: 9, minute: 0),
+        end: const TimeOfDay(hour: 17, minute: 0),
+      );
+      attendance = AttendanceSetup(
+        enabled: true,
+        weekendDays: attendance!.weekendDays,
+        defaultShiftId: shift.id,
+        shifts: [shift],
+        sites: attendance!.sites,
+      );
+    }
+  }
+
+  @override
+  Future<AttendanceSetup> attendanceSetup(String workspaceId) async =>
+      attendance ?? const AttendanceSetup(enabled: false);
+
+  @override
+  Future<void> saveAttendanceSettings(
+    String workspaceId,
+    AttendanceSetup s,
+  ) async {
+    final days = s.weekendDays.toList()..sort();
+    attendanceCalls.add(
+      'settings ${s.enabled} ${days.join(',')} selfie=${s.requireSelfie} '
+      'outside=${s.allowOutside} default=${s.defaultShiftId}',
+    );
+    attendance = AttendanceSetup(
+      enabled: s.enabled,
+      weekendDays: s.weekendDays,
+      requireSelfie: s.requireSelfie,
+      allowOutside: s.allowOutside,
+      reminders: s.reminders,
+      defaultShiftId: s.defaultShiftId,
+      ramadanFrom: s.ramadanFrom,
+      ramadanTo: s.ramadanTo,
+      ramadanStart: s.ramadanStart,
+      ramadanEnd: s.ramadanEnd,
+      shifts: attendance?.shifts ?? const [],
+      sites: attendance?.sites ?? const [],
+    );
+  }
+
+  AttendanceSetup _withLists({
+    List<AttendanceShift>? shifts,
+    List<AttendanceSite>? sites,
+  }) {
+    final a = attendance ?? const AttendanceSetup(enabled: true);
+    return AttendanceSetup(
+      enabled: a.enabled,
+      weekendDays: a.weekendDays,
+      requireSelfie: a.requireSelfie,
+      allowOutside: a.allowOutside,
+      reminders: a.reminders,
+      defaultShiftId: a.defaultShiftId,
+      ramadanFrom: a.ramadanFrom,
+      ramadanTo: a.ramadanTo,
+      ramadanStart: a.ramadanStart,
+      ramadanEnd: a.ramadanEnd,
+      shifts: shifts ?? a.shifts,
+      sites: sites ?? a.sites,
+    );
+  }
+
+  @override
+  Future<String> saveShift(
+    String workspaceId, {
+    String? id,
+    required String name,
+    required TimeOfDay start,
+    required TimeOfDay end,
+    required int graceMinutes,
+  }) async {
+    final shiftId = id ?? 'sh${_attSeq++}';
+    final shift = AttendanceShift(
+      id: shiftId,
+      name: name,
+      start: start,
+      end: end,
+      graceMinutes: graceMinutes,
+    );
+    final list = [...?attendance?.shifts]..removeWhere((s) => s.id == shiftId);
+    attendance = _withLists(shifts: [...list, shift]);
+    attendanceCalls.add(
+      'shift $name ${clockParam(start)}-${clockParam(end)} $graceMinutes',
+    );
+    return shiftId;
+  }
+
+  @override
+  Future<void> deleteShift(String workspaceId, String id) async {
+    attendance = _withLists(
+      shifts: [...?attendance?.shifts]..removeWhere((s) => s.id == id),
+    );
+    attendanceCalls.add('delete shift $id');
+  }
+
+  @override
+  Future<String> saveSite(
+    String workspaceId, {
+    String? id,
+    required String name,
+    double? lat,
+    double? lng,
+    int radiusM = 150,
+  }) async {
+    final siteId = id ?? 'site${_attSeq++}';
+    final site = AttendanceSite(
+      id: siteId,
+      name: name,
+      lat: lat,
+      lng: lng,
+      radiusM: radiusM,
+    );
+    final list = [...?attendance?.sites]..removeWhere((s) => s.id == siteId);
+    attendance = _withLists(sites: [...list, site]);
+    attendanceCalls.add('site $name ${lat ?? '-'},${lng ?? '-'} $radiusM');
+    return siteId;
+  }
+
+  @override
+  Future<void> deleteSite(String workspaceId, String id) async {
+    attendance = _withLists(
+      sites: [...?attendance?.sites]..removeWhere((s) => s.id == id),
+    );
+    attendanceCalls.add('delete site $id');
+  }
 }

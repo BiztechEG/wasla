@@ -7,6 +7,7 @@ import '../data/task_models.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
 import '../theme.dart';
+import 'attendance_screen.dart';
 import 'followup_screen.dart';
 import 'modern.dart';
 import 'task_format.dart';
@@ -118,6 +119,7 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
               ],
             ),
           ),
+          AttendanceStrip(membership: widget.membership),
           Expanded(
             child: AsyncView(
               value: tasks,

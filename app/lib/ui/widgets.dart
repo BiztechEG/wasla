@@ -102,6 +102,14 @@ String errorText(AppLocalizations l, Object error) {
   }
   if (error is PostgrestException) {
     final m = error.message;
+    if (m.contains('attendance_off')) return l.errorAttendanceOff;
+    if (m.contains('already_checked_in')) return l.errorAlreadyCheckedIn;
+    if (m.contains('not_checked_in')) return l.errorNotCheckedIn;
+    if (m.contains('selfie_required')) return l.errorSelfieRequired;
+    if (m.contains('outside_not_allowed')) return l.errorOutsideNotAllowed;
+    if (m.contains('attendance_reason_required')) return l.errorOutsideReason;
+    if (m.contains('location_required')) return l.errorLocationRequired;
+    if (m.contains('invalid_hours')) return l.errorInvalidHours;
     if (m.contains('seat_limit_reached')) return l.errorSeatLimit;
     if (m.contains('last_owner')) return l.errorLastOwner;
     if (m.contains('name_mismatch')) return l.errorNameMismatch;

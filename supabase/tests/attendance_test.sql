@@ -150,9 +150,9 @@ select pg_temp.fails($$select public.attendance_check_in(pg_temp.v('ws'), 24.714
 -- 3. Far away: needs a reason, then waits for review.
 select pg_temp.login(934);
 select pg_temp.fails($$select public.attendance_check_in(pg_temp.v('ws'), 24.80, 46.70, 20)$$,
-  'reason_required', 'checking in from outside needs a reason');
+  'attendance_reason_required', 'checking in from outside needs a reason');
 select pg_temp.fails($$select public.attendance_check_in(pg_temp.v('ws'), 24.80, 46.70, 20, null, 'party')$$,
-  'reason_required', 'the reason must be a known kind');
+  'attendance_reason_required', 'the reason must be a known kind');
 insert into ctx values ('r2', (public.attendance_check_in(pg_temp.v('ws'), 24.80, 46.70, 20, null,
   'client', '  At Al Noor  ')) ->> 'id');
 reset role;
