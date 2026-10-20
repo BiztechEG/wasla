@@ -7,6 +7,7 @@ import 'package:wasla/app.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/google.dart';
 import 'package:wasla/data/picker.dart';
+import 'package:wasla/data/share.dart';
 import 'package:wasla/data/voice.dart';
 import 'package:wasla/push/push.dart';
 import 'package:wasla/state/chat_providers.dart';
@@ -25,6 +26,7 @@ Future<void> startApp(
   PushMessaging? push,
   VoiceRecorder? recorder,
   GoogleAccount? google,
+  Sharer? sharer,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -39,6 +41,7 @@ Future<void> startApp(
         if (push != null) pushMessagingProvider.overrideWithValue(push),
         if (recorder != null) voiceRecorderProvider.overrideWithValue(recorder),
         googleAccountProvider.overrideWithValue(google ?? FakeGoogle()),
+        sharerProvider.overrideWithValue(sharer ?? FakeSharer()),
       ],
       child: const WaslaApp(),
     ),
@@ -140,4 +143,22 @@ class FakeGoogle implements GoogleAccount {
 
   @override
   Future<void> disconnect() async => allowed.clear();
+}
+
+/// Keeps what would go to the share sheet.
+class FakeSharer implements Sharer {
+  FakeSharer({this.available = true});
+
+  /// False to act like a browser with no share sheet.
+  final bool available;
+
+  /// What was shared, in order: the text and the file's name.
+  final shared = <(String?, String?)>[];
+
+  @override
+  Future<bool> share({String? text, SharedFile? file}) async {
+    if (!available) return false;
+    shared.add((text, file?.name));
+    return true;
+  }
 }

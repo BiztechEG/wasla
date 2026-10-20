@@ -93,7 +93,12 @@ select pg_temp.upload(952, 'dm.pdf', 1000);
 select public.send_message(pg_temp.v('dm'), null, p_file_path => pg_temp.path(952, 'dm.pdf'),
   p_file_name => 'عقد خاص.pdf', p_file_size => 1000);
 
-select pg_temp.check(pg_temp.hits('files', 'مسؤول') = 1, 'a project file is found, hamza-aware');
+-- A file added from the Files tab is sent in the project chat, so it is
+-- found as that message.
+select pg_temp.check(
+  (select count(*) from public.search_messages(pg_temp.v('ws'), 'مسؤول')) = 1
+  and pg_temp.hits('files', 'مسؤول') = 0,
+  'a project file is found, hamza-aware, as its chat message');
 select pg_temp.check(pg_temp.hits('tasks', 'المخطط') = 1, 'a task is found by its title');
 select pg_temp.check(pg_temp.hits('tasks', 'الاول') = 1, 'a task is found by its description');
 select pg_temp.check(pg_temp.hits('files', 'سري') = 1, 'one''s own task attachment is found');
@@ -112,7 +117,9 @@ select pg_temp.check(
 
 -- Sara is in the workspace but not the project.
 select pg_temp.login(953);
-select pg_temp.check(pg_temp.hits('files', 'مسؤول') = 0, 'outside the project: no project files');
+select pg_temp.check(pg_temp.hits('files', 'مسؤول') = 0
+  and (select count(*) from public.search_messages(pg_temp.v('ws'), 'مسؤول')) = 0,
+  'outside the project: no project files');
 select pg_temp.check(pg_temp.hits('tasks', 'المخطط') = 0, 'outside the project: no tasks');
 select pg_temp.check(pg_temp.hits('announcements', 'اجتماع') = 0,
   'outside the project: no project announcements');

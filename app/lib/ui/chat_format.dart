@@ -67,6 +67,26 @@ String dayLabel(BuildContext context, DateTime time) {
   return westernDigits(DateFormat(pattern, _locale(context)).format(local));
 }
 
+/// A day and time in full, for lists of files: الثلاثاء 20 أكتوبر، 10:30 ص
+String fullTime(BuildContext context, DateTime time) {
+  final local = time.toLocal();
+  final pattern = local.year == DateTime.now().year
+      ? 'EEEE d MMMM'
+      : 'EEEE d MMMM yyyy';
+  final day = DateFormat(pattern, _locale(context)).format(local);
+  final comma = _locale(context) == 'ar' ? '،' : ',';
+  return westernDigits('$day$comma ${clockTime(context, local)}');
+}
+
+/// 13 أكتوبر
+String dayMonth(BuildContext context, DateTime time) =>
+    westernDigits(DateFormat('d MMMM', _locale(context)).format(time));
+
+/// أكتوبر 2026
+String monthLabel(BuildContext context, DateTime time) => westernDigits(
+  DateFormat('MMMM yyyy', _locale(context)).format(time.toLocal()),
+);
+
 String fileSize(AppLocalizations l, int bytes) {
   if (bytes >= 1024 * 1024) {
     final mb = bytes / (1024 * 1024);

@@ -71,6 +71,7 @@ class Membership {
     required this.planName,
     required this.maxMembers,
     required this.discoverable,
+    this.allowSharing = true,
   });
 
   final String workspaceId;
@@ -84,6 +85,9 @@ class Membership {
   /// Seats in the plan; null means unlimited.
   final int? maxMembers;
   final bool discoverable;
+
+  /// People may share messages and files to other apps.
+  final bool allowSharing;
 
   /// Workspace owners and the company owner delete a workspace.
   bool get canDelete => role == WorkspaceRole.owner || isCompanyOwner;
@@ -102,6 +106,7 @@ class Membership {
       planName: _text(plan['name']),
       maxMembers: plan['max_members'] as int?,
       discoverable: ws['discoverable'] as bool? ?? false,
+      allowSharing: ws['allow_sharing'] as bool? ?? true,
     );
   }
 }

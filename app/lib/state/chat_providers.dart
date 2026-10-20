@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chat_models.dart';
 import '../data/picker.dart';
+import '../data/share.dart';
 import '../data/voice.dart';
 import 'providers.dart';
 
@@ -273,7 +274,8 @@ class ChatController extends AsyncNotifier<ChatState> {
     _markRead(next);
   }
 
-  Future<void> loadOlder() async {
+  /// The next [limit] older messages.
+  Future<void> loadOlder({int limit = _page}) async {
     final now = state.value;
     if (now == null ||
         now.loadingOlder ||
@@ -289,14 +291,14 @@ class ChatController extends AsyncNotifier<ChatState> {
             key.conversationId,
             projectId: key.projectId,
             before: now.messages.last.createdAt,
-            limit: _page,
+            limit: limit,
           );
       if (!ref.mounted) return;
       final current = state.value ?? now;
       state = AsyncData(
         current.copyWith(
           messages: [...current.messages, ...older],
-          hasMore: older.length == _page,
+          hasMore: older.length == limit,
           loadingOlder: false,
         ),
       );
@@ -455,6 +457,8 @@ final announcementReadersProvider = FutureProvider.autoDispose
 
 final pickerProvider = Provider<Picker>((ref) => DevicePicker());
 
+final sharerProvider = Provider<Sharer>((ref) => DeviceSharer());
+
 final voiceRecorderProvider = Provider<VoiceRecorder>(
   (ref) => DeviceVoiceRecorder(),
 );
@@ -483,4 +487,37 @@ final projectsWithProvider = FutureProvider.autoDispose
       final api = ref.watch(apiProvider);
       await ref.watch(authProvider.future);
       return api.projectsWith(key.workspaceId, key.userId);
+    });
+
+typedef DaysKey = ({String conversationId, String? projectId});
+
+/// The days a chat has messages on, for its calendar.
+final messageDaysProvider = FutureProvider.autoDispose
+    .family<Set<DateTime>, DaysKey>((ref, key) async {
+      final api = ref.watch(apiProvider);
+      await ref.watch(authProvider.future);
+      return api.messageDays(key.conversationId, projectId: key.projectId);
+    });
+
+typedef ThreadKey = ({
+  String workspaceId,
+  String conversationId,
+  String rootId,
+});
+
+/// A message and its replies, kept up to date while open.
+final replyChainProvider = FutureProvider.autoDispose
+    .family<List<ChatMessage>, ThreadKey>((ref, key) async {
+      final api = ref.watch(apiProvider);
+      _refreshOnChatEvents(
+        ref,
+        key.workspaceId,
+        ref.invalidateSelf,
+        where: (e) =>
+            e.readerId == null &&
+            (e.conversationId == null ||
+                e.conversationId == key.conversationId),
+      );
+      await ref.watch(authProvider.future);
+      return api.replyChain(key.rootId);
     });
