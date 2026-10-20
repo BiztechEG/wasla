@@ -64,6 +64,7 @@ Future<void> _openProjectChat(WidgetTester tester) async {
 }
 
 void main() {
+  group('several files and the keyboard', keyboardTests);
   group('mentions, reactions and profiles', mentionTests);
   group('files, sharing, dates and reply chains', stage3Tests);
   testWidgets('a project message arrives live, is read, and gets an answer', (
@@ -1409,4 +1410,118 @@ void stage3Tests() {
     await tester.pump(const Duration(seconds: 3));
     expect(tester.takeException(), isNull);
   });
+}
+
+void keyboardTests() {
+  Upload file(String name) => Upload(
+    bytes: Uint8List.fromList([1, 2, 3]),
+    name: name,
+    mime: mimeFor(name),
+  );
+
+  testWidgets('up to five files go at once, the text with the first', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    final picker = FakePicker(file('a.pdf'))
+      ..many = [for (var i = 1; i <= 7; i++) file('doc$i.pdf')];
+    await startApp(tester, api, picker: picker);
+    await _openProjectChat(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('messageField')),
+      'The drawings',
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('إرفاق'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ملف'));
+    await tester.pumpAndSettle();
+    expect(find.text('الحد 5 ملفات في المرة، اتاخد أول 5 بس'), findsOneWidget);
+
+    final sent = api.chatMessages[chat]!.reversed.toList();
+    expect(
+      [for (final m in sent) m.file?.name],
+      [for (var i = 1; i <= 5; i++) 'doc$i.pdf'],
+    );
+    expect(
+      [for (final m in sent) m.body],
+      ['The drawings', null, null, null, null],
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('with a keyboard, Enter sends and Shift+Enter makes a new line', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    final field = find.byKey(const Key('messageField'));
+    await tester.tap(field);
+    await tester.enterText(field, 'First line');
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(api.chatMessages[chat], isEmpty);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat]!.single.body, 'First line');
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+
+    // Enter while a mention is being typed picks the first name.
+    await tester.enterText(field, 'شوف @mo');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(tester.widget<TextField>(field).controller!.text, 'شوف @Mona Adel ');
+    expect(api.chatMessages[chat], hasLength(1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets(
+    'replying or picking a mention puts the cursor in the message field',
+    (tester) async {
+      final api = _team();
+      final chat = api.addProjectChat('ws1', _branch);
+      api.receive(chat, 'u2', 'Mona Adel', 'Are the drawings ready?');
+      await startApp(tester, api);
+      await _openProjectChat(tester);
+      final field = find.byKey(const Key('messageField'));
+      bool focused() => tester.widget<TextField>(field).focusNode!.hasFocus;
+      expect(focused(), isFalse);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(
+        location: tester.getCenter(_says('Are the drawings ready?')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('hoverReply')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(focused(), isTrue);
+
+      await tester.enterText(field, 'أيوه @mo');
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('mention-u2')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(focused(), isTrue);
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        'أيوه @Mona Adel ',
+      );
+      await mouse.removePointer();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 }

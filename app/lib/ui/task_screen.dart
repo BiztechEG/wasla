@@ -783,13 +783,15 @@ class _UpdateComposerState extends ConsumerState<_UpdateComposer> {
   }
 
   Future<void> _attach() async {
-    final file = await pickUpload(context, ref);
-    if (file == null || !mounted) return;
-    await _run(
-      () => ref
-          .read(apiProvider)
-          .addTaskAttachment(widget.task.workspaceId, widget.task.id, file),
-    );
+    final files = await pickUploads(context, ref);
+    if (files.isEmpty || !mounted) return;
+    await _run(() async {
+      for (final file in files) {
+        await ref
+            .read(apiProvider)
+            .addTaskAttachment(widget.task.workspaceId, widget.task.id, file);
+      }
+    });
   }
 
   @override

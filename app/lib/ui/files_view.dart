@@ -57,16 +57,16 @@ class _ProjectFilesViewState extends ConsumerState<ProjectFilesView> {
 
   Future<void> _add() async {
     final l = context.l10n;
-    final upload = await pickUpload(context, ref);
-    if (upload == null || !mounted) return;
+    final uploads = await pickUploads(context, ref);
+    if (uploads.isEmpty || !mounted) return;
     setState(() => _uploading = true);
-    final ok = await runAction(
-      context,
-      () => ref
-          .read(apiProvider)
-          .addProjectFile(widget.project.workspaceId, _projectId, upload),
-      done: l.fileAdded,
-    );
+    final ok = await runAction(context, () async {
+      for (final upload in uploads) {
+        await ref
+            .read(apiProvider)
+            .addProjectFile(widget.project.workspaceId, _projectId, upload);
+      }
+    }, done: l.fileAdded);
     if (!mounted) return;
     setState(() => _uploading = false);
     if (ok) ref.invalidate(projectFilesProvider(_projectId));
