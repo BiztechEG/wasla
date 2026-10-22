@@ -620,6 +620,24 @@ class MessageHit {
   );
 }
 
+/// A name one files messages from any chat under, to find them by topic.
+/// Only one sees one's labels.
+class MessageLabel {
+  const MessageLabel({required this.id, required this.name, this.messages = 0});
+
+  final String id;
+  final String name;
+
+  /// How many of its messages one can still read.
+  final int messages;
+
+  factory MessageLabel.fromJson(Json json) => MessageLabel(
+    id: json['id'] as String,
+    name: _text(json['name']),
+    messages: (json['messages'] as num?)?.toInt() ?? 0,
+  );
+}
+
 /// Something changed in a chat: a message arrived, changed, or was read.
 class ChatEvent {
   const ChatEvent({this.conversationId, this.readerId});

@@ -615,3 +615,30 @@ final replyChainProvider = FutureProvider.autoDispose
       await ref.watch(authProvider.future);
       return api.replyChain(key.rootId);
     });
+
+/// One's labels in a workspace, the most recently used first.
+final myLabelsProvider = FutureProvider.autoDispose
+    .family<List<MessageLabel>, String>((ref, workspaceId) async {
+      final api = ref.watch(apiProvider);
+      await ref.watch(authProvider.future);
+      return api.myLabels(workspaceId);
+    });
+
+/// The labels one put on a chat's messages: label ids by message id.
+final chatLabelsProvider = FutureProvider.autoDispose
+    .family<Map<String, Set<String>>, String>((ref, conversationId) async {
+      final api = ref.watch(apiProvider);
+      await ref.watch(authProvider.future);
+      return api.chatLabels(conversationId);
+    });
+
+/// The messages under a label; with a conversation, only that chat's.
+final labelledProvider = FutureProvider.autoDispose
+    .family<List<MessageHit>, ({String labelId, String? conversationId})>((
+      ref,
+      key,
+    ) async {
+      final api = ref.watch(apiProvider);
+      await ref.watch(authProvider.future);
+      return api.labelled(key.labelId, conversationId: key.conversationId);
+    });

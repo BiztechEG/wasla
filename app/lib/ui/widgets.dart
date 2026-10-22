@@ -125,6 +125,7 @@ String errorText(AppLocalizations l, Object error) {
     if (m.contains('invite_not_for_you')) return l.errorInviteNotForYou;
     if (m.contains('already_member')) return l.errorAlreadyMember;
     if (m.contains('code_invalid')) return l.errorCodeInvalid;
+    if (m.contains('label_exists')) return l.errorLabelExists;
     if (m.contains('too_many_assignees')) return l.errorTooManyAssignees;
     if (m.contains('too_many_reminders')) return l.errorTooManyReminders;
     if (m.contains('too_many_')) return l.errorTooMany;
