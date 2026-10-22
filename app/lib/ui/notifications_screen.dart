@@ -56,6 +56,7 @@ String noteText(AppLocalizations l, AppNotification n) {
     NotificationKind.joinRequest => l.noteJoinRequest(who),
     NotificationKind.requestAccepted => l.noteRequestAccepted,
     NotificationKind.requestDeclined => l.noteRequestDeclined,
+    NotificationKind.memberJoined => l.noteMemberJoined(who),
   };
 }
 
@@ -80,6 +81,7 @@ IconData _icon(NotificationKind kind) => switch (kind) {
   NotificationKind.joinRequest => Icons.person_add_alt_1_outlined,
   NotificationKind.requestAccepted => Icons.check_circle_outline,
   NotificationKind.requestDeclined => Icons.do_not_disturb_on_outlined,
+  NotificationKind.memberJoined => Icons.group_add_outlined,
 };
 
 /// How an invitation or request ended, for the small tag on it.
@@ -243,7 +245,7 @@ Future<void> _open(
             ? JoinRequestsScreen(membership: m)
             : MembersScreen(membership: m),
       );
-    case NotificationKind.inviteAccepted:
+    case NotificationKind.inviteAccepted || NotificationKind.memberJoined:
       final m = membership();
       if (m != null) push(MembersScreen(membership: m));
     case NotificationKind.requestDeclined:

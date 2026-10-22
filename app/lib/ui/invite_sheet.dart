@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models.dart';
 import '../state/providers.dart';
 import 'inbox.dart';
+import 'join_link.dart';
 import 'widgets.dart';
 
 Future<void> showInviteSheet(BuildContext context, Membership membership) =>
@@ -165,6 +166,21 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
               ],
               const SizedBox(height: 24),
               BusyButton(label: l.sendInvite, onPressed: _send),
+              const SizedBox(height: 4),
+              TextButton.icon(
+                icon: const Icon(Icons.link, size: 18),
+                label: Text(l.joinLinkFromInvite),
+                onPressed: () {
+                  final navigator = Navigator.of(context);
+                  navigator.pop();
+                  navigator.push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          JoinLinkScreen(membership: widget.membership),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         ),

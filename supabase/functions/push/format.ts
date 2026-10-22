@@ -73,6 +73,7 @@ const notes: Record<Locale, Record<string, Note>> = {
     join_request: (n, d) => (d ? `${n} يطلب الانضمام: ${d}` : `${n} يطلب الانضمام إلى مساحة العمل`),
     request_accepted: () => "قُبل طلبك للانضمام، اضغط لفتح مساحة العمل",
     request_declined: () => "لم يُقبل طلبك للانضمام إلى مساحة العمل",
+    member_joined: (n) => `انضم ${n} إلى مساحة العمل برابط الانضمام`,
     attendance_in: () => "بدأت ورديتك ولم تسجّل حضورك بعد",
     attendance_out: () => "انتهت ورديتك ولم تسجّل انصرافك بعد",
     attendance_review: (
@@ -107,6 +108,7 @@ const notes: Record<Locale, Record<string, Note>> = {
     join_request: (n, d) => (d ? `${n} asked to join: ${d}` : `${n} asked to join the workspace`),
     request_accepted: () => "Your request to join was accepted; tap to open the workspace",
     request_declined: () => "Your request to join wasn't accepted",
+    member_joined: (n) => `${n} joined the workspace with the join link`,
     attendance_in: () => "Your shift has started and you haven't checked in",
     attendance_out: () => "Your shift has ended and you haven't checked out",
     attendance_review: (

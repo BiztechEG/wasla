@@ -154,6 +154,55 @@ class FakeApi implements WaslaApi {
   /// Invitations sent: workspace and email.
   final invited = <(String, String)>[];
 
+  /// Join codes by workspace, and the workspaces they lead to.
+  final joinCodes = <String, JoinCode>{};
+  final codeWorkspaces = <String, CodeWorkspace>{};
+
+  @override
+  Future<JoinCode?> joinCode(String workspaceId) async =>
+      joinCodes[workspaceId];
+
+  @override
+  Future<JoinCode?> setJoinCode(
+    String workspaceId, {
+    required bool enabled,
+    bool autoJoin = false,
+    bool renew = false,
+  }) async {
+    if (!enabled) {
+      joinCodes.remove(workspaceId);
+      return null;
+    }
+    final old = joinCodes[workspaceId];
+    return joinCodes[workspaceId] = JoinCode(
+      code: old == null || renew ? 'ABCD${2345 + _seq++}' : old.code,
+      autoJoin: autoJoin,
+    );
+  }
+
+  @override
+  Future<CodeWorkspace?> workspaceByCode(String code) async =>
+      codeWorkspaces[code.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '')];
+
+  @override
+  Future<bool> joinWithCode(String code, {String? message}) async {
+    final w = (await workspaceByCode(code))!;
+    if (w.autoJoin) {
+      memberships.add(
+        membership(w.workspaceId, w.workspaceName, WorkspaceRole.member),
+      );
+      return true;
+    }
+    myRequests.add(
+      MyJoinRequest(
+        id: 'r${_seq++}',
+        workspaceId: w.workspaceId,
+        workspaceName: w.workspaceName,
+      ),
+    );
+    return false;
+  }
+
   /// An admin lets the signed-in user in, as the server would tell them.
   void admit(String workspaceId, String name) {
     myRequests.removeWhere((r) => r.workspaceId == workspaceId);

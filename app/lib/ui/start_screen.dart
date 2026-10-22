@@ -8,6 +8,7 @@ import '../state/providers.dart';
 import '../state/task_providers.dart';
 import 'create_workspace_screen.dart';
 import 'inbox.dart';
+import 'join_link.dart';
 import 'search_screen.dart';
 import 'widgets.dart';
 
@@ -145,8 +146,8 @@ class StartScreen extends ConsumerWidget {
   }
 }
 
-/// How an employee gets in: their admin invites this email, or they find
-/// the workspace and ask. The email is right there to copy or send.
+/// How an employee gets in: their admin invites this email, they have the
+/// workspace's join code, or they find the workspace and ask. The email is right there to copy or send.
 class _JoinTeamCard extends ConsumerWidget {
   const _JoinTeamCard({required this.email});
 
@@ -228,6 +229,13 @@ class _JoinTeamCard extends ConsumerWidget {
               const SizedBox(height: 8),
             ] else
               const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const Key('haveJoinCode'),
+              icon: const Icon(Icons.key_outlined, size: 18),
+              label: Text(l.haveJoinCode),
+              onPressed: () => showJoinByCode(context, ref),
+            ),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
               icon: const Icon(Icons.search, size: 18),
               label: Text(l.orFindWorkspace),

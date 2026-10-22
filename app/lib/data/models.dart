@@ -185,6 +185,55 @@ class MyJoinRequest {
   );
 }
 
+/// A workspace's join code, as its admins see it.
+class JoinCode {
+  const JoinCode({required this.code, required this.autoJoin});
+
+  final String code;
+
+  /// People with the code join straight away instead of asking.
+  final bool autoJoin;
+
+  /// Easier to read out and type: ABCD-EFGH.
+  String get shown =>
+      code.length == 8 ? '${code.substring(0, 4)}-${code.substring(4)}' : code;
+
+  factory JoinCode.fromJson(Json json) => JoinCode(
+    code: json['code'] as String,
+    autoJoin: json['auto_join'] as bool? ?? false,
+  );
+}
+
+/// Where a join code leads, shown before joining.
+class CodeWorkspace {
+  const CodeWorkspace({
+    required this.workspaceId,
+    required this.workspaceName,
+    required this.companyName,
+    required this.autoJoin,
+    this.member = false,
+    this.requested = false,
+  });
+
+  final String workspaceId;
+  final String workspaceName;
+  final String companyName;
+  final bool autoJoin;
+
+  /// Already in it, or already waiting for an answer.
+  final bool member;
+  final bool requested;
+
+  factory CodeWorkspace.fromJson(Json json) => CodeWorkspace(
+    workspaceId: json['workspace_id'] as String,
+    workspaceName: _text(json['workspace_name']),
+    companyName: _text(json['company_name']),
+    autoJoin: json['auto_join'] as bool? ?? false,
+    member: json['member'] as bool? ?? false,
+    requested: json['requested'] as bool? ?? false,
+  );
+}
+
 class WorkspaceHit {
   const WorkspaceHit({required this.id, required this.name});
 

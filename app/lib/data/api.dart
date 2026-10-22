@@ -79,6 +79,23 @@ abstract class WaslaApi {
   Future<List<JoinRequest>> joinRequests(String workspaceId);
   Future<void> decideJoinRequest(String requestId, {required bool accept});
 
+  /// The workspace's join code, for its admins; null while it is off.
+  Future<JoinCode?> joinCode(String workspaceId);
+
+  /// Turns the join code on (a new one with [renew]) or off.
+  Future<JoinCode?> setJoinCode(
+    String workspaceId, {
+    required bool enabled,
+    bool autoJoin = false,
+    bool renew = false,
+  });
+
+  /// Where a join code leads; null when it leads nowhere.
+  Future<CodeWorkspace?> workspaceByCode(String code);
+
+  /// Joins with a code; false when it sent a request to join instead.
+  Future<bool> joinWithCode(String code, {String? message});
+
   Future<List<Project>> projects(String workspaceId);
 
   /// Task counts per project id, for projects with tasks one may see.
@@ -752,6 +769,51 @@ class SupabaseWaslaApi implements WaslaApi {
         'decide_join_request',
         params: {'p_request_id': requestId, 'p_accept': accept},
       );
+
+  @override
+  Future<JoinCode?> joinCode(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc('join_code', params: {'p_workspace': workspaceId}),
+    );
+    return rows.isEmpty ? null : JoinCode.fromJson(rows.first);
+  }
+
+  @override
+  Future<JoinCode?> setJoinCode(
+    String workspaceId, {
+    required bool enabled,
+    bool autoJoin = false,
+    bool renew = false,
+  }) async {
+    final rows = _rows(
+      await _client.rpc(
+        'set_join_code',
+        params: {
+          'p_workspace': workspaceId,
+          'p_enabled': enabled,
+          'p_auto': autoJoin,
+          'p_renew': renew,
+        },
+      ),
+    );
+    return rows.isEmpty ? null : JoinCode.fromJson(rows.first);
+  }
+
+  @override
+  Future<CodeWorkspace?> workspaceByCode(String code) async {
+    final rows = _rows(
+      await _client.rpc('workspace_by_code', params: {'p_code': code}),
+    );
+    return rows.isEmpty ? null : CodeWorkspace.fromJson(rows.first);
+  }
+
+  @override
+  Future<bool> joinWithCode(String code, {String? message}) async =>
+      await _client.rpc(
+        'join_with_code',
+        params: {'p_code': code, 'p_message': message},
+      ) ==
+      'joined';
 
   @override
   Future<List<Project>> projects(String workspaceId) async {

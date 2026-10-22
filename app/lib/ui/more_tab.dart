@@ -18,6 +18,7 @@ import 'announcements_view.dart';
 import 'billing_format.dart';
 import 'billing_screen.dart';
 import 'invite_sheet.dart';
+import 'join_link.dart';
 import 'join_requests_screen.dart';
 import 'members_screen.dart';
 import 'modern.dart';
@@ -153,6 +154,14 @@ class MoreTab extends ConsumerWidget {
                   title: Text(l.inviteMembers),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => showInviteSheet(context, membership),
+                ),
+                ListTile(
+                  key: const Key('joinLinkTile'),
+                  leading: const Icon(Icons.link),
+                  title: Text(l.joinLinkTitle),
+                  subtitle: Text(l.joinLinkHint),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => push(JoinLinkScreen(membership: membership)),
                 ),
                 ListTile(
                   leading: const Icon(Icons.how_to_reg_outlined),
