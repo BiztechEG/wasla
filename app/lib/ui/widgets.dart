@@ -428,11 +428,15 @@ class EmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     this.body,
+    this.action,
   });
 
   final IconData icon;
   final String title;
   final String? body;
+
+  /// The next step from here, as a button under the text.
+  final EmptyAction? action;
 
   @override
   Widget build(BuildContext context) {
@@ -466,11 +470,35 @@ class EmptyState extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             ],
+            if (action case final a?) ...[
+              const SizedBox(height: 16),
+              FilledButton.tonalIcon(
+                key: a.key,
+                icon: Icon(a.icon, size: 18),
+                label: Text(a.label),
+                onPressed: a.onPressed,
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+/// The button of an [EmptyState].
+class EmptyAction {
+  const EmptyAction({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final Key? key;
 }
 
 class SectionTitle extends StatelessWidget {

@@ -1722,5 +1722,6 @@
   "setupAnnouncement": "اكتب أول نشرة",
   "setupAnnouncementHint": "رسالة ترحيب توصل للجميع",
   "setupHide": "إخفاء",
-  "setupAllSteps": "كل الخطوات"
+  "setupAllSteps": "كل الخطوات",
+  "noColleaguesMember": "اطلب من مسؤول مساحة العمل يدعو زملاءك."
 }

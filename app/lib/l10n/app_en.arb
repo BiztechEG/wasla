@@ -1510,5 +1510,6 @@
   "setupAnnouncement": "Post your first announcement",
   "setupAnnouncementHint": "A welcome that reaches everyone",
   "setupHide": "Hide",
-  "setupAllSteps": "All steps"
+  "setupAllSteps": "All steps",
+  "noColleaguesMember": "Ask your workspace admin to invite your colleagues."
 }

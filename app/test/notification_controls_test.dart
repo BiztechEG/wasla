@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/ui/task_editor.dart';
 
 import 'fake_api.dart';
 import 'harness.dart';
@@ -137,5 +138,63 @@ void main() {
       );
     await startApp(tester, api);
     expect(find.byKey(const Key('setupChecklist')), findsNothing);
+  });
+
+  testWidgets('empty screens offer the next step', (tester) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.owner),
+      )
+      ..membersByWorkspace['ws1'] = [
+        const Member(userId: 'me', fullName: 'Amr', role: WorkspaceRole.owner),
+      ]
+      ..projectsByWorkspace['ws1'] = [
+        const Project(
+          id: 'p1',
+          workspaceId: 'ws1',
+          name: 'Site',
+          color: '#0F6E6A',
+          status: ProjectStatus.active,
+          memberCount: 1,
+        ),
+      ];
+    await startApp(tester, api, prefs: {'locale': 'en'});
+
+    // No chats: write the first message; nobody to write to: invite them.
+    await tester.tap(find.byKey(const Key('firstMessage')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('inviteColleagues')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('inviteEmail')), findsOneWidget);
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+
+    // No tasks: make one.
+    await tester.tap(find.byTooltip('My tasks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('emptyNewTask')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TaskEditorScreen), findsOneWidget);
+  });
+
+  testWidgets('a member with nobody to write to is told whom to ask', (
+    tester,
+  ) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.member),
+      )
+      ..membersByWorkspace['ws1'] = [
+        const Member(userId: 'me', fullName: 'Amr', role: WorkspaceRole.member),
+      ];
+    await startApp(tester, api, prefs: {'locale': 'en'});
+
+    await tester.tap(find.byKey(const Key('firstMessage')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('inviteColleagues')), findsNothing);
+    expect(
+      find.text('Ask your workspace admin to invite your colleagues.'),
+      findsOneWidget,
+    );
   });
 }
