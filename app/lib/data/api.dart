@@ -138,6 +138,10 @@ abstract class WaslaApi {
   /// Hours when nothing reaches one's phone; null when off.
   Future<QuietHours?> quietHours();
 
+  /// Whether one gets the weekly report (for whoever runs a team).
+  Future<bool> weeklyReport();
+  Future<void> setWeeklyReport(bool on);
+
   /// A workspace's departments, for its owners and admins.
   Future<List<Department>> departments(String workspaceId);
 
@@ -1161,6 +1165,14 @@ class SupabaseWaslaApi implements WaslaApi {
       announcement: r['has_announcement'] == true,
     );
   }
+
+  @override
+  Future<bool> weeklyReport() async =>
+      await _client.rpc('my_weekly_report') as bool? ?? true;
+
+  @override
+  Future<void> setWeeklyReport(bool on) =>
+      _client.rpc('set_weekly_report', params: {'p_on': on});
 
   @override
   Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset) =>

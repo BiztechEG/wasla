@@ -375,7 +375,9 @@ enum NotificationKind {
   requestAccepted('request_accepted'),
   requestDeclined('request_declined'),
   // Someone joined with the workspace's join code.
-  memberJoined('member_joined');
+  memberJoined('member_joined'),
+  // A manager's week in numbers; detail is the JSON of them.
+  weeklyReport('weekly_report');
 
   const NotificationKind(this.wire);
 

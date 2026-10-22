@@ -51,6 +51,31 @@ const roles: Record<Locale, Record<string, string>> = {
 
 type Note = (name: string, detail: string, l: Locale) => string;
 
+/// A week's numbers from the report's detail (JSON), in one line.
+export function weekLine(detail: string, l: Locale): string {
+  let w: Record<string, unknown> = {};
+  try {
+    w = JSON.parse(detail);
+  } catch {
+    return detail;
+  }
+  const n = (k: string) => Number(w[k] ?? 0);
+  const parts = l === "ar"
+    ? [
+      `أُنجزت ${n("done")} مهمة (مقابل ${n("done_before")} في الأسبوع السابق)`,
+      `${n("late")} متأخرة`,
+      `${n("review")} بانتظار المراجعة`,
+      ...(w.late_arrivals == null ? [] : [`${n("late_arrivals")} تأخير في الحضور`]),
+    ]
+    : [
+      `${n("done")} tasks done (${n("done_before")} the week before)`,
+      `${n("late")} late`,
+      `${n("review")} in review`,
+      ...(w.late_arrivals == null ? [] : [`${n("late_arrivals")} late arrivals`]),
+    ];
+  return parts.join(" · ");
+}
+
 const notes: Record<Locale, Record<string, Note>> = {
   ar: {
     assigned: (n) => `مهمة جديدة لك من ${n}`,
@@ -74,6 +99,7 @@ const notes: Record<Locale, Record<string, Note>> = {
     request_accepted: () => "قُبل طلبك للانضمام، اضغط لفتح مساحة العمل",
     request_declined: () => "لم يُقبل طلبك للانضمام إلى مساحة العمل",
     member_joined: (n) => `انضم ${n} إلى مساحة العمل برابط الانضمام`,
+    weekly_report: (_, d, l) => `تقرير الأسبوع: ${weekLine(d, l)}`,
     attendance_in: () => "بدأت ورديتك ولم تسجّل حضورك بعد",
     attendance_out: () => "انتهت ورديتك ولم تسجّل انصرافك بعد",
     attendance_review: (
@@ -109,6 +135,7 @@ const notes: Record<Locale, Record<string, Note>> = {
     request_accepted: () => "Your request to join was accepted; tap to open the workspace",
     request_declined: () => "Your request to join wasn't accepted",
     member_joined: (n) => `${n} joined the workspace with the join link`,
+    weekly_report: (_, d, l) => `Your week: ${weekLine(d, l)}`,
     attendance_in: () => "Your shift has started and you haven't checked in",
     attendance_out: () => "Your shift has ended and you haven't checked out",
     attendance_review: (

@@ -74,6 +74,15 @@ class AccountScreen extends ConsumerWidget {
           ],
           SectionTitle(l.notificationsTitle),
           const _QuietHoursCard(),
+          if (ref.watch(currentMembershipProvider) case final m?
+              when m.role.canManage ||
+                  m.isCompanyOwner ||
+                  (ref
+                          .watch(myDepartmentsProvider(m.workspaceId))
+                          .value
+                          ?.isNotEmpty ??
+                      false))
+            const _WeeklyReportCard(),
           if (ref.watch(googleAccountProvider).available) ...[
             SectionTitle(l.googleSection),
             const _GoogleCard(),
@@ -337,6 +346,35 @@ class _StatusCard extends ConsumerWidget {
         subtitle: status?.note == null ? null : Text(status!.note!),
         trailing: const Icon(LucideIcons.chevronRightDir),
         onTap: () => showStatusSheet(context, ref, workspaceId: workspaceId),
+      ),
+    );
+  }
+}
+
+/// For whoever runs a team: the Sunday report, on or off.
+class _WeeklyReportCard extends ConsumerWidget {
+  const _WeeklyReportCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final on = ref.watch(weeklyReportProvider).value;
+    return Card(
+      child: SwitchListTile(
+        key: const Key('weeklyReport'),
+        secondary: const Icon(LucideIcons.chartLine),
+        title: Text(l.weeklyReportTitle),
+        subtitle: Text(l.weeklyReportHint),
+        value: on ?? true,
+        onChanged: on == null
+            ? null
+            : (value) async {
+                final ok = await runAction(
+                  context,
+                  () => ref.read(apiProvider).setWeeklyReport(value),
+                );
+                if (ok) ref.invalidate(weeklyReportProvider);
+              },
       ),
     );
   }

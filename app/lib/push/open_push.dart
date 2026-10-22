@@ -15,6 +15,7 @@ import '../ui/my_tasks_tab.dart';
 import '../ui/notifications_screen.dart';
 import '../ui/project_screen.dart';
 import '../ui/start_screen.dart';
+import '../ui/dashboard_screen.dart';
 
 /// Opens what a tapped notification is about: the chat, the task, the
 /// announcements, the billing page, or the invitation or request to answer,
@@ -92,6 +93,8 @@ Future<void> openFromPush(
       case 'workspace':
         // Opening the workspace is all there is to it.
         break;
+      case 'dashboard':
+        push(const DashboardScreen());
       default:
         push(const NotificationsScreen());
     }

@@ -172,6 +172,12 @@ final setupProvider = FutureProvider.autoDispose.family<SetupProgress?, String>(
   },
 );
 
+final weeklyReportProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final api = ref.watch(apiProvider);
+  if (await _user(ref) == null) return false;
+  return api.weeklyReport();
+});
+
 final quietHoursProvider = FutureProvider.autoDispose<QuietHours?>((ref) async {
   final api = ref.watch(apiProvider);
   if (await _user(ref) == null) return null;

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -18,6 +20,7 @@ import 'my_tasks_tab.dart';
 import 'start_screen.dart';
 import 'task_format.dart';
 import 'widgets.dart';
+import 'dashboard_screen.dart';
 
 String noteText(AppLocalizations l, AppNotification n) {
   final who = n.actorName ?? '';
@@ -58,6 +61,7 @@ String noteText(AppLocalizations l, AppNotification n) {
     NotificationKind.requestAccepted => l.noteRequestAccepted,
     NotificationKind.requestDeclined => l.noteRequestDeclined,
     NotificationKind.memberJoined => l.noteMemberJoined(who),
+    NotificationKind.weeklyReport => weekSummary(l, n.detail),
   };
 }
 
@@ -83,6 +87,7 @@ IconData _icon(NotificationKind kind) => switch (kind) {
   NotificationKind.requestAccepted => LucideIcons.circleCheck,
   NotificationKind.requestDeclined => LucideIcons.circleMinus,
   NotificationKind.memberJoined => LucideIcons.userPlus,
+  NotificationKind.weeklyReport => LucideIcons.chartLine,
 };
 
 /// How an invitation or request ended, for the small tag on it.
@@ -251,6 +256,8 @@ Future<void> _open(
       if (m != null) push(MembersScreen(membership: m));
     case NotificationKind.requestDeclined:
       break;
+    case NotificationKind.weeklyReport:
+      push(const DashboardScreen());
     case _:
       // A deleted task has nothing left to open.
       if (n.taskId != null && n.kind != NotificationKind.deleted) {
@@ -455,4 +462,21 @@ class _NotificationTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A weekly report's numbers (the notification's detail) in one line.
+String weekSummary(AppLocalizations l, String? detail) {
+  Map<String, dynamic> w;
+  try {
+    w = Map<String, dynamic>.from(jsonDecode(detail ?? '') as Map);
+  } catch (_) {
+    return l.weeklyReportTitle;
+  }
+  int n(String k) => (w[k] as num?)?.toInt() ?? 0;
+  return [
+    l.weekDone(n('done'), n('done_before')),
+    l.weekLate(n('late')),
+    l.weekReview(n('review')),
+    if (w['late_arrivals'] != null) l.weekLateArrivals(n('late_arrivals')),
+  ].join(' · ');
 }

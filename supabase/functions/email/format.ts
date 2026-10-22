@@ -125,7 +125,84 @@ ${t.until ? `<p style="font-size:14px;color:#55615f;margin:0 0 8px">${escape(t.u
   return { to: q.to_email, subject: t.subject, text, html };
 }
 
+/// The weekly report: each workspace's week in numbers, and a link to the
+/// dashboard.
+export function weeklyEmail(q: QueuedEmail, site: string | null): Email {
+  const l: Locale = q.locale === "en" ? "en" : "ar";
+  const rows = Array.isArray(q.data.workspaces)
+    ? q.data.workspaces as Record<string, unknown>[]
+    : [];
+  const n = (w: Record<string, unknown>, k: string) => Number(w[k] ?? 0);
+  const base = site?.replace(/\/+$/, "") || null;
+  const web = base ? `${base}/app/` : null;
+  const t = l === "ar"
+    ? {
+      subject: "تقرير وصلة الأسبوعي",
+      intro: "هذا ما جرى في فرقك الأسبوع الماضي:",
+      lines: (w: Record<string, unknown>) => [
+        `أُنجزت ${n(w, "done")} مهمة (مقابل ${n(w, "done_before")} في الأسبوع السابق)`,
+        `${n(w, "open")} مفتوحة، منها ${n(w, "late")} متأخرة`,
+        `${n(w, "review")} بانتظار المراجعة`,
+        ...(w.late_arrivals == null ? [] : [`${n(w, "late_arrivals")} تأخير في الحضور`]),
+      ],
+      open: "افتح لوحة الإدارة",
+      off: "لإيقاف هذا التقرير: حسابي ← التقرير الأسبوعي.",
+    }
+    : {
+      subject: "Your Wasla week",
+      intro: "Here is how your teams did last week:",
+      lines: (w: Record<string, unknown>) => [
+        `${n(w, "done")} tasks done (${n(w, "done_before")} the week before)`,
+        `${n(w, "open")} open, ${n(w, "late")} of them late`,
+        `${n(w, "review")} waiting for review`,
+        ...(w.late_arrivals == null ? [] : [`${n(w, "late_arrivals")} late arrivals`]),
+      ],
+      open: "Open the dashboard",
+      off: "To stop this report: My account > Weekly report.",
+    };
+  const name = (w: Record<string, unknown>) => String(w.workspace ?? "");
+
+  const text = [
+    t.intro,
+    ...rows.flatMap((w) => ["", name(w), ...t.lines(w).map((line) => `- ${line}`)]),
+    ...(web ? ["", `${t.open}: ${web}`] : []),
+    "",
+    t.off,
+  ].join("\n");
+
+  const dir = l === "ar" ? "rtl" : "ltr";
+  const align = l === "ar" ? "right" : "left";
+  const html = `<!doctype html>
+<html lang="${l}" dir="${dir}"><body style="margin:0;background:#f3f5f4;font-family:Tahoma,Arial,sans-serif;color:#17201f">
+<div style="max-width:520px;margin:0 auto;padding:24px 16px">
+<div style="background:#fff;border-radius:16px;padding:24px;text-align:${align}">
+<div style="font-size:22px;font-weight:bold;color:#0F6E6A;margin-bottom:12px">${
+    l === "ar" ? "وصلة" : "Wasla"
+  }</div>
+<p style="font-size:16px;line-height:1.7;margin:0 0 8px">${escape(t.intro)}</p>
+${
+    rows.map((w) =>
+      `<h3 style="font-size:16px;margin:16px 0 6px;color:#0F6E6A">${escape(name(w))}</h3>
+<ul style="font-size:15px;line-height:1.8;margin:0;padding-${align}:20px">${
+        t.lines(w).map((line) => `<li>${escape(line)}</li>`).join("")
+      }</ul>`
+    ).join("\n")
+  }
+${
+    web
+      ? `<p style="margin:20px 0 0"><a href="${
+        escape(web)
+      }" style="display:inline-block;background:#0F6E6A;color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:bold">${t.open}</a></p>`
+      : ""
+  }
+<p style="font-size:13px;color:#7a8583;margin:16px 0 0">${escape(t.off)}</p>
+</div></div></body></html>`;
+
+  return { to: q.to_email, subject: t.subject, text, html };
+}
+
 export function format(q: QueuedEmail, site: string | null): Email | null {
   if (q.kind === "invite") return inviteEmail(q, site);
+  if (q.kind === "weekly_report") return weeklyEmail(q, site);
   return null;
 }

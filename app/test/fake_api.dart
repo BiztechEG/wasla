@@ -176,6 +176,14 @@ class FakeApi implements WaslaApi {
   @override
   Future<QuietHours?> quietHours() async => quiet;
 
+  bool weekly = true;
+
+  @override
+  Future<bool> weeklyReport() async => weekly;
+
+  @override
+  Future<void> setWeeklyReport(bool on) async => weekly = on;
+
   @override
   Future<void> setQuietHours(
     TimeOfDay? from,

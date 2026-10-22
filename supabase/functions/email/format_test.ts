@@ -40,3 +40,50 @@ Deno.test("names are escaped in the HTML", () => {
   assert(!e.html.includes("<b>Mona</b>"));
   assertStringIncludes(e.html, "&lt;b&gt;Mona&lt;/b&gt;");
 });
+
+const weekly: QueuedEmail = {
+  id: 2,
+  kind: "weekly_report",
+  to_email: "boss@example.com",
+  locale: "ar",
+  data: {
+    workspaces: [
+      {
+        workspace: "Engineering",
+        done: 12,
+        done_before: 8,
+        open: 5,
+        late: 2,
+        review: 1,
+        late_arrivals: 3,
+      },
+      {
+        workspace: "<Site>",
+        done: 1,
+        done_before: 0,
+        open: 2,
+        late: 0,
+        review: 0,
+        late_arrivals: null,
+      },
+    ],
+  },
+};
+
+Deno.test("the weekly report lists each workspace's week", () => {
+  const e = format(weekly, "https://wasla.example")!;
+  assertEquals(e.subject, "تقرير وصلة الأسبوعي");
+  assertStringIncludes(e.text, "Engineering\n- أُنجزت 12 مهمة (مقابل 8 في الأسبوع السابق)");
+  assertStringIncludes(e.text, "- 3 تأخير في الحضور");
+  assertStringIncludes(e.text, "https://wasla.example/app/");
+  // Attendance only where it is on.
+  assertEquals(e.text.split("تأخير في الحضور").length, 2);
+  assert(!e.html.includes("<Site>"));
+});
+
+Deno.test("the weekly report in English", () => {
+  const e = format({ ...weekly, locale: "en" }, null)!;
+  assertEquals(e.subject, "Your Wasla week");
+  assertStringIncludes(e.text, "12 tasks done (8 the week before)");
+  assert(!e.html.includes("<a "));
+});

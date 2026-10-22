@@ -1560,5 +1560,11 @@
   "departmentProjectsTitle": "Projects",
   "inDepartment": "Now in {name}",
   "departmentDashboard": "Department dashboard",
-  "departmentOnly": "Your department's projects only"
+  "departmentOnly": "Your department's projects only",
+  "weeklyReportTitle": "Weekly report",
+  "weeklyReportHint": "Every Sunday morning: your teams' week in numbers, by notification and email",
+  "weekDone": "{done} tasks done ({before} the week before)",
+  "weekLate": "{count} late",
+  "weekReview": "{count} in review",
+  "weekLateArrivals": "{count} late arrivals"
 }
