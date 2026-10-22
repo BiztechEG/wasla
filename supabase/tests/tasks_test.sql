@@ -319,7 +319,8 @@ select pg_temp.fails($$ select public.nudge_task(pg_temp.v('t2')) $$, 'not_allow
 -- 9. Notifications are one's own.
 select pg_temp.login(503);
 select pg_temp.check(
-  (select count(*) > 0 and bool_and(task_title is not null) from public.my_notifications()),
+  (select count(*) > 0 and bool_and(task_title is not null) from public.my_notifications()
+   where task_id is not null),
   'one lists one''s notifications with their task');
 select pg_temp.check(
   (select count(*) = (select count(*) from public.notifications where user_id = pg_temp.uid(503))

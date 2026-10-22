@@ -42,6 +42,7 @@ class MoreTab extends ConsumerWidget {
     final requests = canManage
         ? ref.watch(joinRequestsProvider(ws)).value
         : null;
+    final invites = ref.watch(myInvitesProvider).value ?? const <MyInvite>[];
     final attendance = ref.watch(attendanceTodayProvider(ws)).value;
     final attendanceOn = attendance?.enabled ?? false;
 
@@ -138,101 +139,116 @@ class MoreTab extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => openTeamAttendance(context, membership),
               ),
-            if (canManage) ...[
-              ListTile(
-                leading: const Icon(Icons.person_add_alt_1_outlined),
-                title: Text(l.inviteMembers),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showInviteSheet(context, membership),
-              ),
-              ListTile(
-                leading: const Icon(Icons.how_to_reg_outlined),
-                title: Text(l.joinRequests),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (requests != null && requests.isNotEmpty)
-                      Badge(label: Text('${requests.length}')),
-                    const Icon(Icons.chevron_right),
-                  ],
+          ],
+        ),
+
+        // Running the workspace: who gets in and how it works.
+        if (canManage || membership.isCompanyOwner) ...[
+          SectionTitle(l.manageSection),
+          TileGroup(
+            children: [
+              if (canManage) ...[
+                ListTile(
+                  leading: const Icon(Icons.person_add_alt_1_outlined),
+                  title: Text(l.inviteMembers),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => showInviteSheet(context, membership),
                 ),
-                onTap: () => push(JoinRequestsScreen(membership: membership)),
-              ),
-              ListTile(
-                key: const Key('attendanceSetupTile'),
-                leading: const Icon(Icons.more_time_outlined),
-                title: Text(l.attendanceSetup),
-                subtitle: attendanceOn ? null : Text(l.attendanceSetupHint),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => openAttendanceSetup(context, membership),
-              ),
-              SwitchListTile(
-                secondary: const Icon(Icons.travel_explore_outlined),
-                title: Text(l.discoverable),
-                subtitle: Text(l.discoverableHint),
-                value: membership.discoverable,
-                onChanged: (value) async {
-                  final ok = await runAction(
-                    context,
-                    () => ref.read(apiProvider).setDiscoverable(ws, value),
-                  );
-                  if (ok && context.mounted) {
-                    ref.invalidate(membershipsProvider);
-                  }
-                },
-              ),
-              SwitchListTile(
-                key: const Key('allowSharing'),
-                secondary: const Icon(Icons.ios_share),
-                title: Text(l.allowSharing),
-                subtitle: Text(l.allowSharingHint),
-                value: membership.allowSharing,
-                onChanged: (value) async {
-                  final ok = await runAction(
-                    context,
-                    () => ref.read(apiProvider).setAllowSharing(ws, value),
-                  );
-                  if (ok && context.mounted) {
-                    ref.invalidate(membershipsProvider);
-                  }
-                },
-              ),
+                ListTile(
+                  leading: const Icon(Icons.how_to_reg_outlined),
+                  title: Text(l.joinRequests),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (requests != null && requests.isNotEmpty)
+                        Badge(label: Text('${requests.length}')),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () => push(JoinRequestsScreen(membership: membership)),
+                ),
+                ListTile(
+                  key: const Key('attendanceSetupTile'),
+                  leading: const Icon(Icons.more_time_outlined),
+                  title: Text(l.attendanceSetup),
+                  subtitle: attendanceOn ? null : Text(l.attendanceSetupHint),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => openAttendanceSetup(context, membership),
+                ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.travel_explore_outlined),
+                  title: Text(l.discoverable),
+                  subtitle: Text(l.discoverableHint),
+                  value: membership.discoverable,
+                  onChanged: (value) async {
+                    final ok = await runAction(
+                      context,
+                      () => ref.read(apiProvider).setDiscoverable(ws, value),
+                    );
+                    if (ok && context.mounted) {
+                      ref.invalidate(membershipsProvider);
+                    }
+                  },
+                ),
+                SwitchListTile(
+                  key: const Key('allowSharing'),
+                  secondary: const Icon(Icons.ios_share),
+                  title: Text(l.allowSharing),
+                  subtitle: Text(l.allowSharingHint),
+                  value: membership.allowSharing,
+                  onChanged: (value) async {
+                    final ok = await runAction(
+                      context,
+                      () => ref.read(apiProvider).setAllowSharing(ws, value),
+                    );
+                    if (ok && context.mounted) {
+                      ref.invalidate(membershipsProvider);
+                    }
+                  },
+                ),
+              ],
+              if (membership.isCompanyOwner)
+                ListTile(
+                  leading: const Icon(Icons.workspace_premium_outlined),
+                  title: Text(l.subscriptionTitle),
+                  subtitle: Text(l.subscriptionHint(membership.companyName)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () =>
+                      push(BillingScreen(companyId: membership.companyId)),
+                ),
+              if (membership.isCompanyOwner)
+                ListTile(
+                  leading: const Icon(Icons.add_business_outlined),
+                  title: Text(l.newWorkspaceInCompany(membership.companyName)),
+                  onTap: () async {
+                    final name = await promptText(
+                      context,
+                      title: l.newWorkspaceTitle,
+                      label: l.workspaceNameLabel,
+                      action: l.create,
+                    );
+                    if (name == null || !context.mounted) return;
+                    String? id;
+                    final ok = await runAction(context, () async {
+                      id = await ref
+                          .read(apiProvider)
+                          .createWorkspace(
+                            companyId: membership.companyId,
+                            name: name,
+                          );
+                    });
+                    if (ok && context.mounted) {
+                      await openWorkspace(context, ref, id!);
+                    }
+                  },
+                ),
             ],
-            if (membership.isCompanyOwner)
-              ListTile(
-                leading: const Icon(Icons.workspace_premium_outlined),
-                title: Text(l.subscriptionTitle),
-                subtitle: Text(l.subscriptionHint(membership.companyName)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () =>
-                    push(BillingScreen(companyId: membership.companyId)),
-              ),
-            if (membership.isCompanyOwner)
-              ListTile(
-                leading: const Icon(Icons.add_business_outlined),
-                title: Text(l.newWorkspaceInCompany(membership.companyName)),
-                onTap: () async {
-                  final name = await promptText(
-                    context,
-                    title: l.newWorkspaceTitle,
-                    label: l.workspaceNameLabel,
-                    action: l.create,
-                  );
-                  if (name == null || !context.mounted) return;
-                  String? id;
-                  final ok = await runAction(context, () async {
-                    id = await ref
-                        .read(apiProvider)
-                        .createWorkspace(
-                          companyId: membership.companyId,
-                          name: name,
-                        );
-                  });
-                  if (ok && context.mounted) {
-                    await openWorkspace(context, ref, id!);
-                  }
-                },
-              ),
+          ),
+        ],
+
+        SectionTitle(l.workspacesSection),
+        TileGroup(
+          children: [
             ListTile(
               key: const Key('manageWorkspaces'),
               leading: const Icon(Icons.tune),
@@ -244,7 +260,14 @@ class MoreTab extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.add_circle_outline),
               title: Text(l.addWorkspace),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (invites.isNotEmpty)
+                    Badge(label: Text('${invites.length}')),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
               onTap: () => push(const StartScreen(asPage: true)),
             ),
           ],

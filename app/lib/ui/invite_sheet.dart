@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import '../state/providers.dart';
+import 'inbox.dart';
 import 'widgets.dart';
 
 Future<void> showInviteSheet(BuildContext context, Membership membership) =>
@@ -13,7 +14,9 @@ Future<void> showInviteSheet(BuildContext context, Membership membership) =>
     );
 
 /// Invites someone by email, with a role and optionally straight into
-/// projects. They see it in the app when they sign in with that email.
+/// projects. They see it in the app when they sign in with that email, so
+/// the sheet then offers to send them word through WhatsApp, email or any
+/// other app.
 class InviteSheet extends ConsumerStatefulWidget {
   const InviteSheet({super.key, required this.membership});
 
@@ -39,7 +42,6 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
 
   Future<void> _send() async {
     if (!_form.currentState!.validate()) return;
-    final l = context.l10n;
     final ws = widget.membership.workspaceId;
     final email = _email.text.trim().toLowerCase();
     final ok = await runAction(
@@ -52,16 +54,25 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
             role: _role,
             projectIds: _projects.toList(),
           ),
-      done: l.inviteSent(ltr(email)),
     );
     if (ok && mounted) {
       ref.invalidate(sentInvitesProvider(ws));
-      Navigator.pop(context);
+      setState(() => _sentTo = email);
     }
   }
 
+  /// Set once the invitation exists: the sheet then offers to send it.
+  String? _sentTo;
+
   @override
   Widget build(BuildContext context) {
+    final sentTo = _sentTo;
+    if (sentTo != null) {
+      return _InviteReady(
+        workspace: widget.membership.workspaceName,
+        email: sentTo,
+      );
+    }
     final l = context.l10n;
     final theme = Theme.of(context);
     final projects =
@@ -156,6 +167,75 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
               BusyButton(label: l.sendInvite, onPressed: _send),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The invitation exists; nobody has told the person yet.
+class _InviteReady extends ConsumerWidget {
+  const _InviteReady({required this.workspace, required this.email});
+
+  final String workspace;
+  final String email;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: CircleAvatar(
+                radius: 30,
+                backgroundColor: scheme.primaryContainer,
+                child: Icon(
+                  Icons.mark_email_read_outlined,
+                  size: 30,
+                  color: scheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              l.inviteReadyTitle,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              l.inviteReadyBody(ltr(email)),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              key: const Key('shareInvite'),
+              icon: const Icon(Icons.send_outlined, size: 18),
+              label: Text(l.shareInvite),
+              onPressed: () => shareText(
+                context,
+                ref,
+                inviteMessage(context, workspace, email),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l.done),
+            ),
+          ],
         ),
       ),
     );

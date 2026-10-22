@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
+import '../data/task_models.dart';
 import '../push/open_push.dart';
 import '../push/push.dart';
 import '../state/chat_providers.dart';
@@ -12,6 +13,7 @@ import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
 import 'chats_tab.dart';
+import 'inbox.dart';
 import 'modern.dart';
 import 'more_tab.dart';
 import 'my_tasks_tab.dart';
@@ -59,6 +61,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       final tasks = next.value;
       if (tasks != null) ref.read(calendarProvider.notifier).sync(tasks);
     });
+    // Let into another workspace: it joins the switcher right away.
+    ref.listen(notificationsProvider, (_, next) {
+      final mine = {
+        for (final m in ref.read(membershipsProvider).value ?? <Membership>[])
+          m.workspaceId,
+      };
+      final joined = (next.value ?? const <AppNotification>[]).any(
+        (n) =>
+            n.unread &&
+            n.kind == NotificationKind.requestAccepted &&
+            !mine.contains(n.workspaceId),
+      );
+      if (joined) ref.invalidate(membershipsProvider);
+    });
     final membership = ref.watch(currentMembershipProvider);
     if (membership == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -71,6 +87,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final late = (ref.watch(myTasksProvider).value ?? const [])
         .where((t) => t.isAssignedTo(me) && t.isLate(now))
         .length;
+
+    // What waits for my answer in the "more" tab: invitations to other
+    // workspaces, and for admins people asking to join this one.
+    final waiting =
+        (ref.watch(myInvitesProvider).value?.length ?? 0) +
+        (membership.role.canManage
+            ? ref
+                      .watch(joinRequestsProvider(membership.workspaceId))
+                      .value
+                      ?.length ??
+                  0
+            : 0);
 
     final theme = Theme.of(context);
     final titles = [l.tabChats, l.tabProjects, l.tabMyTasks, l.tabMore];
@@ -134,6 +162,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   ),
                 ),
               ),
+              PendingBanner(membership: membership),
               Expanded(
                 child: IndexedStack(
                   index: _tab,
@@ -166,7 +195,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               label: l.tabMyTasks,
               count: late,
             ),
-            NavItem(icon: LucideIcons.layoutGrid, label: l.tabMore),
+            NavItem(
+              icon: LucideIcons.layoutGrid,
+              label: l.tabMore,
+              count: waiting,
+            ),
           ],
         ),
       ),
@@ -319,6 +352,7 @@ class _WorkspaceSwitcher extends ConsumerWidget {
     final l = context.l10n;
     final list = ref.watch(membershipsProvider).value ?? const <Membership>[];
     final current = ref.watch(currentMembershipProvider);
+    final invites = ref.watch(myInvitesProvider).value ?? const <MyInvite>[];
     final theme = Theme.of(context);
 
     return SafeArea(
@@ -359,6 +393,32 @@ class _WorkspaceSwitcher extends ConsumerWidget {
                       Navigator.pop(context);
                     },
                   ),
+                if (invites.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                    child: Text(
+                      l.invitesSection,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  for (final invite in invites)
+                    ListTile(
+                      leading: Avatar(name: invite.workspaceName),
+                      title: Text(invite.workspaceName),
+                      subtitle: Text(
+                        l.invitedBy(
+                          invite.invitedByName,
+                          roleLabel(l, invite.role),
+                        ),
+                      ),
+                      trailing: FilledButton.tonal(
+                        onPressed: () => acceptInvite(context, ref, invite),
+                        child: Text(l.accept),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),

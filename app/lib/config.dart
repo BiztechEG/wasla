@@ -14,4 +14,9 @@ class AppConfig {
     'SUPABASE_KEY',
     defaultValue: 'sb_publishable_f0s_ZGnr-fOq-OPCG1-bsA_isXiRQma',
   );
+
+  /// The website people download the app from, put in invitations sent
+  /// outside the app (--dart-define=SITE_URL=https://...). In a browser the
+  /// app's own site is used when this is empty.
+  static const siteUrl = String.fromEnvironment('SITE_URL');
 }

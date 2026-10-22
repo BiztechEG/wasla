@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import '../push/push.dart';
 import '../state/providers.dart';
+import '../state/task_providers.dart';
 import 'create_workspace_screen.dart';
+import 'inbox.dart';
 import 'search_screen.dart';
 import 'widgets.dart';
 
 /// Where someone lands with no workspace yet, and where anyone goes to add
-/// one: answer invitations, follow up on requests, create or find a workspace.
+/// one: answer invitations, follow up on requests, join their team or start
+/// a workspace for their company.
 class StartScreen extends ConsumerWidget {
   const StartScreen({super.key, this.asPage = false});
 
@@ -32,6 +36,13 @@ class StartScreen extends ConsumerWidget {
       await ref.read(myInvitesProvider.future);
     }
 
+    // An admin's answer arrives as a notification; once someone is let in,
+    // the app moves on to the workspace by itself.
+    ref.listen(notificationEventsProvider, (_, _) {
+      ref.invalidate(membershipsProvider);
+    });
+
+    final pending = requests.value ?? const <MyJoinRequest>[];
     return Scaffold(
       appBar: AppBar(
         title: Text(asPage ? l.addWorkspace : l.appName),
@@ -74,10 +85,11 @@ class StartScreen extends ConsumerWidget {
                 ),
               ),
             ],
+            // First what is waiting for an answer, then the ways in.
             ...switch (invites) {
               AsyncData(value: final list) when list.isNotEmpty => [
                 SectionTitle(l.invitesSection),
-                for (final invite in list) _InviteCard(invite: invite),
+                for (final invite in list) InviteCard(invite: invite),
               ],
               AsyncError(:final error) => [
                 const SizedBox(height: 16),
@@ -88,15 +100,15 @@ class StartScreen extends ConsumerWidget {
               ],
               _ => const <Widget>[],
             },
-            if (requests.value case final list? when list.isNotEmpty) ...[
+            if (pending.isNotEmpty) ...[
               SectionTitle(l.myRequestsSection),
               TileGroup(
                 children: [
-                  for (final r in list)
+                  for (final r in pending)
                     ListTile(
                       leading: const Icon(Icons.hourglass_top_outlined),
                       title: Text(r.workspaceName),
-                      subtitle: Text(l.waitingForAdmin),
+                      subtitle: Text(l.requestWaiting),
                       trailing: TextButton(
                         onPressed: () async {
                           final ok = await runAction(
@@ -114,6 +126,8 @@ class StartScreen extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 20),
+            _JoinTeamCard(email: email),
+            SectionTitle(l.newCompanySection),
             _ActionCard(
               icon: Icons.add_business_outlined,
               title: l.createWorkspaceAction,
@@ -124,36 +138,103 @@ class StartScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            _ActionCard(
-              icon: Icons.search,
-              title: l.findWorkspaceAction,
-              body: l.findWorkspaceHint,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
-              ),
-            ),
-            if (invites.value?.isEmpty ?? false) ...[
-              const SizedBox(height: 24),
-              Text(
-                l.noInvitesHint,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// How an employee gets in: their admin invites this email, or they find
+/// the workspace and ask. The email is right there to copy or send.
+class _JoinTeamCard extends ConsumerWidget {
+  const _JoinTeamCard({required this.email});
+
+  final String? email;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final address = email;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: scheme.primaryContainer,
+                  child: Icon(Icons.groups_outlined, color: scheme.primary),
                 ),
-              ),
-              if (email != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  l.signedInAs(ltr(email)),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    l.joinTeamTitle,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
-            ],
+            ),
+            if (address != null && address.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                l.joinTeamBody,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsetsDirectional.fromSTEB(14, 4, 4, 4),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: LtrLine(
+                        address,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l.copy,
+                      icon: const Icon(Icons.copy_rounded, size: 20),
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: address));
+                        if (context.mounted) showMessage(context, l.copied);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.send_outlined, size: 18),
+                label: Text(l.sendMyEmail),
+                onPressed: () =>
+                    shareText(context, ref, l.myEmailShare(address)),
+              ),
+              const SizedBox(height: 8),
+            ] else
+              const SizedBox(height: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.search, size: 18),
+              label: Text(l.orFindWorkspace),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
+              ),
+            ),
           ],
         ),
       ),
@@ -171,103 +252,6 @@ Future<void> openWorkspace(
   ref.invalidate(membershipsProvider);
   if (context.mounted) {
     Navigator.of(context).popUntil((route) => route.isFirst);
-  }
-}
-
-class _InviteCard extends ConsumerWidget {
-  const _InviteCard({required this.invite});
-
-  final MyInvite invite;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = context.l10n;
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Avatar(name: invite.workspaceName),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          invite.workspaceName,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          l.invitedBy(
-                            invite.invitedByName,
-                            roleLabel(l, invite.role),
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: BusyButton(
-                      label: l.accept,
-                      onPressed: () async {
-                        String? workspaceId;
-                        final ok = await runAction(context, () async {
-                          workspaceId = await ref
-                              .read(apiProvider)
-                              .acceptInvite(invite.token);
-                        });
-                        if (!context.mounted) return;
-                        ref.invalidate(myInvitesProvider);
-                        if (ok) await openWorkspace(context, ref, workspaceId!);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        if (!await confirm(
-                          context,
-                          message: l.confirmDeclineInvite(invite.workspaceName),
-                          action: l.decline,
-                          destructive: true,
-                        )) {
-                          return;
-                        }
-                        if (!context.mounted) return;
-                        await runAction(
-                          context,
-                          () =>
-                              ref.read(apiProvider).declineInvite(invite.token),
-                        );
-                        if (context.mounted) ref.invalidate(myInvitesProvider);
-                      },
-                      child: Text(l.decline),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

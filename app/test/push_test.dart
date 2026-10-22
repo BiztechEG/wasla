@@ -103,4 +103,36 @@ void main() {
     await startApp(tester, api, push: push);
     expect(find.text('نشرات مساحة العمل'), findsOneWidget);
   });
+
+  testWidgets('a request to join opens the requests to answer', (tester) async {
+    final api = _company();
+    final push = FakePush();
+    await startApp(tester, api, push: push);
+
+    push.taps.add({'type': 'join_requests', 'workspace': 'ws1'});
+    await tester.pumpAndSettle();
+    expect(find.text('طلبات الانضمام'), findsOneWidget);
+  });
+
+  testWidgets('an invitation to another workspace opens the invitations', (
+    tester,
+  ) async {
+    final api = _company()
+      ..invites.add(
+        const MyInvite(
+          token: 't1',
+          workspaceId: 'ws2',
+          workspaceName: 'Sales',
+          role: WorkspaceRole.member,
+          invitedByName: 'Mona',
+        ),
+      );
+    final push = FakePush();
+    await startApp(tester, api, push: push);
+
+    push.taps.add({'type': 'invites', 'workspace': 'ws2'});
+    await tester.pumpAndSettle();
+    expect(find.text('إضافة مساحة عمل'), findsOneWidget);
+    expect(find.text('دعوات لك'), findsOneWidget);
+  });
 }
