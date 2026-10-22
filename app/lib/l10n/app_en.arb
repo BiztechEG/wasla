@@ -1570,5 +1570,8 @@
   "alsoSendTo": "Also send to",
   "broadcastReachButton": "Sent to several workspaces · Follow up",
   "broadcastReachTitle": "In each workspace",
-  "dropFilesHere": "Drop files here to send them"
+  "dropFilesHere": "Drop files here to send them",
+  "phoneViewTitle": "Phone-size view",
+  "phoneViewHint": "The app in the middle of the window, as wide as a phone",
+  "fullWidthView": "Full width"
 }

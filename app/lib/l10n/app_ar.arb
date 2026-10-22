@@ -1791,5 +1791,8 @@
   "alsoSendTo": "أرسلها أيضاً إلى",
   "broadcastReachButton": "أُرسلت لأكثر من مساحة عمل · المتابعة",
   "broadcastReachTitle": "في كل مساحة عمل",
-  "dropFilesHere": "أفلت الملفات هنا لإرسالها"
+  "dropFilesHere": "أفلت الملفات هنا لإرسالها",
+  "phoneViewTitle": "عرض بحجم الموبايل",
+  "phoneViewHint": "التطبيق في وسط الشاشة بعرض الموبايل",
+  "fullWidthView": "عرض بكامل الشاشة"
 }

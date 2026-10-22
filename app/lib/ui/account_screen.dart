@@ -8,8 +8,9 @@ import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
 import '../state/task_providers.dart';
-import 'widgets.dart';
+import 'phone_view.dart';
 import 'status.dart';
+import 'widgets.dart';
 
 void openAccount(BuildContext context) =>
     Navigator.of(context)
@@ -143,6 +144,21 @@ class AccountScreen extends ConsumerWidget {
                       },
                     ),
                   ),
+                  if (ref.watch(isWebProvider) &&
+                      (settings.phoneView ||
+                          phoneViewFits(MediaQuery.sizeOf(context)))) ...[
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      key: const Key('phoneViewSwitch'),
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(LucideIcons.smartphone),
+                      title: Text(l.phoneViewTitle),
+                      subtitle: Text(l.phoneViewHint),
+                      value: settings.phoneView,
+                      onChanged: (on) =>
+                          ref.read(settingsProvider.notifier).setPhoneView(on),
+                    ),
+                  ],
                 ],
               ),
             ),

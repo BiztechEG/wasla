@@ -11,6 +11,7 @@ import 'theme.dart';
 import 'ui/admin_screen.dart';
 import 'ui/home_shell.dart';
 import 'ui/join_link.dart';
+import 'ui/phone_view.dart';
 import 'ui/profile_setup_screen.dart';
 import 'ui/sign_in_screen.dart';
 import 'ui/start_screen.dart';
@@ -44,6 +45,7 @@ class WaslaApp extends ConsumerWidget {
       locale: settings.locale,
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
+      builder: (context, child) => PhoneView(child: child!),
       home: const AppGate(),
     );
   }

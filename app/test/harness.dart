@@ -35,6 +35,7 @@ Future<void> startApp(
   Sharer? sharer,
   Locator? locator,
   FileDrops? drops,
+  bool web = false,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -52,6 +53,7 @@ Future<void> startApp(
         sharerProvider.overrideWithValue(sharer ?? FakeSharer()),
         locatorProvider.overrideWithValue(locator ?? FakeLocator()),
         if (drops != null) fileDropsProvider.overrideWithValue(drops),
+        if (web) isWebProvider.overrideWithValue(true),
       ],
       child: const WaslaApp(),
     ),

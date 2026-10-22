@@ -11,6 +11,7 @@ import '../push/push.dart';
 import '../state/chat_providers.dart';
 import '../state/google_providers.dart';
 import '../state/providers.dart';
+import '../state/settings.dart';
 import '../state/task_providers.dart';
 import 'account_screen.dart';
 import 'approvals_screen.dart';
@@ -20,6 +21,7 @@ import 'modern.dart';
 import 'more_tab.dart';
 import 'my_tasks_tab.dart';
 import 'notifications_screen.dart';
+import 'phone_view.dart';
 import 'projects_tab.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
@@ -144,6 +146,19 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                         child: _WorkspaceTitle(membership: membership),
                       ),
                     ),
+                    // In a wide browser window: the phone view, a click away.
+                    if (ref.watch(isWebProvider) &&
+                        phoneViewFits(MediaQuery.sizeOf(context))) ...[
+                      SoftIconButton(
+                        key: const Key('phoneViewButton'),
+                        tooltip: l.phoneViewTitle,
+                        onPressed: () => ref
+                            .read(settingsProvider.notifier)
+                            .setPhoneView(true),
+                        icon: const Icon(LucideIcons.smartphone, size: 20),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     _BellButton(count: notes),
                     const SizedBox(width: 8),
                     _MeButton(
