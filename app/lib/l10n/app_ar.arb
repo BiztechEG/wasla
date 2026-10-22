@@ -1744,5 +1744,21 @@
   "statusToday": "لنهاية اليوم",
   "statusPickDate": "اختر يوماً",
   "statusNoEnd": "حتى أغيّرها",
-  "statusLeaveHint": "من يراسلك في الخاص سيرى ملاحظتك فوق خانة الكتابة."
+  "statusLeaveHint": "من يراسلك في الخاص سيرى ملاحظتك فوق خانة الكتابة.",
+  "pollClosed": "انتهى التصويت",
+  "pollPickOne": "اختر إجابة",
+  "pollPickMany": "اختر إجابة أو أكثر",
+  "pollVoters": "{count, plural, =0{لم يصوّت أحد بعد} =1{صوّت شخص واحد} =2{صوّت شخصان} few{صوّت {count} أشخاص} many{صوّت {count} شخصاً} other{صوّت {count} شخص}}",
+  "@pollVoters": {"placeholders": {"count": {"type": "int"}}},
+  "newPoll": "استطلاع",
+  "pollQuestion": "السؤال",
+  "pollOption": "خيار {number}",
+  "@pollOption": {"placeholders": {"number": {"type": "int"}}},
+  "pollAddOption": "إضافة خيار",
+  "pollMultiple": "السماح باختيار أكثر من إجابة",
+  "pollSend": "إرسال الاستطلاع",
+  "pollNeedsTwo": "اكتب السؤال وخيارين على الأقل",
+  "closePoll": "إنهاء التصويت",
+  "unpinMessage": "إلغاء التثبيت",
+  "pinnedMessage": "رسالة مثبّتة"
 }

@@ -180,6 +180,24 @@ abstract class WaslaApi {
   /// A message and every reply under it, oldest first.
   Future<List<ChatMessage>> replyChain(String messageId);
 
+  /// Asks the chat [question] with [options]; [multiple]: more than one may
+  /// be picked.
+  Future<void> createPoll(
+    String conversationId, {
+    required String question,
+    required List<String> options,
+    bool multiple = false,
+    String? projectId,
+  });
+
+  /// One's answer to a poll; none takes it back.
+  Future<void> votePoll(String messageId, Set<int> options);
+  Future<void> closePoll(String messageId);
+
+  /// Pins a message on top of its chat, or with [pin] false takes it down.
+  Future<void> pinMessage(String messageId, {bool pin = true});
+  Future<ChatPin> chatPin(String conversationId);
+
   /// The days, in the device's time zone, that a chat has messages on.
   Future<Set<DateTime>> messageDays(String conversationId, {String? projectId});
 
@@ -1131,6 +1149,63 @@ class SupabaseWaslaApi implements WaslaApi {
       },
     ),
   ).map(ChatMessage.fromJson).toList();
+
+  @override
+  Future<void> createPoll(
+    String conversationId, {
+    required String question,
+    required List<String> options,
+    bool multiple = false,
+    String? projectId,
+  }) => _client.rpc(
+    'create_poll',
+    params: {
+      'p_conversation': conversationId,
+      'p_question': question,
+      'p_options': options,
+      'p_multiple': multiple,
+      'p_project': projectId,
+    },
+  );
+
+  @override
+  Future<void> votePoll(String messageId, Set<int> options) => _client.rpc(
+    'vote_poll',
+    params: {'p_message': messageId, 'p_options': options.toList()},
+  );
+
+  @override
+  Future<void> closePoll(String messageId) =>
+      _client.rpc('close_poll', params: {'p_message': messageId});
+
+  @override
+  Future<void> pinMessage(String messageId, {bool pin = true}) => _client.rpc(
+    'pin_message',
+    params: {'p_message': messageId, 'p_pin': pin},
+  );
+
+  @override
+  Future<ChatPin> chatPin(String conversationId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'conversation_pin',
+        params: {'p_conversation': conversationId},
+      ),
+    );
+    if (rows.isEmpty) return const ChatPin();
+    final r = rows.first;
+    return ChatPin(
+      canPin: r['can_pin'] == true,
+      message: r['message_id'] == null
+          ? null
+          : PinnedMessage(
+              messageId: r['message_id'] as String,
+              senderName: r['sender_name'] as String? ?? '',
+              body: r['body'] as String?,
+              fileName: r['file_name'] as String?,
+            ),
+    );
+  }
 
   @override
   Future<void> sendMessage(

@@ -101,6 +101,9 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - New messages and read marks arrive live through Supabase Realtime (the `messages` and `conversation_reads` tables are in the `supabase_realtime` publication; what each person receives still follows the database permissions).
 - Files deleted from a chat, a project or a task, and uploads that were never sent, are removed from storage the next night by the Edge Function `cleanup` (run by the `pg_cron` job `wasla-file-cleanup`), so they stop counting against the plan.
 
+- **Polls**: from the attach button, a question with 2 to 10 options (one answer, or more if allowed). Votes are kept on the message (`messages.poll`), so they reach everyone live like reactions; whoever asked, or runs the project, closes it.
+- **Pinned message**: one per chat, shown on top of it and a tap from the message. Either person pins in a private chat; in a project's chat, whoever runs the project.
+
 ## Phone notifications
 
 - New chat messages, announcements, and everything the bell shows (tasks, reminders, billing) reach the phones of the people concerned through Firebase Cloud Messaging, written in each phone's app language. Tapping one opens the chat, task or announcements it is about. They don't show while the app is open; the app updates live instead.

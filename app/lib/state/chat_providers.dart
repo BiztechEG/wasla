@@ -466,6 +466,28 @@ class ChatController extends AsyncNotifier<ChatState> {
     }
   }
 
+  /// One's answer to [message]'s poll, shown at once.
+  Future<void> vote(ChatMessage message, Set<int> picks) async {
+    final me = ref.read(authProvider).value;
+    final now = state.value;
+    if (me == null || now == null || message.poll == null) return;
+    state = AsyncData(
+      now.copyWith(
+        messages: [
+          for (final m in now.messages)
+            m.id == message.id
+                ? m.copyWith(poll: m.poll!.withVote(me, picks))
+                : m,
+        ],
+      ),
+    );
+    try {
+      await ref.read(apiProvider).votePoll(message.id, picks);
+    } finally {
+      if (ref.mounted) await refresh().catchError((Object _) {});
+    }
+  }
+
   void _markRead(ChatState chat) {
     // Read marks cover everything up to a time, so a chat filtered by
     // project would mark messages that are not on screen.
@@ -505,6 +527,26 @@ final voiceRecorderProvider = Provider<VoiceRecorder>(
 );
 
 /// Projects a private chat's messages can be tagged with.
+/// What is pinned on top of a chat; follows the chat's changes.
+final chatPinProvider = FutureProvider.autoDispose
+    .family<ChatPin, ({String workspaceId, String conversationId})>((
+      ref,
+      key,
+    ) async {
+      final api = ref.watch(apiProvider);
+      _refreshOnChatEvents(
+        ref,
+        key.workspaceId,
+        ref.invalidateSelf,
+        where: (e) =>
+            e.readerId == null &&
+            (e.conversationId == null ||
+                e.conversationId == key.conversationId),
+      );
+      await ref.watch(authProvider.future);
+      return api.chatPin(key.conversationId);
+    });
+
 final sharedProjectsProvider = FutureProvider.autoDispose
     .family<List<String>, String>((ref, conversationId) async {
       final api = ref.watch(apiProvider);

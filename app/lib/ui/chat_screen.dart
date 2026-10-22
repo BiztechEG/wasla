@@ -1038,8 +1038,49 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
   Future<void> _attach() async {
     if (!ref.read(chatProvider(_key)).hasValue) return;
-    final uploads = await pickUploads(context, ref);
+    final uploads = await pickUploads(context, ref, onPoll: _newPoll);
     if (uploads.isNotEmpty && mounted) await _send(files: uploads);
+  }
+
+  Future<void> _pin(String messageId, {required bool pin}) async {
+    final ok = await runAction(
+      context,
+      () => ref.read(apiProvider).pinMessage(messageId, pin: pin),
+    );
+    if (ok && mounted) {
+      ref.invalidate(
+        chatPinProvider((
+          workspaceId: widget.membership.workspaceId,
+          conversationId: widget.target.conversationId,
+        )),
+      );
+    }
+  }
+
+  Future<void> _newPoll() async {
+    final poll = await showModalBottomSheet<_PollDraft>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const _PollComposer(),
+    );
+    if (poll == null || !mounted) return;
+    final target = widget.target;
+    final ok = await runAction(
+      context,
+      () => ref
+          .read(apiProvider)
+          .createPoll(
+            target.conversationId,
+            question: poll.question,
+            options: poll.options,
+            multiple: poll.multiple,
+            projectId: target.isProject ? null : _tag,
+          ),
+    );
+    if (ok && mounted) {
+      await ref.read(chatProvider(_key).notifier).refresh();
+    }
   }
 
   @override
@@ -1108,8 +1149,25 @@ class _ChatViewState extends ConsumerState<ChatView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _countNewer());
     });
 
+    final pin = ref
+        .watch(
+          chatPinProvider((
+            workspaceId: ws,
+            conversationId: target.conversationId,
+          )),
+        )
+        .value;
+
     return Column(
       children: [
+        if (pin?.message case final pinned?)
+          _PinnedBar(
+            pin: pinned,
+            onTap: () => _jumpTo(pinned.messageId),
+            onUnpin: pin!.canPin && !closed
+                ? () => _pin(pinned.messageId, pin: false)
+                : null,
+          ),
         Expanded(
           child: Stack(
             children: [
@@ -1143,6 +1201,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
                     onQuoteTap: _jumpTo,
                     onProfile: _profile,
                     onReact: closed ? null : _react,
+                    onVote: closed
+                        ? null
+                        : (m, picks) => runAction(
+                            context,
+                            () => ref
+                                .read(chatProvider(_key).notifier)
+                                .vote(m, picks),
+                          ),
                     onReactMenu: closed
                         ? null
                         : (m, at) => _reactMenu(m, me, at),
@@ -1263,6 +1329,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
     // A task belongs to a project: this chat's, or the one the message is
     // tagged with; in an untagged private message one is picked.
     final taskProject = widget.target.projectId ?? m.projectId;
+    final pin = ref
+        .read(
+          chatPinProvider((
+            workspaceId: widget.membership.workspaceId,
+            conversationId: widget.target.conversationId,
+          )),
+        )
+        .value;
     final choices = <_Action>[
       if (!closed) _Action('reply', LucideIcons.replyDir, l.reply),
       if (hasText) _Action('copy', LucideIcons.copy, l.copy),
@@ -1276,6 +1350,12 @@ class _ChatViewState extends ConsumerState<ChatView> {
         _Action('share', LucideIcons.share2, l.share),
       if (mine && widget.target.isProject)
         _Action('seen', LucideIcons.checkCheck, l.seenByTitle),
+      if (m.poll != null && !m.poll!.closed && !closed && (mine || canModerate))
+        _Action('closePoll', LucideIcons.lock, l.closePoll),
+      if (!closed && (pin?.canPin ?? false))
+        pin?.message?.messageId == m.id
+            ? _Action('unpin', LucideIcons.pinOff, l.unpin)
+            : _Action('pin', LucideIcons.pin, l.pin),
       if (mine || canModerate)
         _Action(
           'delete',
@@ -1307,9 +1387,11 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 children: [
                   Icon(a.icon, size: 20, color: a.destructive ? error : null),
                   const SizedBox(width: 12),
-                  Text(
-                    a.label,
-                    style: a.destructive ? TextStyle(color: error) : null,
+                  Flexible(
+                    child: Text(
+                      a.label,
+                      style: a.destructive ? TextStyle(color: error) : null,
+                    ),
                   ),
                 ],
               ),
@@ -1370,6 +1452,16 @@ class _ChatViewState extends ConsumerState<ChatView> {
         );
       case 'seen':
         _showSeenBy(m, members ?? const []);
+      case 'pin' || 'unpin':
+        await _pin(m.id, pin: choice == 'pin');
+      case 'closePoll':
+        final ok = await runAction(
+          context,
+          () => ref.read(apiProvider).closePoll(m.id),
+        );
+        if (ok && mounted) {
+          await ref.read(chatProvider(_key).notifier).refresh();
+        }
       case 'delete':
         if (!await confirm(
           context,
@@ -1644,6 +1736,7 @@ class _MessageList extends StatelessWidget {
     required this.onReact,
     required this.onReactMenu,
     required this.onReactions,
+    this.onVote,
     required this.onRetry,
     required this.onDiscard,
     required this.onDayTap,
@@ -1675,6 +1768,9 @@ class _MessageList extends StatelessWidget {
 
   /// Null where reacting is not possible (a closed chat).
   final void Function(ChatMessage, String emoji)? onReact;
+
+  /// Answers a poll; null where the chat is closed.
+  final void Function(ChatMessage, Set<int> picks)? onVote;
   final void Function(ChatMessage, Offset at)? onReactMenu;
   final void Function(ChatMessage) onReactions;
   final void Function(PendingMessage) onRetry;
@@ -1785,6 +1881,7 @@ class _MessageList extends StatelessWidget {
                 mentions: mentionTargets(message.mentions, names, me),
                 onProfile: onProfile,
                 onReact: onReact == null ? null : (e) => onReact!(message, e),
+                onVote: onVote == null ? null : (p) => onVote!(message, p),
                 onReactMenu: onReactMenu == null
                     ? null
                     : (at) => onReactMenu!(message, at),
@@ -1924,6 +2021,7 @@ class _Bubble extends ConsumerWidget {
     required this.onReact,
     required this.onReactMenu,
     required this.onReactions,
+    this.onVote,
     this.names = const {},
     this.onThread,
     this.replyLabel,
@@ -1950,6 +2048,9 @@ class _Bubble extends ConsumerWidget {
   final void Function(String emoji)? onReact;
   final void Function(Offset at)? onReactMenu;
   final VoidCallback onReactions;
+
+  /// Answers the message's poll; null where it cannot be answered.
+  final void Function(Set<int> picks)? onVote;
 
   /// The workspace's people by id, for who replied.
   final Map<String, String> names;
@@ -2123,6 +2224,8 @@ class _Bubble extends ConsumerWidget {
               onMention: (t) => onProfile(t.id!, t.name),
             ),
           ),
+        if (m.poll case final poll?)
+          _PollView(poll: poll, me: me, mine: mine, onVote: onVote),
         for (final link in linksIn(m.body ?? '').take(3))
           Padding(
             padding: EdgeInsets.fromLTRB(media ? 6 : 0, 6, media ? 6 : 0, 0),
@@ -4409,6 +4512,286 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// A poll under its question: each option with how many picked it, a tap to
+/// pick (again to take it back), and who answered.
+class _PollView extends StatelessWidget {
+  const _PollView({
+    required this.poll,
+    required this.me,
+    required this.mine,
+    required this.onVote,
+  });
+
+  final Poll poll;
+  final String? me;
+  final bool mine;
+  final void Function(Set<int> picks)? onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final picks = poll.picksOf(me);
+    final voters = poll.voters.length;
+    final open = !poll.closed && onVote != null;
+    final accent = mine ? Colors.white : theme.colorScheme.primary;
+    final muted = mine ? Colors.white70 : theme.colorScheme.onSurfaceVariant;
+
+    void pick(int i) {
+      final next = poll.multiple
+          ? (picks.contains(i) ? ({...picks}..remove(i)) : {...picks, i})
+          : (picks.contains(i) ? <int>{} : {i});
+      onVote!(next);
+    }
+
+    return Padding(
+      key: const Key('poll'),
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            poll.closed
+                ? l.pollClosed
+                : poll.multiple
+                ? l.pollPickMany
+                : l.pollPickOne,
+            style: theme.textTheme.labelSmall?.copyWith(color: muted),
+          ),
+          const SizedBox(height: 4),
+          for (var i = 0; i < poll.options.length; i++)
+            InkWell(
+              key: Key('pollOption-$i'),
+              borderRadius: BorderRadius.circular(8),
+              onTap: open ? () => pick(i) : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          picks.contains(i)
+                              ? LucideIcons.circleCheckBig
+                              : LucideIcons.circle,
+                          size: 18,
+                          color: picks.contains(i) ? accent : muted,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(poll.options[i])),
+                        Text(
+                          '${poll.votersOf(i).length}',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: voters == 0
+                            ? 0
+                            : poll.votersOf(i).length / voters,
+                        minHeight: 5,
+                        color: accent,
+                        backgroundColor: accent.withValues(alpha: 0.15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Text(
+            l.pollVoters(voters),
+            style: theme.textTheme.labelSmall?.copyWith(color: muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+typedef _PollDraft = ({String question, List<String> options, bool multiple});
+
+/// Writes a poll: the question, two to ten options, and whether more than
+/// one may be picked.
+class _PollComposer extends StatefulWidget {
+  const _PollComposer();
+
+  @override
+  State<_PollComposer> createState() => _PollComposerState();
+}
+
+class _PollComposerState extends State<_PollComposer> {
+  final _question = TextEditingController();
+  final _options = [TextEditingController(), TextEditingController()];
+  bool _multiple = false;
+
+  @override
+  void dispose() {
+    _question.dispose();
+    for (final c in _options) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _send() {
+    final question = _question.text.trim();
+    final options = [
+      for (final c in _options)
+        if (c.text.trim().isNotEmpty) c.text.trim(),
+    ];
+    if (question.isEmpty || options.length < 2) {
+      showMessage(context, context.l10n.pollNeedsTwo);
+      return;
+    }
+    Navigator.pop<_PollDraft>(context, (
+      question: question,
+      options: options,
+      multiple: _multiple,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          0,
+          20,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l.newPoll,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('pollQuestion'),
+              controller: _question,
+              autofocus: true,
+              maxLength: 300,
+              minLines: 1,
+              maxLines: 3,
+              decoration: InputDecoration(labelText: l.pollQuestion),
+            ),
+            for (var i = 0; i < _options.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TextField(
+                  key: Key('pollOptionField-$i'),
+                  controller: _options[i],
+                  maxLength: 100,
+                  decoration: InputDecoration(
+                    labelText: l.pollOption(i + 1),
+                    counterText: '',
+                  ),
+                ),
+              ),
+            if (_options.length < 10)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const Key('pollAddOption'),
+                  icon: const Icon(LucideIcons.plus, size: 18),
+                  label: Text(l.pollAddOption),
+                  onPressed: () =>
+                      setState(() => _options.add(TextEditingController())),
+                ),
+              ),
+            SwitchListTile(
+              key: const Key('pollMultiple'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.pollMultiple),
+              value: _multiple,
+              onChanged: (v) => setState(() => _multiple = v),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              key: const Key('sendPoll'),
+              onPressed: _send,
+              child: Text(l.pollSend),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// On top of a chat: its pinned message, a tap from it, and for whoever
+/// may, a way to take it down.
+class _PinnedBar extends StatelessWidget {
+  const _PinnedBar({required this.pin, required this.onTap, this.onUnpin});
+
+  final PinnedMessage pin;
+  final VoidCallback onTap;
+  final VoidCallback? onUnpin;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    return Material(
+      key: const Key('pinnedBar'),
+      color: theme.colorScheme.surfaceContainerHigh,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 4, 8),
+          child: Row(
+            children: [
+              Icon(LucideIcons.pin, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.pinnedMessage,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${firstName(pin.senderName)}: '
+                      '${pin.body ?? pin.fileName ?? ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              if (onUnpin != null)
+                IconButton(
+                  key: const Key('unpin'),
+                  tooltip: l.unpinMessage,
+                  icon: const Icon(LucideIcons.x, size: 18),
+                  onPressed: onUnpin,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

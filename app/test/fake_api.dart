@@ -758,6 +758,85 @@ class FakeApi implements WaslaApi {
     _events.add(ChatEvent(conversationId: conversationId));
   }
 
+  /// Pinned message by chat; chats where the signed-in user may not pin.
+  final pins = <String, String>{};
+  final noPinning = <String>{};
+
+  @override
+  Future<void> createPoll(
+    String conversationId, {
+    required String question,
+    required List<String> options,
+    bool multiple = false,
+    String? projectId,
+  }) async {
+    await sendMessage(
+      chatWorkspace[conversationId] ?? '',
+      conversationId,
+      body: question,
+      projectId: projectId,
+    );
+    final list = chatMessages[conversationId]!;
+    list[0] = list[0].copyWith(
+      poll: Poll(options: options, multiple: multiple),
+    );
+  }
+
+  /// Applies [change] to the poll of [messageId] and tells its chat.
+  void _poll(String messageId, Poll Function(Poll) change) {
+    for (final entry in chatMessages.entries) {
+      final i = entry.value.indexWhere((m) => m.id == messageId);
+      if (i < 0) continue;
+      final m = entry.value[i];
+      entry.value[i] = m.copyWith(poll: change(m.poll!));
+      _events.add(ChatEvent(conversationId: entry.key));
+    }
+  }
+
+  @override
+  Future<void> votePoll(String messageId, Set<int> options) async =>
+      _poll(messageId, (p) => p.withVote('me', options));
+
+  /// Someone else answering a poll.
+  void vote(String messageId, String userId, Set<int> options) =>
+      _poll(messageId, (p) => p.withVote(userId, options));
+
+  @override
+  Future<void> closePoll(String messageId) async =>
+      _poll(messageId, (p) => p.closedCopy());
+
+  @override
+  Future<void> pinMessage(String messageId, {bool pin = true}) async {
+    for (final entry in chatMessages.entries) {
+      if (!entry.value.any((m) => m.id == messageId)) continue;
+      if (pin) {
+        pins[entry.key] = messageId;
+      } else if (pins[entry.key] == messageId) {
+        pins.remove(entry.key);
+      }
+      _events.add(ChatEvent(conversationId: entry.key));
+    }
+  }
+
+  @override
+  Future<ChatPin> chatPin(String conversationId) async {
+    final id = pins[conversationId];
+    final m = id == null
+        ? null
+        : chatMessages[conversationId]?.where((m) => m.id == id).firstOrNull;
+    return ChatPin(
+      canPin: !noPinning.contains(conversationId),
+      message: m == null
+          ? null
+          : PinnedMessage(
+              messageId: m.id,
+              senderName: m.senderName,
+              body: m.body,
+              fileName: m.file?.name,
+            ),
+    );
+  }
+
   /// The mentions each sent message carried, in order.
   final sentMentions = <List<String>>[];
 

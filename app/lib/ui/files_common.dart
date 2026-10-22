@@ -21,44 +21,62 @@ import 'widgets.dart';
 /// Asks where to pick from (gallery, camera or files) and returns what was
 /// picked: up to [maxFilesPerPick] photos or files, or one video or camera
 /// shot. Empty when nothing was picked.
-Future<List<Upload>> pickUploads(BuildContext context, WidgetRef ref) async {
+/// [onPoll]: also offers to ask the chat a question, which it then does.
+Future<List<Upload>> pickUploads(
+  BuildContext context,
+  WidgetRef ref, {
+  VoidCallback? onPoll,
+}) async {
   final l = context.l10n;
   final source = await showModalBottomSheet<String>(
     context: context,
     builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(LucideIcons.images),
-            title: Text(l.attachPhoto),
-            onTap: () => Navigator.pop(context, 'gallery'),
-          ),
-          ListTile(
-            leading: const Icon(LucideIcons.camera),
-            title: Text(l.attachCamera),
-            onTap: () => Navigator.pop(context, 'camera'),
-          ),
-          ListTile(
-            leading: const Icon(LucideIcons.squarePlay),
-            title: Text(l.attachVideo),
-            onTap: () => Navigator.pop(context, 'video'),
-          ),
-          ListTile(
-            leading: const Icon(LucideIcons.video),
-            title: Text(l.attachRecordVideo),
-            onTap: () => Navigator.pop(context, 'record'),
-          ),
-          ListTile(
-            leading: const Icon(LucideIcons.file),
-            title: Text(l.attachFile),
-            onTap: () => Navigator.pop(context, 'file'),
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.images),
+              title: Text(l.attachPhoto),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.camera),
+              title: Text(l.attachCamera),
+              onTap: () => Navigator.pop(context, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.squarePlay),
+              title: Text(l.attachVideo),
+              onTap: () => Navigator.pop(context, 'video'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.video),
+              title: Text(l.attachRecordVideo),
+              onTap: () => Navigator.pop(context, 'record'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.file),
+              title: Text(l.attachFile),
+              onTap: () => Navigator.pop(context, 'file'),
+            ),
+            if (onPoll != null)
+              ListTile(
+                key: const Key('attachPoll'),
+                leading: const Icon(LucideIcons.chartBarBig),
+                title: Text(l.newPoll),
+                onTap: () => Navigator.pop(context, 'poll'),
+              ),
+          ],
+        ),
       ),
     ),
   );
   if (source == null || !context.mounted) return const [];
+  if (source == 'poll') {
+    onPoll?.call();
+    return const [];
+  }
   final picker = ref.read(pickerProvider);
   try {
     final Picked picked = switch (source) {
