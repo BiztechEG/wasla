@@ -23,14 +23,17 @@ alter table public.email_outbox add constraint email_outbox_kind_check
 alter table public.notification_settings
   add column weekly_report boolean not null default true;
 
--- Late arrivals over the last seven days in a workspace with attendance on.
+-- Late arrivals over the seven days before today (the report goes out on
+-- Sunday morning: the week through Saturday) in a workspace with
+-- attendance on.
 create function public.late_arrivals_week(p_workspace uuid)
 returns integer
 language sql stable security definer set search_path = public, pg_temp as $$
   select count(*)::int from attendance_records r
   join attendance_settings st on st.workspace_id = r.workspace_id and st.enabled
   where r.workspace_id = p_workspace and r.late_minutes > 0
-    and r.day > (now() at time zone st.timezone)::date - 7;
+    and r.day >= (now() at time zone st.timezone)::date - 7
+    and r.day < (now() at time zone st.timezone)::date;
 $$;
 
 -- Sends this week's reports; returns how many people got one.

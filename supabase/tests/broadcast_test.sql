@@ -89,4 +89,17 @@ select pg_temp.login(95);
 select pg_temp.check(not exists (select 1 from public.broadcast_reach(pg_temp.v('bc'))),
   'a member sees none of it');
 
+-- 5. The daily limit counts a broadcast once: with 48 more posted today,
+-- Adel's 50th is a broadcast to both workspaces, and then he is done.
+reset role;
+insert into public.announcements (workspace_id, body, created_by)
+select pg_temp.v('a'), 'Note ' || i, '00000000-0000-0000-0000-000000000094'
+from generate_series(1, 48) i;
+select pg_temp.login(94);
+select public.post_broadcast(array[pg_temp.v('a'), pg_temp.v('b')], 'Office closed');
+select pg_temp.fails($$ select public.post_broadcast(array[pg_temp.v('a')], 'One more') $$,
+  'too_many_requests', 'the limit holds for broadcasts');
+select pg_temp.fails($$ select public.post_announcement(pg_temp.v('a'), null, 'One more') $$,
+  'too_many_requests', 'and for single announcements');
+
 reset role;

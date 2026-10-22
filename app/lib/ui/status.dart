@@ -164,6 +164,9 @@ class _StatusSheetState extends State<_StatusSheet> {
     return switch (_until) {
       _Until.hour => now.add(const Duration(hours: 1)),
       _Until.today => DateTime(now.year, now.month, now.day, 23, 59),
+      // Kept as it was when the day isn't changed.
+      _Until.date when _date == widget.current?.until?.toLocal() =>
+        widget.current?.until,
       // Through the whole last day.
       _Until.date when _date != null => DateTime(
         _date!.year,

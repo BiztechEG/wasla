@@ -76,6 +76,24 @@ language sql stable security definer set search_path = public, pg_temp as $$
   ) or public.manages_department_of(p);
 $$;
 
+-- The same for anyone u, where a message or task names them.
+create or replace function public.user_sees_project(u uuid, p uuid)
+returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from projects pr
+    join workspaces w on w.id = pr.workspace_id and w.deleted_at is null
+    join workspace_members wm
+      on wm.workspace_id = pr.workspace_id and wm.user_id = u and wm.status = 'active'
+    where pr.id = p
+      and (wm.role in ('owner', 'admin')
+           or exists (select 1 from project_members pm
+                      where pm.project_id = p and pm.user_id = u)
+           or exists (select 1 from department_managers dm
+                      where dm.department_id = pr.department_id and dm.user_id = u))
+  );
+$$;
+
 drop policy projects_read on public.projects;
 create policy projects_read on public.projects for select to authenticated
   using (
@@ -322,7 +340,6 @@ language sql stable security definer set search_path = public, pg_temp as $$
                              join conversations c on c.id = ms.conversation_id
                              where ms.workspace_id = m.id and c.kind = 'project'
                                and c.project_id in (select id from shown)
-                          and c.project_id in (select id from shown)
                                and ms.deleted_at is null
                                and ms.created_at >= now() - interval '7 days'),
       'attendance', (

@@ -17,10 +17,29 @@ bool setupChecklistShown(WidgetRef ref, Membership membership) {
   final setup = ref.watch(setupProvider(membership.workspaceId)).value;
   return setup != null &&
       !setup.complete &&
-      ref.watch(prefsProvider).getBool(_hiddenKey(membership)) != true;
+      !ref.watch(setupHiddenProvider(membership.workspaceId));
 }
 
-String _hiddenKey(Membership m) => 'setup_hidden_${m.workspaceId}';
+/// Whether a workspace's first steps were hidden on this device.
+final setupHiddenProvider = NotifierProvider.family<SetupHidden, bool, String>(
+  SetupHidden.new,
+);
+
+class SetupHidden extends Notifier<bool> {
+  SetupHidden(this.workspaceId);
+
+  final String workspaceId;
+
+  String get _key => 'setup_hidden_$workspaceId';
+
+  @override
+  bool build() => ref.watch(prefsProvider).getBool(_key) == true;
+
+  Future<void> hide() async {
+    state = true;
+    await ref.read(prefsProvider).setBool(_key, true);
+  }
+}
 
 /// On the home screen of a new workspace, for its owners and admins: the
 /// first steps, each ticked once done, until all are or it is hidden.
@@ -42,7 +61,6 @@ class _SetupChecklistState extends ConsumerState<SetupChecklist> {
     if (!setupChecklistShown(ref, widget.membership)) {
       return const SizedBox.shrink();
     }
-    final prefs = ref.watch(prefsProvider);
     final ws = widget.membership.workspaceId;
     final setup = ref.watch(setupProvider(ws)).value!;
     final l = context.l10n;
@@ -52,7 +70,7 @@ class _SetupChecklistState extends ConsumerState<SetupChecklist> {
     // Each step's screen; the list is checked again when it closes.
     Future<void> run(Future<void> Function() step) async {
       await step();
-      ref.invalidate(setupProvider(ws));
+      if (mounted) ref.invalidate(setupProvider(ws));
     }
 
     Future<void> push(Widget screen) =>
@@ -137,10 +155,8 @@ class _SetupChecklistState extends ConsumerState<SetupChecklist> {
                     tooltip: l.setupHide,
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(LucideIcons.x, size: 18),
-                    onPressed: () async {
-                      await prefs.setBool(_hiddenKey(widget.membership), true);
-                      setState(() {});
-                    },
+                    onPressed: () =>
+                        ref.read(setupHiddenProvider(ws).notifier).hide(),
                   ),
                 ],
               ),

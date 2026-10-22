@@ -12,8 +12,6 @@ import 'files_common.dart';
 import 'task_format.dart';
 import 'widgets.dart';
 
-/// Whether the signed-in user leads [projectId] or administers its
-/// workspace: they can give tasks to anyone in the project.
 /// Whether one manages the department [departmentId] (a project's).
 bool managesDepartment(
   WidgetRef ref,
@@ -27,6 +25,8 @@ bool managesDepartment(
             ?.containsKey(departmentId) ??
         false);
 
+/// Whether the signed-in user leads the project, manages its department or
+/// administers its workspace: they can give tasks to anyone in the project.
 bool managesProject(
   WidgetRef ref,
   String workspaceId,

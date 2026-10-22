@@ -12,7 +12,9 @@ language sql stable security definer set search_path = public, pg_temp as $$
     exists (select 1 from workspace_members wm
             where wm.workspace_id = p_workspace and wm.user_id <> auth.uid()
               and wm.status = 'active')
-      or exists (select 1 from invites i where i.workspace_id = p_workspace)
+      or exists (select 1 from invites i
+                 where i.workspace_id = p_workspace and i.status = 'pending'
+                   and i.expires_at > now())
       or exists (select 1 from workspace_join_codes c where c.workspace_id = p_workspace),
     coalesce((select s.enabled from attendance_settings s
               where s.workspace_id = p_workspace), false),

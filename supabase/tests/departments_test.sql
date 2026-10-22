@@ -98,6 +98,12 @@ select pg_temp.check(
 select pg_temp.check(
   public.project_conversation(pg_temp.v('Sales South')) is not null,
   'and their chats');
+reset role;
+select pg_temp.check(
+  public.user_sees_project(pg_temp.uid(87), pg_temp.v('Sales North'))
+  and not public.user_sees_project(pg_temp.uid(87), pg_temp.v('Hiring')),
+  'and can be named in them (tasks, tags, mentions)');
+select pg_temp.login(87);
 insert into public.project_members (project_id, user_id) values (pg_temp.v('Sales South'), pg_temp.uid(88));
 select pg_temp.check(
   (select count(*) from public.project_members where project_id = pg_temp.v('Sales South')) >= 1,

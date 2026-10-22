@@ -43,6 +43,17 @@ with created as (
 ) insert into ctx select 'p', id::text from created;
 select pg_temp.check(pg_temp.steps() = 'project', 'a first project ticks its step');
 
+-- A cancelled or expired invitation brings no one.
+reset role;
+insert into public.invites (workspace_id, email, role, invited_by, status)
+values (pg_temp.v('ws'), 'wrong@setup.example.com', 'member',
+        '00000000-0000-0000-0000-000000000056', 'cancelled');
+insert into public.invites (workspace_id, email, role, invited_by, expires_at)
+values (pg_temp.v('ws'), 'late@setup.example.com', 'member',
+        '00000000-0000-0000-0000-000000000056', now() - interval '1 day');
+select pg_temp.login(56);
+select pg_temp.check(pg_temp.steps() = 'project', 'a cancelled or expired invitation does not');
+
 insert into public.invites (workspace_id, email, role, invited_by)
 values (pg_temp.v('ws'), 'karim@setup.example.com', 'member', auth.uid());
 select pg_temp.check(pg_temp.steps() = 'project,team', 'an invitation ticks the team');

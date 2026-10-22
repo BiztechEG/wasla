@@ -526,7 +526,7 @@ final voiceRecorderProvider = Provider<VoiceRecorder>(
   (ref) => DeviceVoiceRecorder(),
 );
 
-/// Projects a private chat's messages can be tagged with.
+/// How a broadcast announcement is doing in each workspace it went to.
 final broadcastReachProvider = FutureProvider.autoDispose
     .family<List<BroadcastReach>, String>((ref, broadcastId) async {
       final api = ref.watch(apiProvider);
@@ -554,6 +554,7 @@ final chatPinProvider = FutureProvider.autoDispose
       return api.chatPin(key.conversationId);
     });
 
+/// Projects a private chat's messages can be tagged with.
 final sharedProjectsProvider = FutureProvider.autoDispose
     .family<List<String>, String>((ref, conversationId) async {
       final api = ref.watch(apiProvider);

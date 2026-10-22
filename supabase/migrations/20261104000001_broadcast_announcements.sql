@@ -48,6 +48,41 @@ language sql stable security definer set search_path = public, pg_temp as $$
   limit 100;
 $$;
 
+-- What one posted over the last day, a broadcast counted once.
+create function public.announcements_today()
+returns integer
+language sql stable security definer set search_path = public, pg_temp as $$
+  select count(distinct coalesce(broadcast_id, id))::int from announcements
+  where created_by = auth.uid() and created_at > now() - interval '1 day';
+$$;
+
+create or replace function public.post_announcement(
+  p_workspace uuid, p_project uuid, p_body text, p_pinned boolean default false,
+  p_needs_ack boolean default false
+) returns uuid
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  a uuid;
+begin
+  if not public.can_post_announcements(p_workspace, p_project) then
+    raise exception 'not_allowed';
+  end if;
+  if p_project is not null
+     and (select status from projects where id = p_project) <> 'active' then
+    raise exception 'conversation_closed';
+  end if;
+  if public.announcements_today() >= 50 then
+    raise exception 'too_many_requests';
+  end if;
+
+  insert into announcements (workspace_id, project_id, body, pinned, needs_ack, created_by)
+  values (p_workspace, p_project, trim(p_body), coalesce(p_pinned, false),
+          coalesce(p_needs_ack, false), auth.uid())
+  returning id into a;
+  return a;
+end;
+$$;
+
 -- Posts the same announcement to every one of p_workspaces; returns the
 -- broadcast's id.
 create function public.post_broadcast(
@@ -59,8 +94,6 @@ create function public.post_broadcast(
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   b  uuid := gen_random_uuid();
-  ws uuid;
-  a  uuid;
 begin
   if coalesce(cardinality(p_workspaces), 0) = 0 or cardinality(p_workspaces) > 50 then
     raise exception 'invalid_workspaces';
@@ -69,10 +102,15 @@ begin
              where not public.can_post_announcements(w, null)) then
     raise exception 'not_allowed';
   end if;
-  foreach ws in array array(select distinct w from unnest(p_workspaces) w) loop
-    a := public.post_announcement(ws, null, p_body, p_pinned, p_needs_ack);
-    update announcements set broadcast_id = b where id = a;
-  end loop;
+  -- The daily limit counts a broadcast once, however many workspaces.
+  if public.announcements_today() >= 50 then
+    raise exception 'too_many_requests';
+  end if;
+  insert into announcements (workspace_id, project_id, body, pinned, needs_ack,
+                             created_by, broadcast_id)
+  select distinct w, null::uuid, trim(p_body), coalesce(p_pinned, false),
+         coalesce(p_needs_ack, false), auth.uid(), b
+  from unnest(p_workspaces) w;
   return b;
 end;
 $$;
@@ -109,3 +147,5 @@ grant execute on function
   public.post_broadcast(uuid[], text, boolean, boolean),
   public.broadcast_reach(uuid)
 to authenticated;
+revoke execute on function public.announcements_today()
+from public, anon, authenticated;
