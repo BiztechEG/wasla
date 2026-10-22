@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,6 +17,11 @@ import 'ui/join_link.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    // A right click opens the app's own menu (on a message, a file…), not
+    // the browser's on top of it; text fields get Flutter's copy and paste.
+    await BrowserContextMenu.disableContextMenu();
+  }
   final prefs = await SharedPreferences.getInstance();
   // A join link (…/app/?join=CODE) is kept until someone has signed in.
   final join = kIsWeb ? Uri.base.queryParameters['join'] : null;

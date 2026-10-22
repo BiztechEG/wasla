@@ -1579,5 +1579,8 @@
   "desktopNotificationsOn": "On in this browser",
   "desktopNotificationsBlocked": "The browser blocks them. Allow notifications for this site from the lock next to the address, then come back here.",
   "desktopNotificationsOffer": "Turn on desktop notifications to get messages while this page is closed",
-  "turnOn": "Turn on"
+  "turnOn": "Turn on",
+  "updateAvailable": "A new version of Wasla is out ({version})",
+  "updateApp": "Update",
+  "updateInstallHint": "Once it downloads, open the file to install it; your data stays as it is"
 }

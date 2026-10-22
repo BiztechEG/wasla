@@ -24,6 +24,7 @@ import 'setup_checklist.dart';
 import 'task_format.dart';
 import 'task_screen.dart';
 import 'widgets.dart';
+import 'app_update.dart';
 import 'desktop_notifications.dart';
 
 /// Every chat in one list, as in the design: announcements on top, then
@@ -169,6 +170,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                         navClearance(context) + 80,
                       ),
                       children: [
+                        const UpdateBanner(),
                         const DesktopNotificationsBanner(),
                         SetupChecklist(membership: widget.membership),
                         if (_project == null && _kind == _Kind.all)

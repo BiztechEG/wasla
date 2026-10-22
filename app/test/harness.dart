@@ -13,6 +13,7 @@ import 'package:wasla/data/google.dart';
 import 'package:wasla/data/location.dart';
 import 'package:wasla/data/picker.dart';
 import 'package:wasla/data/share.dart';
+import 'package:wasla/data/updates.dart';
 import 'package:wasla/data/voice.dart';
 import 'package:wasla/push/push.dart';
 import 'package:wasla/state/attendance_providers.dart';
@@ -20,6 +21,7 @@ import 'package:wasla/state/chat_providers.dart';
 import 'package:wasla/state/google_providers.dart';
 import 'package:wasla/state/providers.dart';
 import 'package:wasla/state/settings.dart';
+import 'package:wasla/ui/app_update.dart';
 
 import 'fake_api.dart';
 
@@ -36,6 +38,7 @@ Future<void> startApp(
   Locator? locator,
   FileDrops? drops,
   bool web = false,
+  UpdateChecker? updates,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -54,6 +57,7 @@ Future<void> startApp(
         locatorProvider.overrideWithValue(locator ?? FakeLocator()),
         if (drops != null) fileDropsProvider.overrideWithValue(drops),
         if (web) isWebProvider.overrideWithValue(true),
+        if (updates != null) updateCheckerProvider.overrideWithValue(updates),
       ],
       child: const WaslaApp(),
     ),

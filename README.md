@@ -115,7 +115,7 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - **Polls**: from the attach button, a question with 2 to 10 options (one answer, or more if allowed). Votes are kept on the message (`messages.poll`), so they reach everyone live like reactions; whoever asked, or runs the project, closes it.
 - **Pinned message**: one per chat, shown on top of it and a tap from the message. Either person pins in a private chat; in a project's chat, whoever runs the project.
-- **In a browser**: files dragged from the computer onto a chat are sent like attached ones (five at a time, 50 MB each). Tapping a file the app can't show itself (text, web pages, PDFs…) downloads it rather than opening a new tab. On a wide window, the phone button in the top bar (or My account) shows the app as wide as a phone in the middle of the window.
+- **In a browser**: files dragged from the computer onto a chat are sent like attached ones (five at a time, 50 MB each). Tapping a file the app can't show itself (text, web pages, PDFs…) downloads it rather than opening a new tab. On a wide window the app starts as wide as a phone in the middle of the window; the button beside it (or My account) goes to the full width, and the phone button in the top bar back. A right click opens the app's own menu, never the browser's.
 
 ## Phone notifications
 
@@ -164,6 +164,8 @@ The **Website** workflow publishes one site to the hosting account by FTP whenev
 | `/` and `/en/` | The landing page; its pricing table reads the offered plans and prices live (`public_plans()`, the only thing visitors can reach without signing in) |
 | `/app/` | The web app |
 | `/download/wasla.apk` | The latest Android app, always at the same link, with `version.json` beside it |
+
+The Android app reads `version.json` at each start (the APK is built with `--dart-define=BUILD_NUMBER`, the same number) and, when a newer build is out, offers it at the top of the chats and in My account; the download opens in the browser and installs over the old app. It needs the `SITE_URL` variable, which the APK is built with.
 
 Setup, under Settings > Secrets and variables > Actions:
 

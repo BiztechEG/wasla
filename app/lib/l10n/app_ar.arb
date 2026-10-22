@@ -1800,5 +1800,9 @@
   "desktopNotificationsOn": "مفعّلة في هذا المتصفح",
   "desktopNotificationsBlocked": "المتصفح يمنعها. اسمح بالإشعارات لهذا الموقع من علامة القفل بجوار العنوان، ثم عُد إلى هنا.",
   "desktopNotificationsOffer": "فعّل إشعارات سطح المكتب لتصلك الرسائل والصفحة مغلقة",
-  "turnOn": "تفعيل"
+  "turnOn": "تفعيل",
+  "updateAvailable": "نسخة جديدة من وصلة متاحة ({version})",
+  "@updateAvailable": {"placeholders": {"version": {"type": "String"}}},
+  "updateApp": "تحديث",
+  "updateInstallHint": "بعد انتهاء التحميل افتح الملف وثبّته، وبياناتك تبقى كما هي"
 }
