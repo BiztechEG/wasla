@@ -185,6 +185,48 @@ class FakeApi implements WaslaApi {
       ? null
       : QuietHours(from: from, to: to, utcOffset: utcOffset);
 
+  /// Departments by workspace, and those the signed-in user manages.
+  final departmentsByWorkspace = <String, List<Department>>{};
+  final managedDepartments = <String, String>{};
+
+  @override
+  Future<List<Department>> departments(String workspaceId) async =>
+      List.of(departmentsByWorkspace[workspaceId] ?? const []);
+
+  @override
+  Future<Map<String, String>> myDepartments(String workspaceId) async =>
+      Map.of(managedDepartments);
+
+  @override
+  Future<void> saveDepartment(
+    String workspaceId, {
+    String? departmentId,
+    required String name,
+    required List<String> managerIds,
+    required List<String> projectIds,
+  }) async {
+    final list = departmentsByWorkspace.putIfAbsent(workspaceId, () => []);
+    final saved = Department(
+      id: departmentId ?? 'd${_seq++}',
+      name: name,
+      managerIds: managerIds,
+      projectIds: projectIds,
+    );
+    final i = list.indexWhere((d) => d.id == departmentId);
+    if (i < 0) {
+      list.add(saved);
+    } else {
+      list[i] = saved;
+    }
+  }
+
+  @override
+  Future<void> deleteDepartment(String departmentId) async {
+    for (final list in departmentsByWorkspace.values) {
+      list.removeWhere((d) => d.id == departmentId);
+    }
+  }
+
   /// Statuses by user id.
   final statuses = <String, UserStatus>{};
 

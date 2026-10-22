@@ -1545,5 +1545,20 @@
   "pollNeedsTwo": "Write the question and at least two options",
   "closePoll": "Close voting",
   "unpinMessage": "Unpin",
-  "pinnedMessage": "Pinned message"
+  "pinnedMessage": "Pinned message",
+  "departmentsTitle": "Departments",
+  "departmentsTileHint": "Projects grouped, each with its managers",
+  "newDepartment": "New department",
+  "departmentsHint": "A department's managers see all its projects and run them as their leads do, and follow them on the dashboard, without the workspace's admin rights.",
+  "departmentsEmpty": "No departments yet",
+  "departmentProjects": "{count, plural, =0{No projects} =1{1 project} other{{count} projects}}",
+  "noDepartmentManager": "No manager",
+  "deleteDepartmentConfirm": "Delete the department? Its projects stay as they are; its managers stop following them.",
+  "departmentName": "Department name",
+  "departmentManagers": "Managers",
+  "departmentManagersHint": "They see and run every project of the department.",
+  "departmentProjectsTitle": "Projects",
+  "inDepartment": "Now in {name}",
+  "departmentDashboard": "Department dashboard",
+  "departmentOnly": "Your department's projects only"
 }

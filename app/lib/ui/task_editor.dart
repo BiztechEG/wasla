@@ -14,11 +14,25 @@ import 'widgets.dart';
 
 /// Whether the signed-in user leads [projectId] or administers its
 /// workspace: they can give tasks to anyone in the project.
+/// Whether one manages the department [departmentId] (a project's).
+bool managesDepartment(
+  WidgetRef ref,
+  String workspaceId,
+  String? departmentId,
+) =>
+    departmentId != null &&
+    (ref
+            .watch(myDepartmentsProvider(workspaceId))
+            .value
+            ?.containsKey(departmentId) ??
+        false);
+
 bool managesProject(
   WidgetRef ref,
   String workspaceId,
-  List<ProjectMember>? members,
-) {
+  List<ProjectMember>? members, {
+  String? departmentId,
+}) {
   final me = ref.watch(authProvider).value;
   final memberships = ref.watch(membershipsProvider).value ?? const [];
   final role = memberships
@@ -26,6 +40,7 @@ bool managesProject(
       .firstOrNull
       ?.role;
   if (role?.canManage ?? false) return true;
+  if (managesDepartment(ref, workspaceId, departmentId)) return true;
   return members?.any((m) => m.userId == me && m.role == ProjectRole.lead) ??
       false;
 }
@@ -277,7 +292,17 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
         ? null
         : ref.watch(projectMembersProvider(projectId)).value;
     final existing = _existing;
-    final manager = existing?.canAssign ?? managesProject(ref, ws, members);
+    final manager =
+        existing?.canAssign ??
+        managesProject(
+          ref,
+          ws,
+          members,
+          departmentId: projects
+              .where((p) => p.id == projectId)
+              .firstOrNull
+              ?.departmentId,
+        );
     final names = {
       for (final a in existing?.task.assignees ?? const <TaskPerson>[])
         a.id: a.name,

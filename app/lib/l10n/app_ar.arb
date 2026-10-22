@@ -1760,5 +1760,22 @@
   "pollNeedsTwo": "اكتب السؤال وخيارين على الأقل",
   "closePoll": "إنهاء التصويت",
   "unpinMessage": "إلغاء التثبيت",
-  "pinnedMessage": "رسالة مثبّتة"
+  "pinnedMessage": "رسالة مثبّتة",
+  "departmentsTitle": "الأقسام",
+  "departmentsTileHint": "مشاريع مجمّعة، لكل قسم مديره",
+  "newDepartment": "قسم جديد",
+  "departmentsHint": "مدير القسم يرى كل مشاريع قسمه ويديرها كقائد المشروع، ويتابعها في لوحة الإدارة، دون صلاحيات مسؤول مساحة العمل.",
+  "departmentsEmpty": "لا توجد أقسام بعد",
+  "departmentProjects": "{count, plural, =0{بدون مشاريع} =1{مشروع واحد} =2{مشروعان} few{{count} مشاريع} many{{count} مشروعاً} other{{count} مشروع}}",
+  "@departmentProjects": {"placeholders": {"count": {"type": "int"}}},
+  "noDepartmentManager": "بدون مدير",
+  "deleteDepartmentConfirm": "حذف القسم؟ تبقى مشاريعه كما هي، ويفقد مديروه متابعتها.",
+  "departmentName": "اسم القسم",
+  "departmentManagers": "مديرو القسم",
+  "departmentManagersHint": "يرون كل مشاريع القسم ويديرونها.",
+  "departmentProjectsTitle": "مشاريع القسم",
+  "inDepartment": "الآن في {name}",
+  "@inDepartment": {"placeholders": {"name": {"type": "String"}}},
+  "departmentDashboard": "لوحة القسم",
+  "departmentOnly": "مشاريع قسمك فقط"
 }

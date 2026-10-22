@@ -86,6 +86,10 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - **More > Management dashboard** shows company owners every workspace of their companies, and workspace owners and admins the workspaces they run, side by side: people, open, late and in-review tasks, tasks done this week against the week before, project chat activity (messages and how many people wrote), today's attendance, and each project's progress. It comes from `management_overview()`, which counts and never reads: no message text, and private chats are not counted at all.
 
+## Departments
+
+- **More > Departments** (owners and admins): a department groups projects and names their managers. A department manager sees every project of the department and runs it as its leads do (tasks, people, files, the chat, approvals), without being on its team or getting the workspace's admin rights, and follows it on the dashboard (department's projects only, no attendance). It is done in `can_see_project()`, `is_project_lead()` and the lists built on them (`20261102000001_departments.sql`).
+
 ## My account and notification controls
 
 - The picture in the top bar opens **My account**: one's name, quiet hours, Google, appearance, language and signing out. More keeps only the workspace's things.

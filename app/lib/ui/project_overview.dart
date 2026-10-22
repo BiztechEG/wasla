@@ -301,6 +301,7 @@ class ProjectTasksView extends ConsumerWidget {
                           ref,
                           project.workspaceId,
                           ref.watch(projectMembersProvider(project.id)).value,
+                          departmentId: project.departmentId,
                         ),
                       ),
                     ...taskGroups(

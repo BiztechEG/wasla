@@ -201,6 +201,32 @@ class QuietHours {
   final int utcOffset;
 }
 
+/// A group of a workspace's projects, with the people who manage them.
+class Department {
+  const Department({
+    required this.id,
+    required this.name,
+    this.managerIds = const [],
+    this.projectIds = const [],
+  });
+
+  final String id;
+  final String name;
+  final List<String> managerIds;
+  final List<String> projectIds;
+
+  factory Department.fromJson(Json json) => Department(
+    id: json['id'] as String,
+    name: _text(json['name']),
+    managerIds: [
+      for (final id in json['manager_ids'] as List? ?? const []) '$id',
+    ],
+    projectIds: [
+      for (final id in json['project_ids'] as List? ?? const []) '$id',
+    ],
+  );
+}
+
 /// What someone is up to, besides being available.
 enum StatusKind {
   meeting('meeting'),
@@ -310,6 +336,7 @@ class Project {
     required this.color,
     required this.status,
     required this.memberCount,
+    this.departmentId,
   });
 
   final String id;
@@ -318,6 +345,9 @@ class Project {
   final String color;
   final ProjectStatus status;
   final int memberCount;
+
+  /// The department it is in, if any.
+  final String? departmentId;
 
   factory Project.fromJson(Json json) {
     final counts = json['project_members'];
@@ -331,6 +361,7 @@ class Project {
       color: json['color'] as String? ?? '#0F6E6A',
       status: ProjectStatus.parse(json['status']),
       memberCount: count,
+      departmentId: json['department_id'] as String?,
     );
   }
 }

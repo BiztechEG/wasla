@@ -16,6 +16,7 @@ import 'announcements_view.dart';
 import 'billing_format.dart';
 import 'billing_screen.dart';
 import 'dashboard_screen.dart';
+import 'departments_screen.dart';
 import 'invite_sheet.dart';
 import 'join_link.dart';
 import 'join_requests_screen.dart';
@@ -45,6 +46,9 @@ class MoreTab extends ConsumerWidget {
     final approvals = ref.watch(approvalsProvider(ws)).count;
     final attendance = ref.watch(attendanceTodayProvider(ws)).value;
     final attendanceOn = attendance?.enabled ?? false;
+    final departments =
+        ref.watch(myDepartmentsProvider(ws)).value ?? const <String, String>{};
+    final runsDepartment = departments.isNotEmpty;
 
     void push(Widget screen) =>
         Navigator.of(context)
@@ -94,7 +98,10 @@ class MoreTab extends ConsumerWidget {
               subtitle: seats == null ? null : Text(seats),
               trailing: Tag(roleLabel(l, membership.role), strong: true),
             ),
-            if (canManage || (attendance?.isManager ?? false) || approvals > 0)
+            if (canManage ||
+                (attendance?.isManager ?? false) ||
+                approvals > 0 ||
+                runsDepartment)
               ListTile(
                 key: const Key('approvalsTile'),
                 leading: const Icon(LucideIcons.clipboardCheck),
@@ -108,6 +115,16 @@ class MoreTab extends ConsumerWidget {
                   ],
                 ),
                 onTap: () => openApprovals(context, membership),
+              ),
+            // A department's manager follows it, without the admin tools.
+            if (runsDepartment && !canManage && !membership.isCompanyOwner)
+              ListTile(
+                key: const Key('dashboardTile'),
+                leading: const Icon(LucideIcons.chartLine),
+                title: Text(l.departmentDashboard),
+                subtitle: Text(departments.values.join('، ')),
+                trailing: const Icon(LucideIcons.chevronRightDir),
+                onTap: () => push(const DashboardScreen()),
               ),
             ListTile(
               leading: const Icon(LucideIcons.users),
@@ -182,6 +199,14 @@ class MoreTab extends ConsumerWidget {
                     ],
                   ),
                   onTap: () => push(JoinRequestsScreen(membership: membership)),
+                ),
+                ListTile(
+                  key: const Key('departmentsTile'),
+                  leading: const Icon(LucideIcons.building2),
+                  title: Text(l.departmentsTitle),
+                  subtitle: Text(l.departmentsTileHint),
+                  trailing: const Icon(LucideIcons.chevronRightDir),
+                  onTap: () => push(DepartmentsScreen(membership: membership)),
                 ),
                 ListTile(
                   key: const Key('attendanceSetupTile'),

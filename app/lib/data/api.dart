@@ -138,6 +138,22 @@ abstract class WaslaApi {
   /// Hours when nothing reaches one's phone; null when off.
   Future<QuietHours?> quietHours();
 
+  /// A workspace's departments, for its owners and admins.
+  Future<List<Department>> departments(String workspaceId);
+
+  /// The departments one manages in a workspace, by id.
+  Future<Map<String, String>> myDepartments(String workspaceId);
+
+  /// Makes ([departmentId] null) or changes a department.
+  Future<void> saveDepartment(
+    String workspaceId, {
+    String? departmentId,
+    required String name,
+    required List<String> managerIds,
+    required List<String> projectIds,
+  });
+  Future<void> deleteDepartment(String departmentId);
+
   /// The statuses of a workspace's members, by user id; those available
   /// are left out.
   Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId);
@@ -873,7 +889,10 @@ class SupabaseWaslaApi implements WaslaApi {
   Future<List<Project>> projects(String workspaceId) async {
     final data = await _client
         .from('projects')
-        .select('id, workspace_id, name, color, status, project_members(count)')
+        .select(
+          'id, workspace_id, name, color, status, department_id, '
+          'project_members(count)',
+        )
         .eq('workspace_id', workspaceId)
         .order('created_at');
     return _rows(data).map(Project.fromJson).toList();
@@ -1055,6 +1074,44 @@ class SupabaseWaslaApi implements WaslaApi {
       utcOffset: (rows.first['utc_offset'] as num).toInt(),
     );
   }
+
+  @override
+  Future<List<Department>> departments(String workspaceId) async => _rows(
+    await _client.rpc(
+      'workspace_departments',
+      params: {'p_workspace': workspaceId},
+    ),
+  ).map(Department.fromJson).toList();
+
+  @override
+  Future<Map<String, String>> myDepartments(String workspaceId) async => {
+    for (final r in _rows(
+      await _client.rpc('my_departments', params: {'p_workspace': workspaceId}),
+    ))
+      r['id'] as String: r['name'] as String? ?? '',
+  };
+
+  @override
+  Future<void> saveDepartment(
+    String workspaceId, {
+    String? departmentId,
+    required String name,
+    required List<String> managerIds,
+    required List<String> projectIds,
+  }) => _client.rpc(
+    'save_department',
+    params: {
+      'p_workspace': workspaceId,
+      'p_department': departmentId,
+      'p_name': name,
+      'p_managers': managerIds,
+      'p_projects': projectIds,
+    },
+  );
+
+  @override
+  Future<void> deleteDepartment(String departmentId) =>
+      _client.rpc('delete_department', params: {'p_department': departmentId});
 
   @override
   Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId) async {

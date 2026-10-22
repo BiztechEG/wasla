@@ -164,7 +164,12 @@ class _WorkspaceCard extends ConsumerWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Text(w.companyName, style: muted),
+                        Text(
+                          w.departmentOnly
+                              ? '${w.companyName} · ${l.departmentOnly}'
+                              : w.companyName,
+                          style: muted,
+                        ),
                       ],
                     ),
                   ),

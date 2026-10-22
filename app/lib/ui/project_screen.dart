@@ -11,6 +11,7 @@ import 'chats_tab.dart';
 import 'files_view.dart';
 import 'followup_screen.dart';
 import 'project_overview.dart';
+import 'task_editor.dart';
 import 'widgets.dart';
 
 /// The project screen's tabs, in order.
@@ -210,6 +211,7 @@ bool _canEdit(WidgetRef ref, Project project) {
   final isAdmin = ref.watch(currentMembershipProvider)?.role.canManage ?? false;
   final members = ref.watch(projectMembersProvider(project.id)).value;
   return isAdmin ||
+      managesDepartment(ref, project.workspaceId, project.departmentId) ||
       (members?.any((m) => m.userId == me && m.role == ProjectRole.lead) ??
           false);
 }

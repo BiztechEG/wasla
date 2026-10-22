@@ -24,6 +24,7 @@ import 'my_tasks_tab.dart';
 import 'profile_card.dart';
 import 'project_screen.dart';
 import 'status.dart';
+import 'task_editor.dart';
 import 'widgets.dart';
 
 /// Who or what a chat is with, enough to draw it before anything loads.
@@ -1102,6 +1103,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     final canModerate =
         target.isProject &&
         (widget.membership.role.canManage ||
+            managesDepartment(ref, ws, project?.departmentId) ||
             (members?.any(
                   (m) => m.userId == me && m.role == ProjectRole.lead,
                 ) ??
