@@ -58,9 +58,12 @@ jobs:
           cache: true
       - run: flutter pub get
         working-directory: app
+      # The icon fonts are kept whole: trimmed to the icons in use, a new
+      # icon stays blank wherever the browser still has the last trimmed
+      # font (same file name).
       - name: Build the web app
         working-directory: app
-        run: flutter build web --release --no-web-resources-cdn --base-href /app/
+        run: flutter build web --release --no-web-resources-cdn --no-tree-shake-icons --base-href /app/
       - name: Signing key
         id: key
         if: github.event_name != 'pull_request'
@@ -71,7 +74,7 @@ jobs:
       - name: Build the Android app
         if: steps.key.outputs.release == 'true'
         working-directory: app
-        run: flutter build apk --release --build-number $(git rev-list --count HEAD) --dart-define=SITE_URL=${{ vars.SITE_URL }}
+        run: flutter build apk --release --build-number $(git rev-list --count HEAD) --dart-define=BUILD_NUMBER=$(git rev-list --count HEAD) --dart-define=SITE_URL=${{ vars.SITE_URL }}
       - name: Put the site together
         run: .github/scripts/assemble-site.sh
       # A copy to look at; a full artifact storage must not stop the deploy.

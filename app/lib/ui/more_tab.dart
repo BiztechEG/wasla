@@ -20,6 +20,7 @@ import 'departments_screen.dart';
 import 'invite_sheet.dart';
 import 'join_link.dart';
 import 'join_requests_screen.dart';
+import 'labels.dart';
 import 'members_screen.dart';
 import 'modern.dart';
 import 'start_screen.dart';
@@ -138,6 +139,14 @@ class MoreTab extends ConsumerWidget {
               trailing: const Icon(LucideIcons.chevronRightDir),
               onTap: () =>
                   push(WorkspaceAnnouncementsScreen(membership: membership)),
+            ),
+            ListTile(
+              key: const Key('labelsTile'),
+              leading: const Icon(LucideIcons.hash),
+              title: Text(l.labelsTitle),
+              subtitle: Text(l.labelsHint),
+              trailing: const Icon(LucideIcons.chevronRightDir),
+              onTap: () => push(LabelsScreen(membership: membership)),
             ),
             if (attendanceOn)
               ListTile(

@@ -11,7 +11,7 @@ class AppSettings {
   const AppSettings({
     required this.themeMode,
     required this.locale,
-    this.phoneView = false,
+    this.phoneView = true,
   });
 
   final ThemeMode themeMode;
@@ -52,7 +52,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
         orElse: () => ThemeMode.system,
       ),
       locale: Locale(prefs.getString(_localeKey) ?? 'ar'),
-      phoneView: prefs.getBool(_phoneViewKey) ?? false,
+      // In a wide browser window the app starts as wide as a phone.
+      phoneView: prefs.getBool(_phoneViewKey) ?? true,
     );
   }
 

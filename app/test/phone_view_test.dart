@@ -18,15 +18,12 @@ void _laptop(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('in a wide browser the app can be shown as wide as a phone', (
+  testWidgets('in a wide browser the app is as wide as a phone, or full', (
     tester,
   ) async {
     _laptop(tester);
+    // As wide as a phone to start with.
     await startApp(tester, _team(), web: true);
-    expect(find.byKey(const Key('phoneView')), findsNothing);
-
-    await tester.tap(find.byKey(const Key('phoneViewButton')));
-    await tester.pumpAndSettle();
     final frame = tester.getRect(find.byKey(const Key('phoneView')));
     expect(frame.width, 420);
     expect(frame.center.dx, 640);
@@ -37,10 +34,15 @@ void main() {
       isTrue,
     );
 
-    // Kept for next time; turned off beside the app or from my account.
+    // Turned off beside the app; back on from the top bar or my account.
     await tester.tap(find.byKey(const Key('fullWidth')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('phoneView')), findsNothing);
+    await tester.tap(find.byKey(const Key('phoneViewButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phoneView')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('fullWidth')));
+    await tester.pumpAndSettle();
 
     await openMyAccount(tester);
     final toggle = find.byKey(const Key('phoneViewSwitch'));

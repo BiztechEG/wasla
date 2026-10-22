@@ -8,6 +8,7 @@ import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
 import '../state/task_providers.dart';
+import 'app_update.dart';
 import 'desktop_notifications.dart';
 import 'phone_view.dart';
 import 'status.dart';
@@ -166,6 +167,7 @@ class AccountScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
+          const UpdateTile(),
           Card(
             child: ListTile(
               leading: Icon(LucideIcons.logOut, color: theme.colorScheme.error),

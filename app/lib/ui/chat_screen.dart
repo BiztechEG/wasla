@@ -20,6 +20,7 @@ import '../theme.dart';
 import 'chat_format.dart';
 import 'emoji.dart';
 import 'files_common.dart';
+import 'labels.dart';
 import 'mentions.dart';
 import 'my_tasks_tab.dart';
 import 'profile_card.dart';
@@ -1234,6 +1235,15 @@ class _ChatViewState extends ConsumerState<ChatView> {
         )
         .value;
 
+    final labelled =
+        ref.watch(chatLabelsProvider(target.conversationId)).value ??
+        const <String, Set<String>>{};
+    final labels = {
+      for (final x
+          in ref.watch(myLabelsProvider(ws)).value ?? const <MessageLabel>[])
+        x.id: x,
+    };
+
     _takesFiles = chat.hasValue && !closed;
     final column = Column(
       children: [
@@ -1303,6 +1313,11 @@ class _ChatViewState extends ConsumerState<ChatView> {
                         ref.read(chatProvider(_key).notifier).discard(p),
                     onDayTap: _pickDate,
                     onThread: _openThread,
+                    labelsOf: (id) => [
+                      for (final labelId in labelled[id] ?? const <String>{})
+                        ?labels[labelId],
+                    ],
+                    onLabel: _openLabel,
                   ),
                 ),
               ),
@@ -1430,6 +1445,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
         _Action('drive', LucideIcons.cloudUpload, l.saveToDrive),
       if (!closed)
         _Action('task', LucideIcons.listPlus, l.makeTask, short: l.taskShort),
+      _Action('label', LucideIcons.hash, l.addToLabel),
       if (widget.membership.allowSharing && (hasText || m.file != null))
         _Action('share', LucideIcons.share2, l.share),
       if (mine && widget.target.isProject)
@@ -1534,6 +1550,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
           description: text.isEmpty || text == title ? null : text,
           sourceMessageId: m.id,
         );
+      case 'label':
+        await showLabelSheet(
+          context,
+          workspaceId: widget.membership.workspaceId,
+          conversationId: widget.target.conversationId,
+          messageId: m.id,
+        );
       case 'seen':
         _showSeenBy(m, members ?? const []);
       case 'pin' || 'unpin':
@@ -1561,6 +1584,20 @@ class _ChatViewState extends ConsumerState<ChatView> {
           () => ref.read(chatProvider(_key).notifier).delete(m),
         );
     }
+  }
+
+  /// The messages under a label; one picked in this chat is gone to here.
+  Future<void> _openLabel(MessageLabel label) async {
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => LabelScreen(
+          membership: widget.membership,
+          label: label,
+          conversationId: widget.target.conversationId,
+        ),
+      ),
+    );
+    if (id != null && mounted) await _jumpTo(id);
   }
 
   /// The whole message, to select and copy any part of it.
@@ -1825,6 +1862,8 @@ class _MessageList extends StatelessWidget {
     required this.onDiscard,
     required this.onDayTap,
     required this.onThread,
+    this.labelsOf,
+    this.onLabel,
   });
 
   final ChatState state;
@@ -1865,6 +1904,10 @@ class _MessageList extends StatelessWidget {
 
   /// Opens a message's replies.
   final void Function(ChatMessage root) onThread;
+
+  /// One's labels on a message, and what a tap on one does.
+  final List<MessageLabel> Function(String messageId)? labelsOf;
+  final void Function(MessageLabel label)? onLabel;
 
   static bool _sameDay(DateTime a, DateTime b) {
     final x = a.toLocal(), y = b.toLocal();
@@ -1972,6 +2015,8 @@ class _MessageList extends StatelessWidget {
                 onReactions: () => onReactions(message),
                 names: names,
                 onThread: () => onThread(message),
+                labels: labelsOf?.call(message.id) ?? const [],
+                onLabel: onLabel,
               ),
           };
         },
@@ -2110,6 +2155,8 @@ class _Bubble extends ConsumerWidget {
     this.onThread,
     this.replyLabel,
     this.showQuote = true,
+    this.labels = const [],
+    this.onLabel,
   });
 
   final ChatMessage message;
@@ -2145,6 +2192,10 @@ class _Bubble extends ConsumerWidget {
   /// In a reply chain: "In reply to X", shown instead of the quote.
   final String? replyLabel;
   final bool showQuote;
+
+  /// One's labels on the message, shown under it to oneself only.
+  final List<MessageLabel> labels;
+  final void Function(MessageLabel label)? onLabel;
 
   /// One to three emoji and nothing else: big, without a bubble.
   bool get _bigEmoji =>
@@ -2408,6 +2459,8 @@ class _Bubble extends ConsumerWidget {
                           onTap: onReact,
                           onLongPress: onReactions,
                         ),
+                      if (labels.isNotEmpty && onLabel != null && !m.deleted)
+                        LabelChips(labels: labels, onTap: onLabel!),
                       if (onThread != null && m.replyCount > 0)
                         _ThreadPill(
                           count: m.replyCount,

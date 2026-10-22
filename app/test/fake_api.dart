@@ -942,6 +942,116 @@ class FakeApi implements WaslaApi {
       ReadState(userId: e.key, lastReadAt: e.value),
   ];
 
+  /// Labels by id: (workspace, name), and the messages under each.
+  final labels = <String, (String, String)>{};
+  final labelLinks = <String, List<String>>{};
+  var _labelCount = 0;
+
+  /// The chat a message is in.
+  String? _chatOf(String messageId) => chatMessages.entries
+      .where((e) => e.value.any((m) => m.id == messageId && !m.deleted))
+      .firstOrNull
+      ?.key;
+
+  @override
+  Future<List<MessageLabel>> myLabels(String workspaceId) async => [
+    for (final e in labels.entries.toList().reversed)
+      if (e.value.$1 == workspaceId)
+        MessageLabel(
+          id: e.key,
+          name: e.value.$2,
+          messages: (labelLinks[e.key] ?? const [])
+              .where((id) => _chatOf(id) != null)
+              .length,
+        ),
+  ];
+
+  @override
+  Future<Map<String, Set<String>>> chatLabels(String conversationId) async {
+    final out = <String, Set<String>>{};
+    for (final e in labelLinks.entries) {
+      for (final id in e.value) {
+        if (_chatOf(id) == conversationId) {
+          out.putIfAbsent(id, () => {}).add(e.key);
+        }
+      }
+    }
+    return out;
+  }
+
+  @override
+  Future<String> labelMessage(
+    String messageId, {
+    String? labelId,
+    String? name,
+  }) async {
+    final chat = _chatOf(messageId)!;
+    final ws = chatWorkspace[chat]!;
+    var id = labelId;
+    if (id == null) {
+      final clean = name!.trim();
+      id = labels.entries
+          .where(
+            (e) =>
+                e.value.$1 == ws &&
+                e.value.$2.toLowerCase() == clean.toLowerCase(),
+          )
+          .firstOrNull
+          ?.key;
+      if (id == null) {
+        id = 'label${++_labelCount}';
+        labels[id] = (ws, clean);
+      }
+    }
+    final list = labelLinks.putIfAbsent(id, () => []);
+    if (!list.contains(messageId)) list.add(messageId);
+    // The most recently used comes first.
+    labels[id] = labels.remove(id)!;
+    return id;
+  }
+
+  @override
+  Future<void> unlabelMessage(String messageId, String labelId) async =>
+      labelLinks[labelId]?.remove(messageId);
+
+  @override
+  Future<void> renameLabel(String labelId, String name) async {
+    final (ws, _) = labels[labelId]!;
+    labels[labelId] = (ws, name.trim());
+  }
+
+  @override
+  Future<void> deleteLabel(String labelId) async {
+    labels.remove(labelId);
+    labelLinks.remove(labelId);
+  }
+
+  @override
+  Future<List<MessageHit>> labelled(
+    String labelId, {
+    String? conversationId,
+  }) async {
+    final hits = <MessageHit>[];
+    for (final id in labelLinks[labelId] ?? const <String>[]) {
+      final chat = _chatOf(id);
+      if (chat == null || (conversationId != null && chat != conversationId)) {
+        continue;
+      }
+      final m = chatMessages[chat]!.firstWhere((m) => m.id == id);
+      hits.add(
+        MessageHit(
+          messageId: m.id,
+          chat: chats[chat]!,
+          createdAt: m.createdAt,
+          senderName: m.senderName,
+          body: m.body,
+          fileName: m.file?.name,
+        ),
+      );
+    }
+    return hits..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
   @override
   Future<List<MessageHit>> searchMessages(
     String workspaceId,

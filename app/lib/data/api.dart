@@ -230,6 +230,29 @@ abstract class WaslaApi {
   /// Files, tasks and announcements matching [query] that one can see.
   Future<WorkspaceSearch> searchWorkspace(String workspaceId, String query);
 
+  /// One's labels in a workspace, the most recently used first.
+  Future<List<MessageLabel>> myLabels(String workspaceId);
+
+  /// The labels one put on a chat's messages: label ids by message id.
+  Future<Map<String, Set<String>>> chatLabels(String conversationId);
+
+  /// Files a message under the label [labelId], or the one called [name]
+  /// (made if one has none by that name). Returns the label's id.
+  Future<String> labelMessage(
+    String messageId, {
+    String? labelId,
+    String? name,
+  });
+  Future<void> unlabelMessage(String messageId, String labelId);
+  Future<void> renameLabel(String labelId, String name);
+
+  /// Removes the label; its messages stay as they are.
+  Future<void> deleteLabel(String labelId);
+
+  /// The messages under a label, the newest first; with [conversationId],
+  /// only that chat's.
+  Future<List<MessageHit>> labelled(String labelId, {String? conversationId});
+
   /// Projects a private chat's messages can be tagged with: active ones both
   /// people are in.
   Future<List<String>> sharedProjects(String conversationId);
@@ -1387,6 +1410,63 @@ class SupabaseWaslaApi implements WaslaApi {
     await _client.rpc(
       'search_messages',
       params: {'p_workspace': workspaceId, 'p_query': query},
+    ),
+  ).map(MessageHit.fromJson).toList();
+
+  @override
+  Future<List<MessageLabel>> myLabels(String workspaceId) async => _rows(
+    await _client.rpc('my_labels', params: {'p_workspace': workspaceId}),
+  ).map(MessageLabel.fromJson).toList();
+
+  @override
+  Future<Map<String, Set<String>>> chatLabels(String conversationId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'chat_labels',
+        params: {'p_conversation': conversationId},
+      ),
+    );
+    final out = <String, Set<String>>{};
+    for (final r in rows) {
+      out
+          .putIfAbsent(r['message_id'] as String, () => {})
+          .add(r['label_id'] as String);
+    }
+    return out;
+  }
+
+  @override
+  Future<String> labelMessage(
+    String messageId, {
+    String? labelId,
+    String? name,
+  }) async => await _client.rpc(
+    'label_message',
+    params: {'p_message': messageId, 'p_label': labelId, 'p_name': name},
+  ) as String;
+
+  @override
+  Future<void> unlabelMessage(String messageId, String labelId) => _client.rpc(
+    'unlabel_message',
+    params: {'p_message': messageId, 'p_label': labelId},
+  );
+
+  @override
+  Future<void> renameLabel(String labelId, String name) =>
+      _client.rpc('rename_label', params: {'p_label': labelId, 'p_name': name});
+
+  @override
+  Future<void> deleteLabel(String labelId) =>
+      _client.rpc('delete_label', params: {'p_label': labelId});
+
+  @override
+  Future<List<MessageHit>> labelled(
+    String labelId, {
+    String? conversationId,
+  }) async => _rows(
+    await _client.rpc(
+      'labelled',
+      params: {'p_label': labelId, 'p_conversation': conversationId},
     ),
   ).map(MessageHit.fromJson).toList();
 
