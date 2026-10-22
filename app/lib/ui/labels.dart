@@ -110,6 +110,156 @@ class _LabelChip extends StatelessWidget {
   }
 }
 
+/// Puts a message under [label], or takes it off it.
+Future<void> setMessageLabel(
+  BuildContext context,
+  WidgetRef ref, {
+  required String messageId,
+  required MessageLabel label,
+  required bool on,
+}) async {
+  final api = ref.read(apiProvider);
+  await runAction(
+    context,
+    () => on
+        ? api.labelMessage(messageId, labelId: label.id)
+        : api.unlabelMessage(messageId, label.id),
+  );
+  _labelsChanged(ref);
+}
+
+/// Above a message's reactions: the labels one used last, a tap away, and
+/// the rest of one's labels behind [onMore]. Those the message is under
+/// are ticked; a tap takes it off them.
+class QuickLabels extends StatelessWidget {
+  const QuickLabels({
+    super.key,
+    required this.recent,
+    required this.on,
+    required this.onPick,
+    required this.onMore,
+  });
+
+  final List<MessageLabel> recent;
+  final Set<String> on;
+  final void Function(MessageLabel label) onPick;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    Widget chip({
+      required Key key,
+      required IconData icon,
+      required String text,
+      required Color color,
+      required Color ink,
+      bool ticked = false,
+      required VoidCallback onTap,
+    }) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: Material(
+        color: color,
+        shape: StadiumBorder(
+          side: ticked ? BorderSide(color: ink, width: 1.5) : BorderSide.none,
+        ),
+        child: InkWell(
+          key: key,
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: ink),
+                const SizedBox(width: 4),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 100),
+                  child: Text(
+                    text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(color: ink),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (recent.isEmpty) {
+      return chip(
+        key: const Key('quickLabelMore'),
+        icon: LucideIcons.hash,
+        text: l.addToLabel,
+        color: scheme.surfaceContainerHigh,
+        ink: scheme.onSurfaceVariant,
+        onTap: onMore,
+      );
+    }
+    // The rest stay in reach when long names don't fit.
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final label in recent)
+                  Builder(
+                    builder: (context) {
+                      final color = labelColor(label.name, theme.brightness);
+                      final ticked = on.contains(label.id);
+                      return chip(
+                        key: Key('quickLabel-${label.name}'),
+                        icon: ticked ? LucideIcons.check : LucideIcons.hash,
+                        text: label.name,
+                        color: color.withValues(alpha: ticked ? 0.28 : 0.14),
+                        ink: WaslaColors.onTint(color, theme.brightness),
+                        ticked: ticked,
+                        onTap: () => onPick(label),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+        Tooltip(
+          message: l.otherLabel,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.only(start: 3),
+            child: Material(
+              color: scheme.surfaceContainerHigh,
+              shape: const CircleBorder(),
+              child: InkWell(
+                key: const Key('quickLabelMore'),
+                customBorder: const CircleBorder(),
+                onTap: onMore,
+                child: SizedBox.square(
+                  dimension: 38,
+                  child: Icon(
+                    LucideIcons.ellipsis,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Puts a message under labels, or takes it off them: one's labels to tick,
 /// and a field that finds one or makes a new one.
 Future<void> showLabelSheet(
