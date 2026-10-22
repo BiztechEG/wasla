@@ -70,6 +70,8 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     final notes = ref.watch(unreadAnnouncementsProvider(ws)).value ?? const [];
     final me = ref.watch(authProvider).value;
     final projects = ref.watch(projectsProvider(ws)).value ?? const <Project>[];
+    final mutedChats =
+        ref.watch(mutedChatsProvider(ws)).value ?? const <String, DateTime?>{};
 
     Future<void> refresh() {
       ref.invalidate(unreadAnnouncementsProvider(ws));
@@ -163,30 +165,32 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                         _ProjectStrip(
                           chats: all,
                           selected: _project,
-                          canCreate: widget.membership.role.canManage,
-                          workspaceId: ws,
                           onSelected: (id) => setState(() => _project = id),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              for (final k in _Kind.values)
-                                FilterPill(
-                                  label: switch (k) {
-                                    _Kind.all => l.filterAll,
-                                    _Kind.unread => l.filterUnread,
-                                    _Kind.people => l.filterPeople,
-                                  },
-                                  count: k == _Kind.unread ? unreadChats : null,
-                                  selected: _kind == k,
-                                  onTap: () => setState(() => _kind = k),
-                                ),
-                            ],
+                        // Filters only once there is something to filter.
+                        if (all.length >= 5 || _kind != _Kind.all)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final k in _Kind.values)
+                                  FilterPill(
+                                    label: switch (k) {
+                                      _Kind.all => l.filterAll,
+                                      _Kind.unread => l.filterUnread,
+                                      _Kind.people => l.filterPeople,
+                                    },
+                                    count: k == _Kind.unread
+                                        ? unreadChats
+                                        : null,
+                                    selected: _kind == k,
+                                    onTap: () => setState(() => _kind = k),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
                         if (shown.isEmpty && shownNotes.isEmpty) ...[
                           const SizedBox(height: 40),
                           EmptyState(
@@ -198,6 +202,22 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                                 ? l.chatsEmptyBody
                                 : null,
                           ),
+                          // An admin's first step in a new workspace.
+                          if (projects.isEmpty &&
+                              widget.membership.role.canManage)
+                            Center(
+                              child: FilledButton.tonalIcon(
+                                key: const Key('firstProject'),
+                                icon: const Icon(LucideIcons.plus, size: 18),
+                                label: Text(l.newProject),
+                                onPressed: () => showModalBottomSheet<void>(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  builder: (_) =>
+                                      NewProjectSheet(workspaceId: ws),
+                                ),
+                              ),
+                            ),
                         ],
                         for (final n in shownNotes.take(3))
                           _AnnouncementRow(
@@ -213,6 +233,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                           _ChatRow(
                             chat: c,
                             me: me,
+                            silenced: mutedChats.containsKey(c.id),
                             filter: _project,
                             projects: projects,
                             onTap: () => Navigator.of(context).push(
@@ -289,25 +310,21 @@ class _ProjectStrip extends StatelessWidget {
   const _ProjectStrip({
     required this.chats,
     required this.selected,
-    required this.canCreate,
-    required this.workspaceId,
     required this.onSelected,
   });
 
   final List<Conversation> chats;
   final String? selected;
-  final bool canCreate;
-  final String workspaceId;
   final void Function(String?) onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final l = context.l10n;
     final projects = [
       for (final c in chats)
         if (c.isProject) c,
     ];
-    if (projects.isEmpty && !canCreate) return const SizedBox(height: 4);
+    // A new project starts from the projects tab, or from the empty list.
+    if (projects.isEmpty) return const SizedBox(height: 4);
     return SizedBox(
       height: 92,
       child: ListView(
@@ -320,15 +337,6 @@ class _ProjectStrip extends StatelessWidget {
               selected: selected == c.projectId,
               onTap: () =>
                   onSelected(selected == c.projectId ? null : c.projectId),
-            ),
-          if (canCreate)
-            _StripAdd(
-              label: l.newProject,
-              onTap: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => NewProjectSheet(workspaceId: workspaceId),
-              ),
             ),
         ],
       ),
@@ -444,50 +452,6 @@ class _StripTile extends StatelessWidget {
   }
 }
 
-class _StripAdd extends StatelessWidget {
-  const _StripAdd({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
-    return Tooltip(
-      message: label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: SizedBox(
-          width: 62,
-          child: Column(
-            children: [
-              Container(
-                width: 53,
-                height: 53,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(17),
-                  border: Border.all(color: theme.colorScheme.outline),
-                ),
-                child: Icon(LucideIcons.plus, color: muted, size: 22),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(color: muted),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ChatRow extends StatelessWidget {
   const _ChatRow({
     required this.chat,
@@ -495,6 +459,7 @@ class _ChatRow extends StatelessWidget {
     required this.filter,
     required this.projects,
     required this.onTap,
+    this.silenced = false,
   });
 
   final Conversation chat;
@@ -502,6 +467,9 @@ class _ChatRow extends StatelessWidget {
   final String? filter;
   final List<Project> projects;
   final VoidCallback onTap;
+
+  /// Muted: its messages stay off the phone.
+  final bool silenced;
 
   @override
   Widget build(BuildContext context) {
@@ -552,6 +520,18 @@ class _ChatRow extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (silenced) ...[
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: l.mutedLabel,
+                          child: Icon(
+                            LucideIcons.bellOff,
+                            key: const Key('mutedMark'),
+                            size: 15,
+                            color: muted,
+                          ),
+                        ),
+                      ],
                       if (lastAt != null) ...[
                         const SizedBox(width: 8),
                         Text(

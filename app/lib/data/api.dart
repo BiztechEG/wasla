@@ -10,6 +10,7 @@ import 'attendance_models.dart';
 import 'billing_models.dart';
 import 'chat_models.dart';
 import 'models.dart';
+import 'overview_models.dart';
 import 'picker.dart';
 import 'search_models.dart';
 import 'task_models.dart';
@@ -79,6 +80,27 @@ abstract class WaslaApi {
   Future<List<JoinRequest>> joinRequests(String workspaceId);
   Future<void> decideJoinRequest(String requestId, {required bool accept});
 
+  /// The workspace's join code, for its admins; null while it is off.
+  Future<JoinCode?> joinCode(String workspaceId);
+
+  /// Turns the join code on (a new one with [renew]) or off.
+  Future<JoinCode?> setJoinCode(
+    String workspaceId, {
+    required bool enabled,
+    bool autoJoin = false,
+    bool renew = false,
+  });
+
+  /// How each workspace one runs is doing (a company owner: all of the
+  /// company's), in numbers only.
+  Future<List<WorkspaceOverview>> managementOverview();
+
+  /// Where a join code leads; null when it leads nowhere.
+  Future<CodeWorkspace?> workspaceByCode(String code);
+
+  /// Joins with a code; false when it sent a request to join instead.
+  Future<bool> joinWithCode(String code, {String? message});
+
   Future<List<Project>> projects(String workspaceId);
 
   /// Task counts per project id, for projects with tasks one may see.
@@ -104,6 +126,20 @@ abstract class WaslaApi {
 
   /// The private chat with [userId], created on first use.
   Future<String> openDirect(String workspaceId, String userId);
+
+  /// Keeps a chat's messages off one's phone until [until] (null: until
+  /// unmuted). Mentions still come through.
+  Future<void> muteConversation(String conversationId, {DateTime? until});
+  Future<void> unmuteConversation(String conversationId);
+
+  /// Chats one has muted in a workspace, and until when (null: for good).
+  Future<Map<String, DateTime?>> mutedConversations(String workspaceId);
+
+  /// Hours when nothing reaches one's phone; null when off.
+  Future<QuietHours?> quietHours();
+
+  /// Sets quiet hours, or turns them off with nulls.
+  Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset);
 
   /// A project's group chat, or null for someone who cannot see it.
   Future<String?> projectConversation(String projectId);
@@ -754,6 +790,57 @@ class SupabaseWaslaApi implements WaslaApi {
       );
 
   @override
+  Future<JoinCode?> joinCode(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc('join_code', params: {'p_workspace': workspaceId}),
+    );
+    return rows.isEmpty ? null : JoinCode.fromJson(rows.first);
+  }
+
+  @override
+  Future<JoinCode?> setJoinCode(
+    String workspaceId, {
+    required bool enabled,
+    bool autoJoin = false,
+    bool renew = false,
+  }) async {
+    final rows = _rows(
+      await _client.rpc(
+        'set_join_code',
+        params: {
+          'p_workspace': workspaceId,
+          'p_enabled': enabled,
+          'p_auto': autoJoin,
+          'p_renew': renew,
+        },
+      ),
+    );
+    return rows.isEmpty ? null : JoinCode.fromJson(rows.first);
+  }
+
+  @override
+  Future<List<WorkspaceOverview>> managementOverview() async => [
+    for (final w in await _client.rpc('management_overview') as List? ?? [])
+      WorkspaceOverview.fromJson(Json.from(w as Map)),
+  ];
+
+  @override
+  Future<CodeWorkspace?> workspaceByCode(String code) async {
+    final rows = _rows(
+      await _client.rpc('workspace_by_code', params: {'p_code': code}),
+    );
+    return rows.isEmpty ? null : CodeWorkspace.fromJson(rows.first);
+  }
+
+  @override
+  Future<bool> joinWithCode(String code, {String? message}) async =>
+      await _client.rpc(
+        'join_with_code',
+        params: {'p_code': code, 'p_message': message},
+      ) ==
+      'joined';
+
+  @override
   Future<List<Project>> projects(String workspaceId) async {
     final data = await _client
         .from('projects')
@@ -896,6 +983,60 @@ class SupabaseWaslaApi implements WaslaApi {
   Future<List<Conversation>> conversations(String workspaceId) async => _rows(
     await _client.rpc('my_conversations', params: {'p_workspace': workspaceId}),
   ).map(Conversation.fromJson).toList();
+
+  @override
+  Future<void> muteConversation(String conversationId, {DateTime? until}) =>
+      _client.rpc(
+        'mute_conversation',
+        params: {
+          'p_conversation': conversationId,
+          'p_until': until?.toUtc().toIso8601String(),
+        },
+      );
+
+  @override
+  Future<void> unmuteConversation(String conversationId) => _client.rpc(
+    'unmute_conversation',
+    params: {'p_conversation': conversationId},
+  );
+
+  @override
+  Future<Map<String, DateTime?>> mutedConversations(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'my_muted_conversations',
+        params: {'p_workspace': workspaceId},
+      ),
+    );
+    return {
+      for (final r in rows)
+        r['conversation_id'] as String: r['until'] == null
+            ? null
+            : DateTime.parse(r['until'] as String),
+    };
+  }
+
+  @override
+  Future<QuietHours?> quietHours() async {
+    final rows = _rows(await _client.rpc('my_notification_settings'));
+    if (rows.isEmpty || rows.first['quiet_from'] == null) return null;
+    return QuietHours(
+      from: parseClock(rows.first['quiet_from']),
+      to: parseClock(rows.first['quiet_to']),
+      utcOffset: (rows.first['utc_offset'] as num).toInt(),
+    );
+  }
+
+  @override
+  Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset) =>
+      _client.rpc(
+        'set_quiet_hours',
+        params: {
+          'p_from': from == null ? null : clockParam(from),
+          'p_to': to == null ? null : clockParam(to),
+          'p_utc_offset': utcOffset,
+        },
+      );
 
   @override
   Future<String> openDirect(String workspaceId, String userId) async =>

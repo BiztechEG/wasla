@@ -10,6 +10,7 @@ import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/location.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/data/overview_models.dart';
 import 'package:wasla/data/picker.dart';
 import 'package:wasla/data/search_models.dart';
 import 'package:wasla/data/task_models.dart';
@@ -153,6 +154,92 @@ class FakeApi implements WaslaApi {
 
   /// Invitations sent: workspace and email.
   final invited = <(String, String)>[];
+
+  /// Muted chats and until when; quiet hours.
+  final muted = <String, DateTime?>{};
+  QuietHours? quiet;
+
+  @override
+  Future<void> muteConversation(
+    String conversationId, {
+    DateTime? until,
+  }) async => muted[conversationId] = until;
+
+  @override
+  Future<void> unmuteConversation(String conversationId) async =>
+      muted.remove(conversationId);
+
+  @override
+  Future<Map<String, DateTime?>> mutedConversations(String workspaceId) async =>
+      Map.of(muted);
+
+  @override
+  Future<QuietHours?> quietHours() async => quiet;
+
+  @override
+  Future<void> setQuietHours(
+    TimeOfDay? from,
+    TimeOfDay? to,
+    int utcOffset,
+  ) async => quiet = from == null || to == null
+      ? null
+      : QuietHours(from: from, to: to, utcOffset: utcOffset);
+
+  /// What the management dashboard shows.
+  final overviews = <WorkspaceOverview>[];
+
+  @override
+  Future<List<WorkspaceOverview>> managementOverview() async =>
+      List.of(overviews);
+
+  /// Join codes by workspace, and the workspaces they lead to.
+  final joinCodes = <String, JoinCode>{};
+  final codeWorkspaces = <String, CodeWorkspace>{};
+
+  @override
+  Future<JoinCode?> joinCode(String workspaceId) async =>
+      joinCodes[workspaceId];
+
+  @override
+  Future<JoinCode?> setJoinCode(
+    String workspaceId, {
+    required bool enabled,
+    bool autoJoin = false,
+    bool renew = false,
+  }) async {
+    if (!enabled) {
+      joinCodes.remove(workspaceId);
+      return null;
+    }
+    final old = joinCodes[workspaceId];
+    return joinCodes[workspaceId] = JoinCode(
+      code: old == null || renew ? 'ABCD${2345 + _seq++}' : old.code,
+      autoJoin: autoJoin,
+    );
+  }
+
+  @override
+  Future<CodeWorkspace?> workspaceByCode(String code) async =>
+      codeWorkspaces[code.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '')];
+
+  @override
+  Future<bool> joinWithCode(String code, {String? message}) async {
+    final w = (await workspaceByCode(code))!;
+    if (w.autoJoin) {
+      memberships.add(
+        membership(w.workspaceId, w.workspaceName, WorkspaceRole.member),
+      );
+      return true;
+    }
+    myRequests.add(
+      MyJoinRequest(
+        id: 'r${_seq++}',
+        workspaceId: w.workspaceId,
+        workspaceName: w.workspaceName,
+      ),
+    );
+    return false;
+  }
 
   /// An admin lets the signed-in user in, as the server would tell them.
   void admit(String workspaceId, String name) {

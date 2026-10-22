@@ -373,7 +373,9 @@ enum NotificationKind {
   inviteAccepted('invite_accepted'),
   joinRequest('join_request'),
   requestAccepted('request_accepted'),
-  requestDeclined('request_declined');
+  requestDeclined('request_declined'),
+  // Someone joined with the workspace's join code.
+  memberJoined('member_joined');
 
   const NotificationKind(this.wire);
 

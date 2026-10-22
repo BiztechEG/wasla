@@ -934,7 +934,7 @@ class PersonDayScreen extends ConsumerWidget {
               ],
               if (d.fix != null && d.fix!.status == FixStatus.pending) ...[
                 SectionTitle(l.correctionRequest),
-                _FixCard(
+                AttendanceFixCard(
                   membership: membership,
                   fix: d.fix!,
                   canDecide: d.canEdit,
@@ -1253,8 +1253,9 @@ class _OptionField extends StatelessWidget {
 }
 
 /// A correction someone asked for, with accept and reject for a manager.
-class _FixCard extends ConsumerWidget {
-  const _FixCard({
+class AttendanceFixCard extends ConsumerWidget {
+  const AttendanceFixCard({
+    super.key,
     required this.membership,
     required this.fix,
     required this.canDecide,
@@ -1376,12 +1377,16 @@ class AttendanceRequestsScreen extends ConsumerWidget {
                 if (q.reviews.isNotEmpty) ...[
                   SectionTitle(l.checkInsToReview),
                   for (final (r, name) in q.reviews)
-                    _ReviewCard(membership: membership, record: r, name: name),
+                    AttendanceReviewCard(
+                      membership: membership,
+                      record: r,
+                      name: name,
+                    ),
                 ],
                 if (q.fixes.isNotEmpty) ...[
                   SectionTitle(l.correctionsToDecide),
                   for (final f in q.fixes)
-                    _FixCard(
+                    AttendanceFixCard(
                       membership: membership,
                       fix: f,
                       canDecide: true,
@@ -1397,8 +1402,9 @@ class AttendanceRequestsScreen extends ConsumerWidget {
   }
 }
 
-class _ReviewCard extends ConsumerWidget {
-  const _ReviewCard({
+class AttendanceReviewCard extends ConsumerWidget {
+  const AttendanceReviewCard({
+    super.key,
     required this.membership,
     required this.record,
     required this.name,

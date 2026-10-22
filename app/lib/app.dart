@@ -10,6 +10,7 @@ import 'state/settings.dart';
 import 'theme.dart';
 import 'ui/admin_screen.dart';
 import 'ui/home_shell.dart';
+import 'ui/join_link.dart';
 import 'ui/profile_setup_screen.dart';
 import 'ui/sign_in_screen.dart';
 import 'ui/start_screen.dart';
@@ -95,14 +96,17 @@ class AppGate extends ConsumerWidget {
       if (!admin.hasValue && !admin.hasError) return const _Splash();
       if (admin.value ?? false) {
         return AdminScreen(
-          app: hasWorkspace
-              ? const HomeShell()
-              : const StartScreen(asPage: true),
+          app: JoinFromLink(
+            child: hasWorkspace
+                ? const HomeShell()
+                : const StartScreen(asPage: true),
+          ),
         );
       }
     }
-    if (!hasWorkspace) return const StartScreen();
-    return const HomeShell();
+    return JoinFromLink(
+      child: hasWorkspace ? const HomeShell() : const StartScreen(),
+    );
   }
 }
 

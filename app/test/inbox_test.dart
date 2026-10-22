@@ -95,11 +95,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('joinRequestsBanner')), findsOneWidget);
-    expect(
-      find.text('1 person is asking to join this workspace'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('approvalsBanner')), findsOneWidget);
+    expect(find.text('1 item is waiting for your approval'), findsOneWidget);
 
     await _openBell(tester);
     expect(find.text('Waiting for your answer'), findsOneWidget);
@@ -210,7 +207,11 @@ void main() {
 
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Invite people'));
+    final invite = find.text('Invite people');
+    await tester.scrollUntilVisible(invite, 200);
+    await Scrollable.ensureVisible(tester.element(invite), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(invite);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('inviteEmail')),

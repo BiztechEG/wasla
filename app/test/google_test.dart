@@ -85,8 +85,7 @@ void main() {
     expect(find.byKey(const Key('addToCalendar')), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('المزيد'));
-    await tester.pumpAndSettle();
+    await openMyAccount(tester);
     expect(find.byKey(const Key('calendarAuto')), findsNothing);
   });
 
@@ -102,8 +101,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await startApp(tester, api, google: google);
-    await tester.tap(find.byTooltip('المزيد'));
-    await tester.pumpAndSettle();
+    await openMyAccount(tester);
     await tester.tap(find.byKey(const Key('calendarAuto')));
     await tester.pumpAndSettle();
     expect(google.events.values.map((e) => e.title), ['Visit the site']);

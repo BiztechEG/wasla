@@ -6,6 +6,9 @@ name: Deploy database
 # SUPABASE_DB_PASSWORD. Phone notifications also need FIREBASE_SERVICE_ACCOUNT,
 # the service account JSON file from Firebase (Project settings > Service
 # accounts > Generate new private key), which is handed to the functions.
+# Invitation emails need SMTP_HOST, SMTP_PORT (465), SMTP_USER, SMTP_PASS and
+# SMTP_FROM (the same mail server as sign-in codes works), and the variable
+# SITE_URL (the website, for the download link).
 
 on:
   push:
@@ -30,6 +33,12 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      SITE_URL: ${{ vars.SITE_URL }}
       PROJECT_REF: qbefpiuglhsgcgwsaocn
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +58,7 @@ jobs:
       # The database calls these itself and checks its own key, so they
       # don't take a signed-in user's token.
       - name: Deploy the Edge Functions
-        run: supabase functions deploy push cleanup --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+        run: supabase functions deploy push cleanup email --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
       - name: Hand Firebase's key to the functions
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
@@ -59,3 +68,13 @@ jobs:
           compact="$(printf '%s' "$FIREBASE_SERVICE_ACCOUNT" | jq -c .)"
           echo "::add-mask::$compact"
           supabase secrets set --project-ref "$PROJECT_REF" "FIREBASE_SERVICE_ACCOUNT=$compact"
+      - name: Hand the mail server to the functions
+        run: |
+          if [ -z "$SMTP_HOST" ] || [ -z "$SMTP_FROM" ]; then
+            echo "::notice::Add the SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and SMTP_FROM secrets to email invitations."
+            exit 0
+          fi
+          echo "::add-mask::$SMTP_PASS"
+          supabase secrets set --project-ref "$PROJECT_REF" \
+            "SMTP_HOST=$SMTP_HOST" "SMTP_PORT=${SMTP_PORT:-465}" "SMTP_USER=$SMTP_USER" \
+            "SMTP_PASS=$SMTP_PASS" "SMTP_FROM=$SMTP_FROM" "SITE_URL=$SITE_URL"

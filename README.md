@@ -35,11 +35,13 @@ flutter run --dart-define=SUPABASE_URL=https://... --dart-define=SUPABASE_KEY=..
 
 Checks: `flutter analyze` and `flutter test` inside `app/`.
 
+To spare Actions minutes, the checks run on pull requests only (the app's when `app/` changes, the database's when `supabase/` changes), a new push to a pull request cancels the run for the push before it, and the Android test build runs only by hand. On main, only the website and database deploys run (each builds or tests what it ships).
+
 The same app runs in a browser: `flutter run -d chrome`, or `flutter build web --release --no-web-resources-cdn` for files any web host can serve (the result is in `app/build/web`; add `--base-href /app/` when it is served from a folder).
 
 ### Try it on an Android phone
 
-The **Android test build** workflow builds an APK on every change to the app (and on demand from the Actions tab). Open the run, download `wasla-android-N` under Artifacts, unzip it and install `app-release.apk` on the phone (Android asks to allow installing from that source once). Until the app's signing key is set up (see [The website](#the-website)), each build is signed with a throwaway key, so uninstall the previous test build first. iPhone builds wait for the Apple developer account.
+The **Android test build** workflow builds an APK on demand: Actions > Android test build > Run workflow, on any branch (it no longer runs on every change, to save Actions minutes). Open the run, download `wasla-android-N` under Artifacts, unzip it and install `app-release.apk` on the phone (Android asks to allow installing from that source once). Until the app's signing key is set up (see [The website](#the-website)), each build is signed with a throwaway key, so uninstall the previous test build first. iPhone builds wait for the Apple developer account.
 
 Sign-in uses a 6-digit email code. In the Supabase dashboard (Authentication > Email Templates), both the **Confirm signup** template (first sign-in) and the **Magic Link** template (later sign-ins) must include `{{ .Token }}` so the code is in the email. Supabase's built-in email sender only reaches the project's team members, and on new free projects it also locks the templates to a link-only default. So connect an SMTP provider first (Authentication > Emails > SMTP Settings), then edit the two templates.
 
@@ -63,8 +65,25 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 ## Joining a workspace
 
 - An admin invites by email (and optionally straight into projects), then sends the invitation on from the app through WhatsApp, email or any other app; it carries the download link when the app is built with `--dart-define=SITE_URL=https://...` (in a browser, the site it is served from).
+- Each invitation to an email is also emailed to that address, in the person's language, with the download link and the steps to accept. The Edge Function `email` sends the queue (`email_outbox`) through any SMTP server: add the repository secrets `SMTP_HOST`, `SMTP_PORT` (465; Supabase blocks 25 and 587), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (for example `Wasla <no-reply@your-domain>`) and the variable `SITE_URL`, then run the Deploy database workflow. The same mail account as the sign-in codes works. Without them nothing is emailed and the rest works as before.
+- Instead of inviting one email at a time, an admin can turn on the workspace's join link (More > Join link): one eight-character code, shared as a link (`/app/?join=CODE`, kept through sign-in) or typed in under "I have a join code". It sends a request to join, or with "join without approval" lets people straight in as members (the admins are told). Only owners and admins see the code; renewing it stops the old one, and the plan's seats still count.
 - Invitations, requests to join and their answers are notifications like any other: the invited person (as soon as they have an account), every owner and admin of the workspace for a request, the person asking for the answer, and the inviting admin when it is accepted. Once answered, withdrawn or cancelled, they count as read for everyone.
 - Open ones show on top of the bell with Accept and Decline on them, as a banner on the home screen, in the workspace switcher and on the start page. Someone waiting for an answer moves into the workspace as soon as they are accepted.
+
+## Approvals
+
+- **More > Waiting for your approval** gathers, for the workspace on screen, everything that waits for the signed-in person: requests to join (owners and admins), check-ins from outside a branch and attendance corrections (attendance managers), and tasks in review that they may close (their own, and every task in the projects they lead). Each is answered right there. A banner on the home screen and a count on More say when something is waiting.
+
+## Management dashboard
+
+- **More > Management dashboard** shows company owners every workspace of their companies, and workspace owners and admins the workspaces they run, side by side: people, open, late and in-review tasks, tasks done this week against the week before, project chat activity (messages and how many people wrote), today's attendance, and each project's progress. It comes from `management_overview()`, which counts and never reads: no message text, and private chats are not counted at all.
+
+## My account and notification controls
+
+- The picture in the top bar opens **My account**: one's name, quiet hours, Google, appearance, language and signing out. More keeps only the workspace's things.
+- **Quiet hours** (for example 22:00 to 07:00, in the phone's time zone, kept up to date when it changes) keep everything off the phone; the bell and the app's counts still have it all.
+- **Muting a chat** (8 hours, a week, or until unmuted) from the bell at the top of the chat keeps its messages off the phone; mentions still come through. Muted chats are marked in the list.
+- Both are applied in `queue_push()`, where every phone notification is queued.
 
 ## Chats and files
 

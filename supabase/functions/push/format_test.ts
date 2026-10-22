@@ -94,6 +94,10 @@ Deno.test("invitations and join requests say what to do", () => {
     format({ ...invite, kind: "request_accepted", actor: "Omar", body: null, locale: "en" }).body,
     "Your request to join was accepted; tap to open the workspace",
   );
+  assertEquals(
+    format({ ...invite, kind: "member_joined", body: null }).body,
+    "انضم Hoda إلى مساحة العمل برابط الانضمام",
+  );
 });
 
 Deno.test("attendance", () => {
