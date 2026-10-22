@@ -115,6 +115,7 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - **Polls**: from the attach button, a question with 2 to 10 options (one answer, or more if allowed). Votes are kept on the message (`messages.poll`), so they reach everyone live like reactions; whoever asked, or runs the project, closes it.
 - **Pinned message**: one per chat, shown on top of it and a tap from the message. Either person pins in a private chat; in a project's chat, whoever runs the project.
+- **In a browser**: files dragged from the computer onto a chat are sent like attached ones (five at a time, 50 MB each). Tapping a file the app can't show itself (text, web pages, PDFs…) downloads it rather than opening a new tab. On a wide window, the phone button in the top bar (or My account) shows the app as wide as a phone in the middle of the window.
 
 ## Phone notifications
 
@@ -122,6 +123,13 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - The app registers its phone with `register_push_token` at every start and language change, and removes it on sign-out. Triggers queue a row in `push_outbox` per person with a phone; the Edge Function `push` sends them. The database calls it through `pg_net` as soon as something is queued, and the `pg_cron` job `wasla-push` retries every minute (three tries, nothing over an hour late).
 - The functions prove themselves with the key in `push_config`; its `base_url` points at the hosted project's functions and must change when the database moves to its own server.
 - Setup: the Android app's settings from Firebase's `google-services.json` are in `app/lib/push/firebase_options.dart` (Firebase project `wasla-a114f`), and the repository secret `FIREBASE_SERVICE_ACCOUNT` holds the service account JSON (Firebase > Project settings > Service accounts > Generate new private key). The Deploy database workflow hands it to the functions; run it again after adding or changing the secret. iPhones wait for the Apple developer account.
+
+## Desktop notifications
+
+- In a browser, the same notifications arrive as desktop notifications (Web Push), even with the page closed. The chats offer to turn them on once, and My account has the switch; the browser asks the person, as browsers only do after a click. They don't show while the app is the window in front.
+- A browser that allows them registers its push subscription (as JSON) with `register_push_token` and platform `web`; the same `push_outbox` queue feeds it, and the `push` function sends to browsers with the Web Push protocol (encrypted with aes128gcm, signed with VAPID) besides Firebase for phones.
+- No setup: the `push` function makes its VAPID key pair the first time it runs (`push_tick` calls it until there is one) and keeps it in `push_config`; the app gets the public half from `web_push_key()`. The service worker is `app/web/push_sw.js`, registered with its own scope (`/app/push/`) so Flutter's worker leaves it alone.
+- Safari on iPhone only allows them once the site is added to the home screen.
 
 ## Tasks and follow-up
 

@@ -8,6 +8,7 @@ import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
 import '../state/task_providers.dart';
+import 'desktop_notifications.dart';
 import 'phone_view.dart';
 import 'status.dart';
 import 'widgets.dart';
@@ -74,6 +75,7 @@ class AccountScreen extends ConsumerWidget {
             _StatusCard(workspaceId: m.workspaceId),
           ],
           SectionTitle(l.notificationsTitle),
+          const DesktopNotificationsCard(),
           const _QuietHoursCard(),
           if (ref.watch(currentMembershipProvider) case final m?
               when m.role.canManage ||

@@ -6,6 +6,8 @@ export type Locale = "ar" | "en";
 export interface Queued {
   id: number;
   token: string | null;
+  // "android", "ios" or "web"; null with no token.
+  platform?: string | null;
   locale: string;
   kind: string;
   title: string | null;

@@ -1667,6 +1667,12 @@ class FakeApi implements WaslaApi {
   Future<void> unregisterPushToken(String token) async =>
       pushTokens.remove(token);
 
+  /// The server's key for desktop notifications.
+  String? webKey = 'BWebPushKey';
+
+  @override
+  Future<String?> webPushKey() async => webKey;
+
   @override
   Future<void> markNotificationsRead([List<String>? ids]) async {
     for (var i = 0; i < notificationList.length; i++) {

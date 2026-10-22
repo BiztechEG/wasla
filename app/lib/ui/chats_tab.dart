@@ -24,6 +24,7 @@ import 'setup_checklist.dart';
 import 'task_format.dart';
 import 'task_screen.dart';
 import 'widgets.dart';
+import 'desktop_notifications.dart';
 
 /// Every chat in one list, as in the design: announcements on top, then
 /// project and private chats, latest first, filterable by project.
@@ -168,6 +169,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                         navClearance(context) + 80,
                       ),
                       children: [
+                        const DesktopNotificationsBanner(),
                         SetupChecklist(membership: widget.membership),
                         if (_project == null && _kind == _Kind.all)
                           MyDayCard(

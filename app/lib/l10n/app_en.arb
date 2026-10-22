@@ -1573,5 +1573,11 @@
   "dropFilesHere": "Drop files here to send them",
   "phoneViewTitle": "Phone-size view",
   "phoneViewHint": "The app in the middle of the window, as wide as a phone",
-  "fullWidthView": "Full width"
+  "fullWidthView": "Full width",
+  "desktopNotifications": "Desktop notifications",
+  "desktopNotificationsHint": "Messages, tasks and announcements reach this computer, even with the page closed",
+  "desktopNotificationsOn": "On in this browser",
+  "desktopNotificationsBlocked": "The browser blocks them. Allow notifications for this site from the lock next to the address, then come back here.",
+  "desktopNotificationsOffer": "Turn on desktop notifications to get messages while this page is closed",
+  "turnOn": "Turn on"
 }

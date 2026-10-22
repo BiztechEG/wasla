@@ -368,6 +368,10 @@ abstract class WaslaApi {
   /// This phone stops getting the signed-in person's notifications.
   Future<void> unregisterPushToken(String token);
 
+  /// The key browsers subscribe to desktop notifications with; null until
+  /// the server has one.
+  Future<String?> webPushKey();
+
   /// Fires when a notification arrives for the signed-in user, and when
   /// some may have been missed.
   Stream<void> notificationEvents();
@@ -1835,6 +1839,10 @@ class SupabaseWaslaApi implements WaslaApi {
   @override
   Future<void> unregisterPushToken(String token) =>
       _client.rpc('unregister_push_token', params: {'p_token': token});
+
+  @override
+  Future<String?> webPushKey() async =>
+      await _client.rpc('web_push_key') as String?;
 
   @override
   Stream<void> notificationEvents() => _follow<bool>(
