@@ -316,8 +316,76 @@ class _AnnouncementCard extends ConsumerWidget {
                 ),
               ),
             ],
+            if (showReads && a.broadcastId != null)
+              TextButton.icon(
+                key: Key('reach-${a.id}'),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                ),
+                onPressed: () => _showReach(context, a.broadcastId!),
+                icon: const Icon(LucideIcons.building2, size: 16),
+                label: Text(
+                  l.broadcastReachButton,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// How the same announcement is doing in each workspace it went to.
+  void _showReach(BuildContext context, String broadcastId) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final l = context.l10n;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: AsyncView(
+                value: ref.watch(broadcastReachProvider(broadcastId)),
+                onRetry: () =>
+                    ref.invalidate(broadcastReachProvider(broadcastId)),
+                builder: (rows) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      l.broadcastReachTitle,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final r in rows)
+                      ListTile(
+                        key: Key('reachRow-${r.workspaceId}'),
+                        contentPadding: EdgeInsets.zero,
+                        leading: Avatar(name: r.workspaceName),
+                        title: Text(r.workspaceName),
+                        subtitle: Text(
+                          announcement.needsAck
+                              ? '${l.readByCount(r.readCount, r.audience)} · '
+                                    '${l.ackCount(r.ackCount)}'
+                              : l.readByCount(r.readCount, r.audience),
+                        ),
+                        trailing: Text(
+                          r.audience == 0
+                              ? '–'
+                              : '${(100 * (announcement.needsAck ? r.ackCount : r.readCount) / r.audience).round()}%',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -371,6 +439,9 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
   bool _pinned = false;
   bool _needsAck = false;
 
+  /// Other workspaces it goes to as well.
+  final _alsoTo = <String>{};
+
   @override
   void dispose() {
     _text.dispose();
@@ -381,6 +452,15 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final theme = Theme.of(context);
+    // A workspace-wide announcement can go to the other workspaces one runs.
+    final others = widget.scope.projectId != null
+        ? const <Membership>[]
+        : [
+            for (final m
+                in ref.watch(membershipsProvider).value ?? const <Membership>[])
+              if (m.role.canManage && m.workspaceId != widget.scope.workspaceId)
+                m,
+          ];
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
@@ -424,23 +504,51 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
               value: _needsAck,
               onChanged: (v) => setState(() => _needsAck = v),
             ),
+            if (others.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(l.alsoSendTo, style: theme.textTheme.labelLarge),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final m in others)
+                    FilterChip(
+                      key: Key('alsoTo-${m.workspaceId}'),
+                      label: Text(m.workspaceName),
+                      selected: _alsoTo.contains(m.workspaceId),
+                      onSelected: (on) => setState(
+                        () => on
+                            ? _alsoTo.add(m.workspaceId)
+                            : _alsoTo.remove(m.workspaceId),
+                      ),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             BusyButton(
               label: l.publish,
               onPressed: _text.text.trim().isEmpty
                   ? null
                   : () async {
+                      final api = ref.read(apiProvider);
                       final ok = await runAction(
                         context,
-                        () => ref
-                            .read(apiProvider)
-                            .postAnnouncement(
-                              widget.scope.workspaceId,
-                              projectId: widget.scope.projectId,
-                              body: _text.text.trim(),
-                              pinned: _pinned,
-                              needsAck: _needsAck,
-                            ),
+                        () => _alsoTo.isEmpty
+                            ? api.postAnnouncement(
+                                widget.scope.workspaceId,
+                                projectId: widget.scope.projectId,
+                                body: _text.text.trim(),
+                                pinned: _pinned,
+                                needsAck: _needsAck,
+                              )
+                            : api.postBroadcast(
+                                [widget.scope.workspaceId, ..._alsoTo],
+                                body: _text.text.trim(),
+                                pinned: _pinned,
+                                needsAck: _needsAck,
+                              ),
                       );
                       if (ok && context.mounted) Navigator.pop(context, true);
                     },

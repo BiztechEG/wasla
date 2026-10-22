@@ -1566,5 +1566,8 @@
   "weekDone": "{done} tasks done ({before} the week before)",
   "weekLate": "{count} late",
   "weekReview": "{count} in review",
-  "weekLateArrivals": "{count} late arrivals"
+  "weekLateArrivals": "{count} late arrivals",
+  "alsoSendTo": "Also send to",
+  "broadcastReachButton": "Sent to several workspaces · Follow up",
+  "broadcastReachTitle": "In each workspace"
 }

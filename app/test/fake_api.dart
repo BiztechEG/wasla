@@ -1079,6 +1079,7 @@ class FakeApi implements WaslaApi {
           needsAck: a.needsAck,
           ackedByMe: ackedAnnouncements.contains(a.id),
           ackCount: a.ackCount,
+          broadcastId: a.broadcastId,
         ),
   ];
 
@@ -1127,6 +1128,39 @@ class FakeApi implements WaslaApi {
       needsAck: needsAck,
     ),
   );
+
+  /// Announcements sent to several workspaces: their workspaces, and how
+  /// each is doing.
+  final broadcasts = <List<String>>[];
+  final reach = <String, List<BroadcastReach>>{};
+
+  @override
+  Future<void> postBroadcast(
+    List<String> workspaceIds, {
+    required String body,
+    bool pinned = false,
+    bool needsAck = false,
+  }) async {
+    broadcasts.add(workspaceIds);
+    announcementList.insert(
+      0,
+      Announcement(
+        id: 'a${_seq++}',
+        body: body,
+        pinned: pinned,
+        authorId: 'me',
+        authorName: name,
+        createdAt: _tick(),
+        audience: 3,
+        needsAck: needsAck,
+        broadcastId: 'b${broadcasts.length}',
+      ),
+    );
+  }
+
+  @override
+  Future<List<BroadcastReach>> broadcastReach(String broadcastId) async =>
+      reach[broadcastId] ?? const [];
 
   @override
   Future<void> markAnnouncementsRead(List<String> ids) async =>

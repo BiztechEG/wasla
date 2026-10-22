@@ -86,6 +86,10 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - **More > Management dashboard** shows company owners every workspace of their companies, and workspace owners and admins the workspaces they run, side by side: people, open, late and in-review tasks, tasks done this week against the week before, project chat activity (messages and how many people wrote), today's attendance, and each project's progress. It comes from `management_overview()`, which counts and never reads: no message text, and private chats are not counted at all.
 
+## Announcements to several workspaces
+
+- A workspace-wide announcement can also go to the other workspaces one owns or administers ("Also send to"). Each gets its own copy for its people, sharing a `broadcast_id`; on it, "Follow up" shows, per workspace, how many it was for, read it and confirmed it (`post_broadcast()`, `broadcast_reach()`).
+
 ## Weekly report
 
 - Every Sunday at 06:00 UTC (`send_weekly_reports()` on pg_cron), whoever runs a workspace (owners, admins, the company's owner) or a department gets last week's numbers from the dashboard: tasks done against the week before, open and late, in review, and late arrivals where attendance is on. One notification per workspace (it opens the dashboard) and one email with all of them, through the same `email` function as invitations. My account > Weekly report turns it off.

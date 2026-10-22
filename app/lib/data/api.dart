@@ -286,6 +286,18 @@ abstract class WaslaApi {
   Future<void> setAnnouncementPinned(String id, bool pinned);
   Future<void> deleteAnnouncement(String id);
 
+  /// The same workspace-wide announcement to each of [workspaceIds].
+  Future<void> postBroadcast(
+    List<String> workspaceIds, {
+    required String body,
+    bool pinned = false,
+    bool needsAck = false,
+  });
+
+  /// How an announcement sent to several workspaces is doing in each one
+  /// runs.
+  Future<List<BroadcastReach>> broadcastReach(String broadcastId);
+
   // Tasks
 
   /// Tasks one created or is assigned, across every workspace.
@@ -1551,6 +1563,31 @@ class SupabaseWaslaApi implements WaslaApi {
       params: {'p_workspace': workspaceId},
     ),
   ).map(UnreadAnnouncement.fromJson).toList();
+
+  @override
+  Future<void> postBroadcast(
+    List<String> workspaceIds, {
+    required String body,
+    bool pinned = false,
+    bool needsAck = false,
+  }) => _client.rpc(
+    'post_broadcast',
+    params: {
+      'p_workspaces': workspaceIds,
+      'p_body': body,
+      'p_pinned': pinned,
+      'p_needs_ack': needsAck,
+    },
+  );
+
+  @override
+  Future<List<BroadcastReach>> broadcastReach(String broadcastId) async =>
+      _rows(
+        await _client.rpc(
+          'broadcast_reach',
+          params: {'p_broadcast': broadcastId},
+        ),
+      ).map(BroadcastReach.fromJson).toList();
 
   @override
   Future<void> postAnnouncement(

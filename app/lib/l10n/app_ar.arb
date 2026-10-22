@@ -1787,5 +1787,8 @@
   "weekReview": "{count} بانتظار المراجعة",
   "@weekReview": {"placeholders": {"count": {"type": "int"}}},
   "weekLateArrivals": "{count} تأخير في الحضور",
-  "@weekLateArrivals": {"placeholders": {"count": {"type": "int"}}}
+  "@weekLateArrivals": {"placeholders": {"count": {"type": "int"}}},
+  "alsoSendTo": "أرسلها أيضاً إلى",
+  "broadcastReachButton": "أُرسلت لأكثر من مساحة عمل · المتابعة",
+  "broadcastReachTitle": "في كل مساحة عمل"
 }

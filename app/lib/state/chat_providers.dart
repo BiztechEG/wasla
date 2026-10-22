@@ -527,6 +527,13 @@ final voiceRecorderProvider = Provider<VoiceRecorder>(
 );
 
 /// Projects a private chat's messages can be tagged with.
+final broadcastReachProvider = FutureProvider.autoDispose
+    .family<List<BroadcastReach>, String>((ref, broadcastId) async {
+      final api = ref.watch(apiProvider);
+      await ref.watch(authProvider.future);
+      return api.broadcastReach(broadcastId);
+    });
+
 /// What is pinned on top of a chat; follows the chat's changes.
 final chatPinProvider = FutureProvider.autoDispose
     .family<ChatPin, ({String workspaceId, String conversationId})>((

@@ -457,12 +457,16 @@ class Announcement {
     this.needsAck = false,
     this.ackedByMe = false,
     this.ackCount = 0,
+    this.broadcastId,
   });
 
   final String id;
   final String? projectId;
   final String body;
   final bool pinned;
+
+  /// Set when it went to several workspaces at once.
+  final String? broadcastId;
 
   /// Its readers are asked to confirm they have read it.
   final bool needsAck;
@@ -488,6 +492,32 @@ class Announcement {
     audience: json['audience'] as int? ?? 0,
     needsAck: json['needs_ack'] as bool? ?? false,
     ackedByMe: json['acked_by_me'] as bool? ?? false,
+    ackCount: json['ack_count'] as int? ?? 0,
+    broadcastId: json['broadcast_id'] as String?,
+  );
+}
+
+/// How an announcement sent to several workspaces is doing in one of them.
+class BroadcastReach {
+  const BroadcastReach({
+    required this.workspaceId,
+    required this.workspaceName,
+    this.audience = 0,
+    this.readCount = 0,
+    this.ackCount = 0,
+  });
+
+  final String workspaceId;
+  final String workspaceName;
+  final int audience;
+  final int readCount;
+  final int ackCount;
+
+  factory BroadcastReach.fromJson(Json json) => BroadcastReach(
+    workspaceId: json['workspace_id'] as String,
+    workspaceName: _text(json['workspace_name']),
+    audience: json['audience'] as int? ?? 0,
+    readCount: json['read_count'] as int? ?? 0,
     ackCount: json['ack_count'] as int? ?? 0,
   );
 }
