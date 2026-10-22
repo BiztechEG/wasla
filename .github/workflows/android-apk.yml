@@ -49,7 +49,7 @@ jobs:
         run: |
           keytool -list -v -keystore "$WASLA_KEYSTORE_FILE" -storepass "$WASLA_KEY_PASSWORD" -alias wasla \
             | grep -E 'SHA1:|SHA256:' | tee -a "$GITHUB_STEP_SUMMARY"
-      - run: flutter build apk --release --build-number $(git rev-list --count HEAD)
+      - run: flutter build apk --release --build-number $(git rev-list --count HEAD) --dart-define=SITE_URL=${{ vars.SITE_URL }}
       # The repository's artifact storage is small: keep test builds for a
       # week, and don't fail a good build when the storage is full (the
       # public APK goes out through site.yml either way).

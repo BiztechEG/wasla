@@ -63,6 +63,7 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 ## Joining a workspace
 
 - An admin invites by email (and optionally straight into projects), then sends the invitation on from the app through WhatsApp, email or any other app; it carries the download link when the app is built with `--dart-define=SITE_URL=https://...` (in a browser, the site it is served from).
+- Each invitation to an email is also emailed to that address, in the person's language, with the download link and the steps to accept. The Edge Function `email` sends the queue (`email_outbox`) through any SMTP server: add the repository secrets `SMTP_HOST`, `SMTP_PORT` (465; Supabase blocks 25 and 587), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (for example `Wasla <no-reply@your-domain>`) and the variable `SITE_URL`, then run the Deploy database workflow. The same mail account as the sign-in codes works. Without them nothing is emailed and the rest works as before.
 - Invitations, requests to join and their answers are notifications like any other: the invited person (as soon as they have an account), every owner and admin of the workspace for a request, the person asking for the answer, and the inviting admin when it is accepted. Once answered, withdrawn or cancelled, they count as read for everyone.
 - Open ones show on top of the bell with Accept and Decline on them, as a banner on the home screen, in the workspace switcher and on the start page. Someone waiting for an answer moves into the workspace as soon as they are accepted.
 

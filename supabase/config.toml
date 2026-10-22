@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.cleanup]
 verify_jwt = false
+
+[functions.email]
+verify_jwt = false

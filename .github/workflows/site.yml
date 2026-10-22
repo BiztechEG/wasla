@@ -68,7 +68,7 @@ jobs:
       - name: Build the Android app
         if: steps.key.outputs.release == 'true'
         working-directory: app
-        run: flutter build apk --release --build-number $(git rev-list --count HEAD)
+        run: flutter build apk --release --build-number $(git rev-list --count HEAD) --dart-define=SITE_URL=${{ vars.SITE_URL }}
       - name: Put the site together
         run: .github/scripts/assemble-site.sh
       # A copy to look at; a full artifact storage must not stop the deploy.
