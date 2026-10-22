@@ -132,3 +132,18 @@ final projectMembersProvider = FutureProvider.autoDispose
       await _user(ref);
       return api.projectMembers(projectId);
     });
+
+/// Chats muted in a workspace, and until when (null: for good).
+final mutedChatsProvider = FutureProvider.autoDispose
+    .family<Map<String, DateTime?>, String>((ref, workspaceId) async {
+      final api = ref.watch(apiProvider);
+      await _user(ref);
+      return api.mutedConversations(workspaceId);
+    });
+
+/// The signed-in user's quiet hours; null when off.
+final quietHoursProvider = FutureProvider.autoDispose<QuietHours?>((ref) async {
+  final api = ref.watch(apiProvider);
+  if (await _user(ref) == null) return null;
+  return api.quietHours();
+});

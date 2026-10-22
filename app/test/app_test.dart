@@ -129,8 +129,7 @@ void main() {
       );
     await startApp(tester, api);
 
-    await tester.tap(find.byTooltip('المزيد'));
-    await tester.pumpAndSettle();
+    await openMyAccount(tester);
     await tester.scrollUntilVisible(find.text('داكن'), 200);
     await tester.ensureVisible(find.text('داكن'));
     await tester.pumpAndSettle();
@@ -157,8 +156,7 @@ void main() {
       );
     await startApp(tester, api, prefs: {'locale': 'en'});
 
-    await tester.tap(find.byTooltip('More'));
-    await tester.pumpAndSettle();
+    await openMyAccount(tester);
     await tester.scrollUntilVisible(find.text('Sign out'), 200);
     await tester.ensureVisible(find.text('Sign out'));
     await tester.pumpAndSettle();

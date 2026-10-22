@@ -12,6 +12,7 @@ import '../state/chat_providers.dart';
 import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
+import 'account_screen.dart';
 import 'approvals_screen.dart';
 import 'chats_tab.dart';
 import 'inbox.dart';
@@ -61,6 +62,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ref.listen(myTasksProvider, (_, next) {
       final tasks = next.value;
       if (tasks != null) ref.read(calendarProvider.notifier).sync(tasks);
+    });
+    // Quiet hours follow the phone's time zone (travel, summer time).
+    ref.listen(quietHoursProvider, (_, next) {
+      final q = next.value;
+      final offset = DateTime.now().timeZoneOffset.inMinutes;
+      if (q != null && q.utcOffset != offset) {
+        ref
+            .read(apiProvider)
+            .setQuietHours(q.from, q.to, offset)
+            .catchError((_) {});
+      }
     });
     // Let into another workspace: it joins the switcher right away.
     ref.listen(notificationsProvider, (_, next) {
@@ -133,10 +145,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ),
                     _BellButton(count: notes),
                     const SizedBox(width: 8),
-                    _MeButton(
-                      name: name,
-                      onTap: () => setState(() => _tab = 3),
-                    ),
+                    _MeButton(name: name, onTap: () => openAccount(context)),
                   ],
                 ),
               ),
@@ -248,7 +257,7 @@ class _BellButton extends StatelessWidget {
   }
 }
 
-/// My initials in the top bar; opens the "more" tab with my profile.
+/// My initials in the top bar; opens my account.
 class _MeButton extends StatelessWidget {
   const _MeButton({required this.name, required this.onTap});
 
@@ -259,12 +268,12 @@ class _MeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: context.l10n.tabMore,
+      label: context.l10n.myAccount,
       excludeSemantics: true,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: Avatar(name: name, radius: 20),
+        child: Avatar(key: const Key('meButton'), name: name, radius: 20),
       ),
     );
   }

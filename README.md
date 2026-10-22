@@ -76,6 +76,13 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - **More > Management dashboard** shows company owners every workspace of their companies, and workspace owners and admins the workspaces they run, side by side: people, open, late and in-review tasks, tasks done this week against the week before, project chat activity (messages and how many people wrote), today's attendance, and each project's progress. It comes from `management_overview()`, which counts and never reads: no message text, and private chats are not counted at all.
 
+## My account and notification controls
+
+- The picture in the top bar opens **My account**: one's name, quiet hours, Google, appearance, language and signing out. More keeps only the workspace's things.
+- **Quiet hours** (for example 22:00 to 07:00, in the phone's time zone, kept up to date when it changes) keep everything off the phone; the bell and the app's counts still have it all.
+- **Muting a chat** (8 hours, a week, or until unmuted) from the bell at the top of the chat keeps its messages off the phone; mentions still come through. Muted chats are marked in the list.
+- Both are applied in `queue_push()`, where every phone notification is queued.
+
 ## Chats and files
 
 - Every project has a group chat for its members. Private chats are between two people only: workspace owners and admins cannot read them, and a private message can be tagged with a project the two people share so it shows under that project.

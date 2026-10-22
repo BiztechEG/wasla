@@ -127,6 +127,20 @@ abstract class WaslaApi {
   /// The private chat with [userId], created on first use.
   Future<String> openDirect(String workspaceId, String userId);
 
+  /// Keeps a chat's messages off one's phone until [until] (null: until
+  /// unmuted). Mentions still come through.
+  Future<void> muteConversation(String conversationId, {DateTime? until});
+  Future<void> unmuteConversation(String conversationId);
+
+  /// Chats one has muted in a workspace, and until when (null: for good).
+  Future<Map<String, DateTime?>> mutedConversations(String workspaceId);
+
+  /// Hours when nothing reaches one's phone; null when off.
+  Future<QuietHours?> quietHours();
+
+  /// Sets quiet hours, or turns them off with nulls.
+  Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset);
+
   /// A project's group chat, or null for someone who cannot see it.
   Future<String?> projectConversation(String projectId);
 
@@ -969,6 +983,60 @@ class SupabaseWaslaApi implements WaslaApi {
   Future<List<Conversation>> conversations(String workspaceId) async => _rows(
     await _client.rpc('my_conversations', params: {'p_workspace': workspaceId}),
   ).map(Conversation.fromJson).toList();
+
+  @override
+  Future<void> muteConversation(String conversationId, {DateTime? until}) =>
+      _client.rpc(
+        'mute_conversation',
+        params: {
+          'p_conversation': conversationId,
+          'p_until': until?.toUtc().toIso8601String(),
+        },
+      );
+
+  @override
+  Future<void> unmuteConversation(String conversationId) => _client.rpc(
+    'unmute_conversation',
+    params: {'p_conversation': conversationId},
+  );
+
+  @override
+  Future<Map<String, DateTime?>> mutedConversations(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'my_muted_conversations',
+        params: {'p_workspace': workspaceId},
+      ),
+    );
+    return {
+      for (final r in rows)
+        r['conversation_id'] as String: r['until'] == null
+            ? null
+            : DateTime.parse(r['until'] as String),
+    };
+  }
+
+  @override
+  Future<QuietHours?> quietHours() async {
+    final rows = _rows(await _client.rpc('my_notification_settings'));
+    if (rows.isEmpty || rows.first['quiet_from'] == null) return null;
+    return QuietHours(
+      from: parseClock(rows.first['quiet_from']),
+      to: parseClock(rows.first['quiet_to']),
+      utcOffset: (rows.first['utc_offset'] as num).toInt(),
+    );
+  }
+
+  @override
+  Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset) =>
+      _client.rpc(
+        'set_quiet_hours',
+        params: {
+          'p_from': from == null ? null : clockParam(from),
+          'p_to': to == null ? null : clockParam(to),
+          'p_utc_offset': utcOffset,
+        },
+      );
 
   @override
   Future<String> openDirect(String workspaceId, String userId) async =>

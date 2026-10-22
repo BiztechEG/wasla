@@ -86,6 +86,69 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   late String? _filter = widget.projectFilter;
 
+  /// Unmutes, or asks for how long to mute.
+  Future<void> _toggleMute(bool muted) async {
+    final l = context.l10n;
+    final api = ref.read(apiProvider);
+    final id = widget.target.conversationId;
+    final ws = widget.membership.workspaceId;
+    if (muted) {
+      final ok = await runAction(
+        context,
+        () => api.unmuteConversation(id),
+        done: l.chatUnmuted,
+      );
+      if (ok) ref.invalidate(mutedChatsProvider(ws));
+      return;
+    }
+    final choice = await showModalBottomSheet<Duration>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+              child: Text(
+                l.muteChat,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(l.muteHint),
+            ),
+            for (final (label, length) in [
+              (l.mute8h, const Duration(hours: 8)),
+              (l.muteWeek, const Duration(days: 7)),
+              // Zero stands for "until unmuted".
+              (l.muteAlways, Duration.zero),
+            ])
+              ListTile(
+                leading: const Icon(LucideIcons.bellOff),
+                title: Text(label),
+                onTap: () => Navigator.pop(context, length),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final ok = await runAction(
+      context,
+      () => api.muteConversation(
+        id,
+        until: choice == Duration.zero ? null : DateTime.now().add(choice),
+      ),
+      done: l.chatMuted,
+    );
+    if (ok) ref.invalidate(mutedChatsProvider(ws));
+  }
+
   /// The chat as shown with each project filter, for the calendar button.
   final _views = <String?, GlobalKey<_ChatViewState>>{};
 
@@ -96,6 +159,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final target = widget.target;
     final ws = widget.membership.workspaceId;
     final projects = ref.watch(projectsProvider(ws)).value ?? const [];
+    final muted =
+        ref
+            .watch(mutedChatsProvider(ws))
+            .value
+            ?.containsKey(target.conversationId) ??
+        false;
     Project? projectOf(String? id) =>
         projects.where((p) => p.id == id).firstOrNull;
     final filtered = projectOf(_filter);
@@ -214,6 +283,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
               ],
             ),
+          IconButton(
+            key: const Key('muteChat'),
+            tooltip: muted ? l.unmuteChat : l.muteChat,
+            icon: Icon(
+              muted ? LucideIcons.bellOff : LucideIcons.bell,
+              size: 21,
+            ),
+            onPressed: () => _toggleMute(muted),
+          ),
           IconButton(
             key: const Key('jumpToDate'),
             tooltip: l.jumpToDate,

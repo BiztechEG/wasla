@@ -1481,5 +1481,21 @@
   "dashNoProjects": "No active projects",
   "dashDoneOf": "{done} of {total}",
   "dashPrivacy": "Numbers only: no message shows here, and private chats are never counted.",
-  "dashEmpty": "No workspaces you run"
+  "dashEmpty": "No workspaces you run",
+  "myAccount": "My account",
+  "myAccountHint": "Name, notifications, appearance and language",
+  "quietHours": "Quiet hours",
+  "quietHoursHint": "Nothing reaches your phone in these hours; everything stays in the bell.",
+  "quietFrom": "From",
+  "quietTo": "To",
+  "mutedChatsHint": "To mute a chat, open it and tap the bell at the top.",
+  "muteChat": "Mute notifications",
+  "unmuteChat": "Unmute",
+  "mute8h": "For 8 hours",
+  "muteWeek": "For a week",
+  "muteAlways": "Until I unmute",
+  "muteHint": "Messages here won't reach your phone, unless someone mentions you.",
+  "chatMuted": "Chat muted",
+  "chatUnmuted": "Chat notifications are back",
+  "mutedLabel": "Muted"
 }

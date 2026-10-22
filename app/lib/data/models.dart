@@ -1,5 +1,7 @@
 // Plain data classes for what the app reads from the backend.
 
+import 'package:flutter/material.dart' show TimeOfDay;
+
 typedef Json = Map<String, dynamic>;
 
 enum WorkspaceRole {
@@ -183,6 +185,20 @@ class MyJoinRequest {
     workspaceId: json['workspace_id'] as String,
     workspaceName: _text(json['workspace_name']),
   );
+}
+
+/// Hours of the day when nothing reaches one's phone, where the phone is
+/// [utcOffset] minutes from UTC. [from] after [to] runs past midnight.
+class QuietHours {
+  const QuietHours({
+    required this.from,
+    required this.to,
+    required this.utcOffset,
+  });
+
+  final TimeOfDay from;
+  final TimeOfDay to;
+  final int utcOffset;
 }
 
 /// A workspace's join code, as its admins see it.

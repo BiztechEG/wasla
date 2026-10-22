@@ -1692,5 +1692,21 @@
   "dashDoneOf": "{done} من {total}",
   "@dashDoneOf": {"placeholders": {"done": {"type": "int"}, "total": {"type": "int"}}},
   "dashPrivacy": "أرقام فقط: لا تظهر هنا أي رسالة، والمحادثات الخاصة لا تدخل في الحساب.",
-  "dashEmpty": "لا توجد مساحات عمل تديرها"
+  "dashEmpty": "لا توجد مساحات عمل تديرها",
+  "myAccount": "حسابي",
+  "myAccountHint": "الاسم والإشعارات والمظهر واللغة",
+  "quietHours": "ساعات الهدوء",
+  "quietHoursHint": "لا يصل شيء إلى هاتفك في هذه الساعات، ويبقى كل شيء في الجرس.",
+  "quietFrom": "من",
+  "quietTo": "إلى",
+  "mutedChatsHint": "لكتم محادثة: افتحها واضغط على أيقونة الجرس في أعلاها.",
+  "muteChat": "كتم الإشعارات",
+  "unmuteChat": "إلغاء الكتم",
+  "mute8h": "لمدة 8 ساعات",
+  "muteWeek": "لمدة أسبوع",
+  "muteAlways": "حتى أُلغيه",
+  "muteHint": "لن تصل رسائل هذه المحادثة إلى هاتفك، إلا إذا أشار إليك أحد.",
+  "chatMuted": "كُتمت المحادثة",
+  "chatUnmuted": "عادت إشعارات المحادثة",
+  "mutedLabel": "مكتومة"
 }

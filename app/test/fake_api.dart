@@ -155,6 +155,36 @@ class FakeApi implements WaslaApi {
   /// Invitations sent: workspace and email.
   final invited = <(String, String)>[];
 
+  /// Muted chats and until when; quiet hours.
+  final muted = <String, DateTime?>{};
+  QuietHours? quiet;
+
+  @override
+  Future<void> muteConversation(
+    String conversationId, {
+    DateTime? until,
+  }) async => muted[conversationId] = until;
+
+  @override
+  Future<void> unmuteConversation(String conversationId) async =>
+      muted.remove(conversationId);
+
+  @override
+  Future<Map<String, DateTime?>> mutedConversations(String workspaceId) async =>
+      Map.of(muted);
+
+  @override
+  Future<QuietHours?> quietHours() async => quiet;
+
+  @override
+  Future<void> setQuietHours(
+    TimeOfDay? from,
+    TimeOfDay? to,
+    int utcOffset,
+  ) async => quiet = from == null || to == null
+      ? null
+      : QuietHours(from: from, to: to, utcOffset: utcOffset);
+
   /// What the management dashboard shows.
   final overviews = <WorkspaceOverview>[];
 

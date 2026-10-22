@@ -202,3 +202,9 @@ class FakeLocator implements Locator {
   @override
   Future<void> openSettings() async => settingsOpened++;
 }
+
+/// Opens My account from the picture in the top bar.
+Future<void> openMyAccount(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('meButton')));
+  await tester.pumpAndSettle();
+}
