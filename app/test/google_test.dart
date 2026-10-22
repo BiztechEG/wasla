@@ -148,6 +148,8 @@ void main() {
 
     await tester.longPress(find.text('plan.pdf'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('moreActions')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('احفظ في Google Drive'));
     await tester.pumpAndSettle();
     expect(google.drive, ['plan.pdf']);

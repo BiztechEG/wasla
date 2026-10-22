@@ -213,7 +213,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.longPress(find.textContaining('Price the new client').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تحويل إلى مهمة'));
+    await tester.tap(find.byKey(const Key('action-task')));
     await tester.pumpAndSettle();
 
     // The first line is the title; the project is the chat's.

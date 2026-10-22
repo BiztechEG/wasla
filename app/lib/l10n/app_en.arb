@@ -1497,5 +1497,6 @@
   "muteHint": "Messages here won't reach your phone, unless someone mentions you.",
   "chatMuted": "Chat muted",
   "chatUnmuted": "Chat notifications are back",
-  "mutedLabel": "Muted"
+  "mutedLabel": "Muted",
+  "taskShort": "Task"
 }

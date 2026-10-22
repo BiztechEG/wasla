@@ -1209,10 +1209,35 @@ void stage3Tests() {
 
     await tester.longPress(_says('The client approved the quote'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('moreActions')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('مشاركة'));
     await tester.tap(find.text('مشاركة'));
     await tester.pumpAndSettle();
     expect(sharer.shared, [('The client approved the quote', null)]);
+  });
+
+  testWidgets('a long press shows three quick actions, the rest on asking', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'Quick or more');
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    await tester.longPress(_says('Quick or more'));
+    await tester.pumpAndSettle();
+    for (final id in ['reply', 'copy', 'task']) {
+      expect(find.byKey(Key('action-$id')), findsOneWidget);
+    }
+    expect(find.text('تحديد النص'), findsNothing);
+    await tester.tap(find.byKey(const Key('moreActions')));
+    await tester.pumpAndSettle();
+    expect(find.text('تحديد النص'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('action-reply')));
+    await tester.pumpAndSettle();
+    expect(find.text('رد على Mona Adel: Quick or more'), findsOneWidget);
   });
 
   testWidgets('without a share sheet the text is copied instead', (
@@ -1235,6 +1260,8 @@ void stage3Tests() {
     await _openProjectChat(tester);
 
     await tester.longPress(_says('Copy me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('moreActions')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('مشاركة'));
     await tester.tap(find.text('مشاركة'));

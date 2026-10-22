@@ -1243,7 +1243,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
       if (m.file != null) _Action('download', Icons.download, l.download),
       if (m.file != null)
         _Action('drive', Icons.add_to_drive_outlined, l.saveToDrive),
-      if (!closed) _Action('task', Icons.add_task, l.makeTask),
+      if (!closed)
+        _Action('task', Icons.add_task, l.makeTask, short: l.taskShort),
       if (widget.membership.allowSharing && (hasText || m.file != null))
         _Action('share', LucideIcons.share2, l.share),
       if (mine && widget.target.isProject)
@@ -1291,43 +1292,17 @@ class _ChatViewState extends ConsumerState<ChatView> {
     } else {
       choice = await showModalBottomSheet<String>(
         context: context,
-        builder: (context) {
-          final error = Theme.of(context).colorScheme.error;
-          return SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!closed)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: ReactionBar(
-                          mine: _mine(m, me),
-                          onPick: (e) =>
-                              Navigator.pop(context, '$_reactPrefix$e'),
-                          onMore: () => Navigator.pop(context, _moreReactions),
-                        ),
-                      ),
-                    ),
-                  for (final a in choices)
-                    ListTile(
-                      leading: Icon(
-                        a.icon,
-                        color: a.destructive ? error : null,
-                      ),
-                      title: Text(
-                        a.label,
-                        style: a.destructive ? TextStyle(color: error) : null,
-                      ),
-                      onTap: () => Navigator.pop(context, a.id),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
+        isScrollControlled: true,
+        builder: (context) => _ActionSheet(
+          choices: choices,
+          reactions: closed
+              ? null
+              : ReactionBar(
+                  mine: _mine(m, me),
+                  onPick: (e) => Navigator.pop(context, '$_reactPrefix$e'),
+                  onMore: () => Navigator.pop(context, _moreReactions),
+                ),
+        ),
       );
     }
     if (!mounted) return;
@@ -2632,12 +2607,135 @@ class _Reactions extends StatelessWidget {
 
 /// One entry in a message's actions.
 class _Action {
-  const _Action(this.id, this.icon, this.label, {this.destructive = false});
+  const _Action(
+    this.id,
+    this.icon,
+    this.label, {
+    this.short,
+    this.destructive = false,
+  });
 
   final String id;
   final IconData icon;
   final String label;
+
+  /// The label under its icon when it is one of the quick ones.
+  final String? short;
   final bool destructive;
+}
+
+/// The sheet a long press on a message opens: reactions, the three things
+/// most often done as big buttons, and the rest behind «More».
+class _ActionSheet extends StatefulWidget {
+  const _ActionSheet({required this.choices, required this.reactions});
+
+  final List<_Action> choices;
+  final Widget? reactions;
+
+  /// The ones that make the quick row, in this order.
+  static const quickOrder = ['reply', 'copy', 'task', 'download'];
+
+  @override
+  State<_ActionSheet> createState() => _ActionSheetState();
+}
+
+class _ActionSheetState extends State<_ActionSheet> {
+  bool _more = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final quick = [
+      for (final id in _ActionSheet.quickOrder)
+        ?widget.choices.where((a) => a.id == id).firstOrNull,
+    ].take(3).toList();
+    final rest = widget.choices.where((a) => !quick.contains(a)).toList();
+    // One left over is shown as it is; more wait behind «More».
+    final showRest = _more || rest.length < 2;
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.reactions != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: widget.reactions,
+                ),
+              ),
+            if (quick.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(
+                  children: [
+                    for (final a in quick)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Material(
+                            color: scheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              key: Key('action-${a.id}'),
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => Navigator.pop(context, a.id),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 4,
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(a.icon, color: scheme.primary),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      a.short ?? a.label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (showRest)
+              for (final a in rest)
+                ListTile(
+                  leading: Icon(
+                    a.icon,
+                    color: a.destructive ? scheme.error : null,
+                  ),
+                  title: Text(
+                    a.label,
+                    style: a.destructive
+                        ? TextStyle(color: scheme.error)
+                        : null,
+                  ),
+                  onTap: () => Navigator.pop(context, a.id),
+                )
+            else
+              ListTile(
+                key: const Key('moreActions'),
+                leading: const Icon(Icons.more_horiz),
+                title: Text(l.moreActions),
+                onTap: () => setState(() => _more = true),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// A link in a message, one tap from opening; Google Drive and Docs links
