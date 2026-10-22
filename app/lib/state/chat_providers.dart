@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/chat_models.dart';
+import '../data/drops.dart';
 import '../data/picker.dart';
 import '../data/share.dart';
 import '../data/voice.dart';
@@ -521,6 +522,8 @@ final announcementReadersProvider = FutureProvider.autoDispose
 final pickerProvider = Provider<Picker>((ref) => DevicePicker());
 
 final sharerProvider = Provider<Sharer>((ref) => DeviceSharer());
+
+final fileDropsProvider = Provider<FileDrops>((ref) => deviceFileDrops());
 
 final voiceRecorderProvider = Provider<VoiceRecorder>(
   (ref) => DeviceVoiceRecorder(),

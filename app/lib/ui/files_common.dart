@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,17 +94,8 @@ Future<List<Upload>> pickUploads(
         tooLarge: 0,
       ),
     };
-    final files = picked.files;
     if (!context.mounted) return const [];
-    if (files.length > maxFilesPerPick) {
-      showMessage(context, l.tooManyFiles(maxFilesPerPick));
-    } else if (picked.tooLarge > 0) {
-      showMessage(
-        context,
-        files.isEmpty ? l.fileTooLarge : l.filesTooLarge(picked.tooLarge),
-      );
-    }
-    return files.take(maxFilesPerPick).toList();
+    return takeFiles(context, picked);
   } on FileTooLarge {
     if (context.mounted) showMessage(context, l.fileTooLarge);
   } catch (e) {
@@ -112,8 +104,25 @@ Future<List<Upload>> pickUploads(
   return const [];
 }
 
+/// The files of [picked] one send takes, saying so when some are left out
+/// (too many, or too large).
+List<Upload> takeFiles(BuildContext context, Picked picked) {
+  final l = context.l10n;
+  final files = picked.files;
+  if (files.length > maxFilesPerPick) {
+    showMessage(context, l.tooManyFiles(maxFilesPerPick));
+  } else if (picked.tooLarge > 0) {
+    showMessage(
+      context,
+      files.isEmpty ? l.fileTooLarge : l.filesTooLarge(picked.tooLarge),
+    );
+  }
+  return files.take(maxFilesPerPick).toList();
+}
+
 /// Photos and videos open full screen; anything else opens in the phone's
-/// viewer.
+/// viewer, or in a browser is downloaded: a new tab showing a text or web
+/// page file (or the app's own page replaced by it) is not what a tap means.
 Future<void> openFile(
   BuildContext context,
   WidgetRef ref,
@@ -131,6 +140,7 @@ Future<void> openFile(
     );
     return;
   }
+  if (kIsWeb) return downloadFile(context, ref, file);
   try {
     final url = await ref.read(fileUrlProvider(file.path).future);
     if (context.mounted) await openLink(context, url);

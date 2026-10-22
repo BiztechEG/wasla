@@ -1790,5 +1790,6 @@
   "@weekLateArrivals": {"placeholders": {"count": {"type": "int"}}},
   "alsoSendTo": "أرسلها أيضاً إلى",
   "broadcastReachButton": "أُرسلت لأكثر من مساحة عمل · المتابعة",
-  "broadcastReachTitle": "في كل مساحة عمل"
+  "broadcastReachTitle": "في كل مساحة عمل",
+  "dropFilesHere": "أفلت الملفات هنا لإرسالها"
 }

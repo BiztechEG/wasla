@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wasla/app.dart';
 import 'package:wasla/data/attendance_models.dart';
 import 'package:wasla/data/chat_models.dart';
+import 'package:wasla/data/drops.dart';
 import 'package:wasla/data/google.dart';
 import 'package:wasla/data/location.dart';
 import 'package:wasla/data/picker.dart';
@@ -31,6 +34,7 @@ Future<void> startApp(
   GoogleAccount? google,
   Sharer? sharer,
   Locator? locator,
+  FileDrops? drops,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final p = await SharedPreferences.getInstance();
@@ -47,6 +51,7 @@ Future<void> startApp(
         googleAccountProvider.overrideWithValue(google ?? FakeGoogle()),
         sharerProvider.overrideWithValue(sharer ?? FakeSharer()),
         locatorProvider.overrideWithValue(locator ?? FakeLocator()),
+        if (drops != null) fileDropsProvider.overrideWithValue(drops),
       ],
       child: const WaslaApp(),
     ),
@@ -110,6 +115,23 @@ class FakePicker implements Picker {
 
   @override
   Future<Picked> pickFiles() async => (files: many ?? [file], tooLarge: 0);
+}
+
+/// Files dragged onto the window as a test says.
+class FakeDrops implements FileDrops {
+  final _hover = StreamController<Offset?>.broadcast();
+  final _dropped = StreamController<FileDrop>.broadcast();
+
+  @override
+  Stream<Offset?> get hover => _hover.stream;
+
+  @override
+  Stream<FileDrop> get dropped => _dropped.stream;
+
+  void drag(Offset? at) => _hover.add(at);
+
+  void drop(Offset at, List<Upload> files, {int tooLarge = 0}) =>
+      _dropped.add((at: at, files: files, tooLarge: tooLarge));
 }
 
 /// A Google account that keeps Drive files and calendar events in memory.

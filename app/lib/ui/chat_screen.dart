@@ -11,6 +11,7 @@ import 'package:intl/intl.dart' show NumberFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/chat_models.dart';
+import '../data/drops.dart';
 import '../data/models.dart';
 import '../data/voice.dart';
 import '../state/chat_providers.dart';
@@ -438,6 +439,41 @@ class ChatView extends ConsumerStatefulWidget {
   ConsumerState<ChatView> createState() => _ChatViewState();
 }
 
+/// Over a chat while files from the computer are dragged onto it.
+class _DropHint extends StatelessWidget {
+  const _DropHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('dropHint'),
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.primary, width: 2),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.upload, size: 40, color: scheme.onPrimaryContainer),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.dropFilesHere,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A phone's on-screen keyboard; with a real keyboard (web, a computer)
 /// Enter sends.
 bool get _onPhone =>
@@ -497,6 +533,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
   Timer? _flashTimer;
   bool _jumping = false;
 
+  /// Files from the computer are being dragged over this chat.
+  bool _dropHover = false;
+
+  /// Whether files can be sent here now, as of the last build.
+  bool _takesFiles = false;
+  final _dropSubs = <StreamSubscription<Object?>>[];
+
   ChatKey get _key => (
     workspaceId: widget.membership.workspaceId,
     conversationId: widget.target.conversationId,
@@ -515,6 +558,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
     super.initState();
     _text.addListener(_onText);
     _scroll.addListener(_countNewer);
+    final drops = ref.read(fileDropsProvider);
+    _dropSubs.addAll([
+      drops.hover.listen((at) {
+        final over = at != null && _takesDropAt(at);
+        if (over != _dropHover && mounted) setState(() => _dropHover = over);
+      }),
+      drops.dropped.listen(_dropped),
+    ]);
     if (widget.initialMessageId case final id?) {
       var done = false;
       ref.listenManual(chatProvider(_key), (_, next) {
@@ -669,6 +720,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
     _scroll.dispose();
     _flashTimer?.cancel();
     _recTick?.cancel();
+    for (final sub in _dropSubs) {
+      sub.cancel();
+    }
     if (_rec != _Rec.off) ref.read(voiceRecorderProvider).cancel();
     super.dispose();
   }
@@ -1037,6 +1091,26 @@ class _ChatViewState extends ConsumerState<ChatView> {
     );
   }
 
+  /// Whether files dropped at [at] (in the window) land on this chat, on
+  /// the screen in front, and can be sent here.
+  bool _takesDropAt(Offset at) {
+    if (!mounted || !_takesFiles) return false;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return false;
+    return (Offset.zero & box.size).contains(box.globalToLocal(at));
+  }
+
+  Future<void> _dropped(FileDrop drop) async {
+    if (_dropHover && mounted) setState(() => _dropHover = false);
+    if (!_takesDropAt(drop.at)) return;
+    final files = takeFiles(context, (
+      files: drop.files,
+      tooLarge: drop.tooLarge,
+    ));
+    if (files.isNotEmpty) await _send(files: files);
+  }
+
   Future<void> _attach() async {
     if (!ref.read(chatProvider(_key)).hasValue) return;
     final uploads = await pickUploads(context, ref, onPoll: _newPoll);
@@ -1160,7 +1234,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
         )
         .value;
 
-    return Column(
+    _takesFiles = chat.hasValue && !closed;
+    final column = Column(
       children: [
         if (pin?.message case final pinned?)
           _PinnedBar(
@@ -1310,6 +1385,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 : null,
           ),
         ],
+      ],
+    );
+    if (!_dropHover) return column;
+    return Stack(
+      children: [
+        column,
+        const Positioned.fill(child: IgnorePointer(child: _DropHint())),
       ],
     );
   }

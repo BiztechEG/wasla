@@ -1569,5 +1569,6 @@
   "weekLateArrivals": "{count} late arrivals",
   "alsoSendTo": "Also send to",
   "broadcastReachButton": "Sent to several workspaces · Follow up",
-  "broadcastReachTitle": "In each workspace"
+  "broadcastReachTitle": "In each workspace",
+  "dropFilesHere": "Drop files here to send them"
 }
