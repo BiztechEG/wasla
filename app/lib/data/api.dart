@@ -10,6 +10,7 @@ import 'attendance_models.dart';
 import 'billing_models.dart';
 import 'chat_models.dart';
 import 'models.dart';
+import 'overview_models.dart';
 import 'picker.dart';
 import 'search_models.dart';
 import 'task_models.dart';
@@ -89,6 +90,10 @@ abstract class WaslaApi {
     bool autoJoin = false,
     bool renew = false,
   });
+
+  /// How each workspace one runs is doing (a company owner: all of the
+  /// company's), in numbers only.
+  Future<List<WorkspaceOverview>> managementOverview();
 
   /// Where a join code leads; null when it leads nowhere.
   Future<CodeWorkspace?> workspaceByCode(String code);
@@ -798,6 +803,12 @@ class SupabaseWaslaApi implements WaslaApi {
     );
     return rows.isEmpty ? null : JoinCode.fromJson(rows.first);
   }
+
+  @override
+  Future<List<WorkspaceOverview>> managementOverview() async => [
+    for (final w in await _client.rpc('management_overview') as List? ?? [])
+      WorkspaceOverview.fromJson(Json.from(w as Map)),
+  ];
 
   @override
   Future<CodeWorkspace?> workspaceByCode(String code) async {

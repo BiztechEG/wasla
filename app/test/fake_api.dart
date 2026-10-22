@@ -10,6 +10,7 @@ import 'package:wasla/data/billing_models.dart';
 import 'package:wasla/data/chat_models.dart';
 import 'package:wasla/data/location.dart';
 import 'package:wasla/data/models.dart';
+import 'package:wasla/data/overview_models.dart';
 import 'package:wasla/data/picker.dart';
 import 'package:wasla/data/search_models.dart';
 import 'package:wasla/data/task_models.dart';
@@ -153,6 +154,13 @@ class FakeApi implements WaslaApi {
 
   /// Invitations sent: workspace and email.
   final invited = <(String, String)>[];
+
+  /// What the management dashboard shows.
+  final overviews = <WorkspaceOverview>[];
+
+  @override
+  Future<List<WorkspaceOverview>> managementOverview() async =>
+      List.of(overviews);
 
   /// Join codes by workspace, and the workspaces they lead to.
   final joinCodes = <String, JoinCode>{};

@@ -72,6 +72,10 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - **More > Waiting for your approval** gathers, for the workspace on screen, everything that waits for the signed-in person: requests to join (owners and admins), check-ins from outside a branch and attendance corrections (attendance managers), and tasks in review that they may close (their own, and every task in the projects they lead). Each is answered right there. A banner on the home screen and a count on More say when something is waiting.
 
+## Management dashboard
+
+- **More > Management dashboard** shows company owners every workspace of their companies, and workspace owners and admins the workspaces they run, side by side: people, open, late and in-review tasks, tasks done this week against the week before, project chat activity (messages and how many people wrote), today's attendance, and each project's progress. It comes from `management_overview()`, which counts and never reads: no message text, and private chats are not counted at all.
+
 ## Chats and files
 
 - Every project has a group chat for its members. Private chats are between two people only: workspace owners and admins cannot read them, and a private message can be tagged with a project the two people share so it shows under that project.

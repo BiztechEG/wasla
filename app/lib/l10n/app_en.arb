@@ -1466,5 +1466,20 @@
   "approvalsHint": "Requests to join, attendance and tasks to review",
   "approvalsEmptyBody": "Requests to join, check-ins from outside, corrections and tasks waiting for your review all show up here.",
   "tasksToReview": "Tasks to review",
-  "bannerApprovals": "{count, plural, =1{1 item is waiting for your approval} other{{count} items are waiting for your approval}}"
+  "bannerApprovals": "{count, plural, =1{1 item is waiting for your approval} other{{count} items are waiting for your approval}}",
+  "dashboardTitle": "Management dashboard",
+  "dashboardHint": "How your teams are doing, in numbers",
+  "dashAll": "All workspaces",
+  "dashPeople": "People",
+  "dashOpen": "Open",
+  "dashLate": "Late",
+  "dashReview": "In review",
+  "dashDoneWeek": "Done this week: {count} · the week before: {before}",
+  "dashChat": "Project chats this week: {messages} messages from {people} people",
+  "dashAttendance": "Attendance today: {present} of {people} · {late} late",
+  "dashDayOff": "Today is a day off",
+  "dashNoProjects": "No active projects",
+  "dashDoneOf": "{done} of {total}",
+  "dashPrivacy": "Numbers only: no message shows here, and private chats are never counted.",
+  "dashEmpty": "No workspaces you run"
 }

@@ -207,7 +207,11 @@ void main() {
 
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Invite people'));
+    final invite = find.text('Invite people');
+    await tester.scrollUntilVisible(invite, 200);
+    await Scrollable.ensureVisible(tester.element(invite), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(invite);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('inviteEmail')),

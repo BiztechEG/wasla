@@ -18,6 +18,7 @@ import 'attendance_team_screen.dart';
 import 'announcements_view.dart';
 import 'billing_format.dart';
 import 'billing_screen.dart';
+import 'dashboard_screen.dart';
 import 'invite_sheet.dart';
 import 'join_link.dart';
 import 'join_requests_screen.dart';
@@ -165,6 +166,14 @@ class MoreTab extends ConsumerWidget {
           SectionTitle(l.manageSection),
           TileGroup(
             children: [
+              ListTile(
+                key: const Key('dashboardTile'),
+                leading: const Icon(Icons.insights_outlined),
+                title: Text(l.dashboardTitle),
+                subtitle: Text(l.dashboardHint),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => push(const DashboardScreen()),
+              ),
               if (canManage) ...[
                 ListTile(
                   leading: const Icon(Icons.person_add_alt_1_outlined),
