@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// The reactions offered first, before "+" for any other.
 const quickReactions = ['👍', '❤️', '😂', '🎉', '✅', '🙏'];
 
@@ -280,7 +282,7 @@ class ReactionBar extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: scheme.surfaceContainerHigh,
               ),
-              child: Icon(Icons.add, color: scheme.onSurfaceVariant),
+              child: Icon(LucideIcons.plus, color: scheme.onSurfaceVariant),
             ),
           ),
         ),

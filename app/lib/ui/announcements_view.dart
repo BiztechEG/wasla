@@ -9,6 +9,8 @@ import '../state/providers.dart';
 import 'chat_format.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// Shows an unread announcement from the chat list and marks it read.
 Future<void> showAnnouncement(
   BuildContext context,
@@ -151,7 +153,7 @@ class _AnnouncementsViewState extends ConsumerState<AnnouncementsView> {
                   alignment: AlignmentDirectional.centerStart,
                   child: FilledButton.tonalIcon(
                     onPressed: () => _compose(context),
-                    icon: const Icon(Icons.campaign_outlined),
+                    icon: const Icon(LucideIcons.megaphone),
                     label: Text(l.newAnnouncement),
                   ),
                 ),
@@ -159,7 +161,7 @@ class _AnnouncementsViewState extends ConsumerState<AnnouncementsView> {
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: EmptyState(
-                    icon: Icons.campaign_outlined,
+                    icon: LucideIcons.megaphone,
                     title: l.announcementsEmpty,
                     body: canPost
                         ? (widget.projectId == null
@@ -238,7 +240,7 @@ class _AnnouncementCard extends ConsumerWidget {
             Row(
               children: [
                 if (a.pinned) ...[
-                  Icon(Icons.push_pin, size: 16, color: pinnedColor),
+                  Icon(LucideIcons.pin, size: 16, color: pinnedColor),
                   const SizedBox(width: 4),
                 ],
                 Expanded(
@@ -260,6 +262,7 @@ class _AnnouncementCard extends ConsumerWidget {
                 ),
                 if (canManage || canDelete)
                   PopupMenuButton<String>(
+                    icon: const Icon(LucideIcons.ellipsisVertical),
                     onSelected: (action) => _act(context, ref, action),
                     itemBuilder: (_) => [
                       if (canManage)
@@ -304,7 +307,7 @@ class _AnnouncementCard extends ConsumerWidget {
                   foregroundColor: theme.colorScheme.onSurfaceVariant,
                 ),
                 onPressed: () => showReaders(context, a),
-                icon: const Icon(Icons.done_all, size: 16),
+                icon: const Icon(LucideIcons.checkCheck, size: 16),
                 label: Text(
                   a.needsAck
                       ? '${l.readByCount(a.readCount, a.audience)} · '
@@ -483,7 +486,11 @@ class _AckButton extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified, size: 18, color: theme.colorScheme.primary),
+          Icon(
+            LucideIcons.badgeCheck,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(width: 6),
           Text(
             l.acknowledged,
@@ -508,7 +515,7 @@ class _AckButton extends StatelessWidget {
         FilledButton.icon(
           key: const Key('ackButton'),
           onPressed: onAck,
-          icon: const Icon(Icons.check),
+          icon: const Icon(LucideIcons.check),
           label: Text(l.acknowledge),
         ),
       ],

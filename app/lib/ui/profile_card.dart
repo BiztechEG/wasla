@@ -9,6 +9,8 @@ import 'my_tasks_tab.dart';
 import 'project_screen.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// Someone's card, from the bottom: who they are, how to reach them, and
 /// the projects you share. [name] shows while it loads, or if they left.
 /// [inPrivateChat]: opened from the private chat with them, so "Message"
@@ -116,7 +118,7 @@ class _ProfileCard extends ConsumerWidget {
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('profileMessage'),
-                      icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                      icon: const Icon(LucideIcons.messageCircle, size: 20),
                       label: Text(l.sendMessage),
                       onPressed: () => Navigator.pop(context, member),
                     ),
@@ -125,7 +127,7 @@ class _ProfileCard extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const Key('profileAssign'),
-                      icon: const Icon(Icons.add_task, size: 20),
+                      icon: const Icon(LucideIcons.listPlus, size: 20),
                       label: Text(l.assignTask),
                       onPressed: () => Navigator.pop(context, _assign),
                     ),
@@ -137,8 +139,8 @@ class _ProfileCard extends ConsumerWidget {
                 (member.email != null || member.phone != null)) ...[
               const SizedBox(height: 12),
               for (final (icon, value) in [
-                (Icons.mail_outline, member.email),
-                (Icons.phone_outlined, member.phone),
+                (LucideIcons.mail, member.email),
+                (LucideIcons.phone, member.phone),
               ])
                 if (value != null && value.isNotEmpty)
                   ListTile(

@@ -15,6 +15,8 @@ import 'task_editor.dart';
 import 'task_format.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// One task: its status, who it is for, when it is due, its files and its
 /// updates, with a box to add an update for the people on it.
 class TaskScreen extends ConsumerWidget {
@@ -126,6 +128,7 @@ class _TaskMenu extends ConsumerWidget {
     }
 
     return PopupMenuButton<_MenuAction>(
+      icon: const Icon(LucideIcons.ellipsisVertical),
       onSelected: run,
       itemBuilder: (_) => [
         PopupMenuItem(value: _MenuAction.edit, child: Text(l.editTask)),
@@ -189,7 +192,7 @@ class _TaskBody extends ConsumerWidget {
                   (detail.holdReason ?? '').isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _Note(
-                  icon: Icons.pause_circle_outline,
+                  icon: LucideIcons.circlePause,
                   color: statusColor(TaskStatus.onHold, theme.brightness),
                   text: l.onHoldBecause(detail.holdReason!),
                 ),
@@ -198,7 +201,7 @@ class _TaskBody extends ConsumerWidget {
               TileGroup(
                 children: [
                   _InfoRow(
-                    icon: Icons.person_outline,
+                    icon: LucideIcons.user,
                     label: l.assigneesLabel,
                     value: joinNames(context, [
                       for (final a in task.assignees)
@@ -206,12 +209,12 @@ class _TaskBody extends ConsumerWidget {
                     ]),
                   ),
                   _InfoRow(
-                    icon: Icons.edit_outlined,
+                    icon: LucideIcons.pencil,
                     label: l.createdByLabel,
                     value: task.createdBy == me ? l.you : task.creatorName,
                   ),
                   _InfoRow(
-                    icon: Icons.event_outlined,
+                    icon: LucideIcons.calendar,
                     label: l.dueLabel,
                     value: task.dueAt == null
                         ? '—'
@@ -222,13 +225,13 @@ class _TaskBody extends ConsumerWidget {
                   ),
                   if (detail.repeat != null)
                     _InfoRow(
-                      icon: Icons.repeat,
+                      icon: LucideIcons.repeat,
                       label: l.repeatLabel,
                       value: repeatLabel(l, detail.repeat),
                     ),
                   if (task.dueAt != null && task.status.isOpen)
                     _InfoRow(
-                      icon: Icons.notifications_none,
+                      icon: LucideIcons.bell,
                       label: l.reminderLabel,
                       value: remindersLabel(l, detail.remindBefore),
                     ),
@@ -255,12 +258,12 @@ class _TaskBody extends ConsumerWidget {
                     for (final r in detail.reminders)
                       ListTile(
                         dense: true,
-                        leading: const Icon(Icons.alarm),
+                        leading: const Icon(LucideIcons.alarmClock),
                         title: Text(dueFull(context, r.remindAt)),
                         trailing: detail.canEdit && detail.projectOpen
                             ? IconButton(
                                 tooltip: l.remove,
-                                icon: const Icon(Icons.close),
+                                icon: const Icon(LucideIcons.x),
                                 onPressed: () async {
                                   if (await runAction(
                                     context,
@@ -306,7 +309,7 @@ class _TaskBody extends ConsumerWidget {
                   alignment: AlignmentDirectional.centerStart,
                   child: TextButton.icon(
                     onPressed: () => _openSource(context, ref),
-                    icon: const Icon(Icons.forum_outlined),
+                    icon: const Icon(LucideIcons.messagesSquare),
                     label: Text(l.openChat),
                   ),
                 ),
@@ -319,7 +322,7 @@ class _TaskBody extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.lock_outline, size: 16, color: muted),
+                    Icon(LucideIcons.lock, size: 16, color: muted),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -407,14 +410,14 @@ class _CalendarButton extends ConsumerWidget {
         key: const Key('addToCalendar'),
         onPressed: () =>
             openLink(context, googleCalendarLink(task, details: details)),
-        icon: const Icon(Icons.calendar_month_outlined, size: 18),
+        icon: const Icon(LucideIcons.calendarDays, size: 18),
         label: Text(l.addToGoogleCalendar),
       );
     } else if (linked) {
       button = Row(
         children: [
           Icon(
-            Icons.event_available,
+            LucideIcons.calendarCheck,
             size: 18,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -435,7 +438,7 @@ class _CalendarButton extends ConsumerWidget {
           () => calendar.add(task),
           done: l.addedToCalendar,
         ),
-        icon: const Icon(Icons.calendar_month_outlined, size: 18),
+        icon: const Icon(LucideIcons.calendarDays, size: 18),
         label: Text(l.addToGoogleCalendar),
       );
     }
@@ -690,7 +693,7 @@ class _ActivityItem extends StatelessWidget {
     switch (a.kind) {
       case TaskEvent.created:
         return (
-          Icons.add_task,
+          LucideIcons.listPlus,
           switch (a.newValue) {
             'message' => l.actCreatedFromMessage,
             'repeat' => l.actCreatedRepeat,
@@ -699,38 +702,38 @@ class _ActivityItem extends StatelessWidget {
         );
       case TaskEvent.status:
         return (
-          Icons.swap_horiz,
+          LucideIcons.arrowLeftRight,
           l.actStatus(statusLabel(l, TaskStatus.parse(a.newValue))),
         );
       case TaskEvent.due:
         final due = a.newValue == null ? null : DateTime.tryParse(a.newValue!);
         return (
-          Icons.event_outlined,
+          LucideIcons.calendar,
           due == null ? l.actDueRemoved : l.actDue(dueFull(context, due)),
         );
       case TaskEvent.priority:
         return (
-          Icons.flag_outlined,
+          LucideIcons.flag,
           l.actPriority(priorityLabel(l, TaskPriority.parse(a.newValue))),
         );
       case TaskEvent.title:
-        return (Icons.edit_outlined, l.actTitle(a.newValue ?? ''));
+        return (LucideIcons.pencil, l.actTitle(a.newValue ?? ''));
       case TaskEvent.visibility:
         return a.newValue == 'public'
-            ? (Icons.public, l.actMadePublic)
-            : (Icons.lock_outline, l.actMadePrivate);
+            ? (LucideIcons.globe, l.actMadePublic)
+            : (LucideIcons.lock, l.actMadePrivate);
       case TaskEvent.assignees:
         // The server joins the names with an Arabic comma.
         final names = (a.newValue ?? '').split('، ');
-        return (Icons.person_outline, l.actAssigned(joinNames(context, names)));
+        return (LucideIcons.user, l.actAssigned(joinNames(context, names)));
       case TaskEvent.attachment:
-        return (Icons.attach_file, l.actAttached(a.newValue ?? ''));
+        return (LucideIcons.paperclip, l.actAttached(a.newValue ?? ''));
       case TaskEvent.comment:
-        return (Icons.chat_bubble_outline, a.body ?? '');
+        return (LucideIcons.messageCircle, a.body ?? '');
       case TaskEvent.repeat:
         final repeat = TaskRepeat.parse(a.newValue);
         return (
-          Icons.repeat,
+          LucideIcons.repeat,
           repeat == null
               ? l.actRepeatStopped
               : l.actRepeat(repeatLabel(l, repeat)),
@@ -812,7 +815,7 @@ class _UpdateComposerState extends ConsumerState<_UpdateComposer> {
               IconButton(
                 tooltip: l.attach,
                 onPressed: _busy ? null : _attach,
-                icon: const Icon(Icons.attach_file),
+                icon: const Icon(LucideIcons.paperclip),
               ),
               Expanded(
                 child: TextField(
@@ -847,7 +850,7 @@ class _UpdateComposerState extends ConsumerState<_UpdateComposer> {
                   : IconButton.filled(
                       tooltip: l.send,
                       onPressed: canSend ? _send : null,
-                      icon: const Icon(Icons.send),
+                      icon: const Icon(LucideIcons.sendHorizontalDir),
                     ),
             ],
           ),

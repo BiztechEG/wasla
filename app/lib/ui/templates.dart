@@ -7,6 +7,8 @@ import '../state/providers.dart';
 import '../state/task_providers.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 final taskTemplatesProvider = FutureProvider.autoDispose
     .family<List<TaskTemplate>, String>(
       (ref, workspaceId) => ref.watch(apiProvider).taskTemplates(workspaceId),
@@ -180,7 +182,7 @@ class _TemplatesSheet extends ConsumerWidget {
                     ref.invalidate(taskTemplatesProvider(workspaceId)),
                 builder: (all) => all.isEmpty
                     ? EmptyState(
-                        icon: Icons.content_copy_outlined,
+                        icon: LucideIcons.copy,
                         title: l.templatesEmpty,
                         body: l.templatesEmptyHint,
                       )
@@ -188,7 +190,7 @@ class _TemplatesSheet extends ConsumerWidget {
                         children: [
                           for (final t in all)
                             ListTile(
-                              leading: const Icon(Icons.content_copy_outlined),
+                              leading: const Icon(LucideIcons.copy),
                               title: Text(t.name),
                               subtitle: Text(
                                 [
@@ -201,7 +203,7 @@ class _TemplatesSheet extends ConsumerWidget {
                               trailing: t.canDelete
                                   ? IconButton(
                                       tooltip: l.deleteTemplate,
-                                      icon: const Icon(Icons.delete_outline),
+                                      icon: const Icon(LucideIcons.trash2),
                                       onPressed: () async {
                                         if (!await confirm(
                                               context,
@@ -262,14 +264,14 @@ class TemplateActions extends ConsumerWidget {
           OutlinedButton.icon(
             key: const Key('fromTemplate'),
             onPressed: () => addFromTemplate(context, ref, project),
-            icon: const Icon(Icons.content_copy_outlined, size: 18),
+            icon: const Icon(LucideIcons.copy, size: 18),
             label: Text(l.fromTemplate),
           ),
           if (canSave)
             TextButton.icon(
               key: const Key('saveTemplate'),
               onPressed: () => saveAsTemplate(context, ref, project, tasks),
-              icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+              icon: const Icon(LucideIcons.bookmarkPlus, size: 18),
               label: Text(l.saveAsTemplate),
             ),
         ],

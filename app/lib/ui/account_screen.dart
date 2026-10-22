@@ -9,6 +9,8 @@ import '../state/settings.dart';
 import '../state/task_providers.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 void openAccount(BuildContext context) =>
     Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => const AccountScreen()));
@@ -47,7 +49,7 @@ class AccountScreen extends ConsumerWidget {
               subtitle: LtrLine(profile?.email ?? profile?.phone ?? ''),
               trailing: IconButton(
                 tooltip: l.editName,
-                icon: const Icon(Icons.edit_outlined),
+                icon: const Icon(LucideIcons.pencil),
                 onPressed: () async {
                   final name = await promptText(
                     context,
@@ -135,7 +137,7 @@ class AccountScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           Card(
             child: ListTile(
-              leading: Icon(Icons.logout, color: theme.colorScheme.error),
+              leading: Icon(LucideIcons.logOut, color: theme.colorScheme.error),
               title: Text(
                 l.signOut,
                 style: TextStyle(color: theme.colorScheme.error),
@@ -180,7 +182,7 @@ class _GoogleCard extends ConsumerWidget {
         children: [
           SwitchListTile(
             key: const Key('calendarAuto'),
-            secondary: const Icon(Icons.calendar_month_outlined),
+            secondary: const Icon(LucideIcons.calendarDays),
             title: Text(l.googleCalendarAuto),
             subtitle: Text(l.googleCalendarAutoHint),
             value: calendar.auto,
@@ -195,7 +197,7 @@ class _GoogleCard extends ConsumerWidget {
           ),
           ListTile(
             key: const Key('googleDisconnect'),
-            leading: const Icon(Icons.link_off),
+            leading: const Icon(LucideIcons.unlink),
             title: Text(l.googleDisconnect),
             onTap: () => runAction(context, () async {
               await notifier.forget();
@@ -245,7 +247,7 @@ class _QuietHoursCard extends ConsumerWidget {
         children: [
           SwitchListTile(
             key: const Key('quietHours'),
-            secondary: const Icon(Icons.bedtime_outlined),
+            secondary: const Icon(LucideIcons.moon),
             title: Text(l.quietHours),
             subtitle: Text(l.quietHoursHint),
             value: quiet != null,
@@ -286,7 +288,7 @@ class _QuietHoursCard extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.notifications_off_outlined,
+                  LucideIcons.bellOff,
                   size: 18,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Colors from the approved design (light and dark).
 class WaslaColors {
@@ -90,6 +91,11 @@ ThemeData buildTheme(Brightness brightness) {
   );
 
   return base.copyWith(
+    // Back and close buttons in the same Lucide style as every other icon.
+    actionIconTheme: ActionIconThemeData(
+      backButtonIconBuilder: (_) => const Icon(LucideIcons.arrowLeftDir),
+      closeButtonIconBuilder: (_) => const Icon(LucideIcons.x),
+    ),
     appBarTheme: AppBarTheme(
       backgroundColor: background,
       foregroundColor: scheme.onSurface,

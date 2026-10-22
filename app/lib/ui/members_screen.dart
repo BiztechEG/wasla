@@ -8,6 +8,8 @@ import 'invite_sheet.dart';
 import 'profile_card.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// Everyone in the workspace. Admins change roles, remove people and see
 /// invitations nobody has answered yet.
 class MembersScreen extends ConsumerWidget {
@@ -30,7 +32,7 @@ class MembersScreen extends ConsumerWidget {
           ? FloatingActionButton.extended(
               heroTag: 'invite',
               onPressed: () => showInviteSheet(context, membership),
-              icon: const Icon(Icons.person_add_alt_1_outlined),
+              icon: const Icon(LucideIcons.userPlus),
               label: Text(l.inviteMembers),
             )
           : null,
@@ -60,7 +62,7 @@ class MembersScreen extends ConsumerWidget {
                       trailing: _canChange(m, me)
                           ? IconButton(
                               tooltip: l.moreActions,
-                              icon: const Icon(Icons.more_vert),
+                              icon: const Icon(LucideIcons.ellipsisVertical),
                               onPressed: () => _showActions(context, ref, m),
                             )
                           : null,
@@ -83,7 +85,7 @@ class MembersScreen extends ConsumerWidget {
                     for (final invite in invites)
                       ListTile(
                         leading: const CircleAvatar(
-                          child: Icon(Icons.mail_outline, size: 20),
+                          child: Icon(LucideIcons.mail, size: 20),
                         ),
                         title: LtrLine(invite.contact),
                         subtitle: Text(roleLabel(l, invite.role)),
@@ -93,7 +95,7 @@ class MembersScreen extends ConsumerWidget {
                             if (invite.email != null)
                               IconButton(
                                 tooltip: l.shareInvite,
-                                icon: const Icon(Icons.send_outlined),
+                                icon: const Icon(LucideIcons.sendHorizontalDir),
                                 onPressed: () => shareText(
                                   context,
                                   ref,
@@ -106,7 +108,7 @@ class MembersScreen extends ConsumerWidget {
                               ),
                             IconButton(
                               tooltip: l.cancelInvite,
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(LucideIcons.x),
                               onPressed: () async {
                                 final ok = await runAction(
                                   context,
@@ -192,7 +194,7 @@ class MembersScreen extends ConsumerWidget {
               const Divider(),
               ListTile(
                 leading: Icon(
-                  Icons.person_remove_outlined,
+                  LucideIcons.userMinus,
                   color: Theme.of(context).colorScheme.error,
                 ),
                 title: Text(

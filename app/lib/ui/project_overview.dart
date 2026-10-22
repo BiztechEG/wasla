@@ -16,6 +16,8 @@ import 'task_list.dart';
 import 'templates.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// How a project is going, for everyone in it: its lead, its latest
 /// announcement, task counts, public tasks and pinned files.
 class ProjectStatusView extends ConsumerWidget {
@@ -73,7 +75,7 @@ class ProjectStatusView extends ConsumerWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.person_outline,
+                    LucideIcons.user,
                     size: 18,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -110,8 +112,8 @@ class ProjectStatusView extends ConsumerWidget {
                             children: [
                               Icon(
                                 announcement.pinned
-                                    ? Icons.push_pin
-                                    : Icons.campaign_outlined,
+                                    ? LucideIcons.pin
+                                    : LucideIcons.megaphone,
                                 size: 18,
                                 color: theme.colorScheme.primary,
                               ),
@@ -263,7 +265,7 @@ class ProjectTasksView extends ConsumerWidget {
                 projectId: project.id,
                 lockProject: true,
               ),
-              icon: const Icon(Icons.add),
+              icon: const Icon(LucideIcons.plus),
               label: Text(l.newTask),
             )
           : null,
@@ -284,7 +286,7 @@ class ProjectTasksView extends ConsumerWidget {
                       ),
                     const SizedBox(height: 60),
                     EmptyState(
-                      icon: Icons.task_alt,
+                      icon: LucideIcons.circleCheck,
                       title: l.projectTasksEmpty,
                     ),
                   ],

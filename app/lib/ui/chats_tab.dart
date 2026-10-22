@@ -888,7 +888,7 @@ class _PeopleSheetState extends ConsumerState<_PeopleSheet> {
                 onChanged: (v) => setState(() => _query = v.trim()),
                 decoration: InputDecoration(
                   hintText: l.searchMembers,
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(LucideIcons.search),
                   isDense: true,
                 ),
               ),
@@ -902,7 +902,7 @@ class _PeopleSheetState extends ConsumerState<_PeopleSheet> {
                   final others = all.where((m) => m.userId != me).toList();
                   if (others.isEmpty) {
                     return EmptyState(
-                      icon: Icons.group_outlined,
+                      icon: LucideIcons.users,
                       title: l.noColleagues,
                     );
                   }
@@ -1058,7 +1058,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                       theme.brightness,
                     ).withValues(alpha: 0.14),
                     child: Icon(
-                      Icons.folder_outlined,
+                      LucideIcons.folder,
                       size: 20,
                       color: WaslaColors.project(p.color, theme.brightness),
                     ),
@@ -1071,7 +1071,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
               section(l.searchTasks),
               for (final t in found.tasks)
                 ListTile(
-                  leading: const Icon(Icons.task_alt),
+                  leading: const Icon(LucideIcons.circleCheck),
                   title: line(t.title),
                   subtitle: line(
                     t.dueAt == null
@@ -1117,7 +1117,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
               section(l.searchAnnouncements),
               for (final a in found.announcements)
                 ListTile(
-                  leading: const Icon(Icons.campaign_outlined),
+                  leading: const Icon(LucideIcons.megaphone),
                   title: Text(
                     a.body,
                     maxLines: 2,

@@ -11,6 +11,8 @@ import '../l10n/app_localizations.dart';
 import '../state/providers.dart';
 import '../theme.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 extension L10nContext on BuildContext {
   AppLocalizations get l10n => AppLocalizations.of(this);
 }
@@ -352,7 +354,7 @@ class ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.cloud_off_outlined,
+              LucideIcons.cloudOff,
               size: 40,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -413,7 +415,7 @@ class BuiltInLogo extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.28),
       ),
       child: Icon(
-        Icons.forum_outlined,
+        LucideIcons.messagesSquare,
         color: scheme.onPrimary,
         size: size / 2,
       ),

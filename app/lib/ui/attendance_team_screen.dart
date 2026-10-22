@@ -282,7 +282,7 @@ class _TeamAttendanceScreenState extends ConsumerState<TeamAttendanceScreen> {
                         color: lateTint(context),
                       ),
                       title: Text(l.requestsWaiting(b.requests)),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(LucideIcons.chevronRightDir),
                       onTap: () => _push(
                         AttendanceRequestsScreen(membership: widget.membership),
                       ),
@@ -346,7 +346,7 @@ class _DayBar extends StatelessWidget {
       children: [
         IconButton(
           tooltip: l.previousDay,
-          icon: const Icon(Icons.chevron_left),
+          icon: const Icon(LucideIcons.chevronLeftDir),
           onPressed: () =>
               onChanged(DateTime(day.year, day.month, day.day - 1)),
         ),
@@ -371,7 +371,7 @@ class _DayBar extends StatelessWidget {
         ),
         IconButton(
           tooltip: l.nextDay,
-          icon: const Icon(Icons.chevron_right),
+          icon: const Icon(LucideIcons.chevronRightDir),
           onPressed: day == today
               ? null
               : () => onChanged(DateTime(day.year, day.month, day.day + 1)),
@@ -1125,7 +1125,7 @@ class _TimesDialogState extends State<_TimesDialog> {
                 if (_out != null)
                   IconButton(
                     tooltip: l.clear,
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(LucideIcons.x, size: 18),
                     onPressed: () => setState(() => _out = null),
                   ),
               ],
@@ -1576,7 +1576,7 @@ class WorkersScreen extends ConsumerWidget {
                             if (p.code != null) p.code!,
                           ].join(' · '),
                         ),
-                        trailing: const Icon(Icons.chevron_right),
+                        trailing: const Icon(LucideIcons.chevronRightDir),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => WorkerEditorScreen(

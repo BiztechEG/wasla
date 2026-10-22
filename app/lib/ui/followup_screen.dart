@@ -9,6 +9,8 @@ import 'task_format.dart';
 import 'task_list.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// For admins and leads: what is late or waiting on them in the projects
 /// they lead, and how much each person has on their plate.
 class FollowUpScreen extends ConsumerStatefulWidget {
@@ -76,7 +78,7 @@ class _FollowUpScreenState extends ConsumerState<FollowUpScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 60),
                     child: EmptyState(
-                      icon: Icons.insights_outlined,
+                      icon: LucideIcons.chartLine,
                       title: l.followUpEmpty,
                     ),
                   )
@@ -331,7 +333,7 @@ class _NeedsRow extends ConsumerWidget {
               ),
               child: Text(l.reviewAction),
             )
-          : const Icon(Icons.chevron_right),
+          : const Icon(LucideIcons.chevronRightDir),
     );
   }
 }

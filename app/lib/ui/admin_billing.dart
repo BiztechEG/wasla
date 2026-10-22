@@ -8,6 +8,8 @@ import '../state/providers.dart';
 import 'billing_format.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 // What platform admins do to a company's billing: invoices, payments and
 // plans given by hand.
 
@@ -344,9 +346,7 @@ class _SetPlanDialogState extends State<_SetPlanDialog> {
                   dense: true,
                   onTap: () => setState(() => _plan = p.id),
                   leading: Icon(
-                    p.id == _plan
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
+                    p.id == _plan ? LucideIcons.circleDot : LucideIcons.circle,
                     color: p.id == _plan ? scheme.primary : null,
                   ),
                   title: Text(planLabel(l, p.name)),
@@ -362,7 +362,7 @@ class _SetPlanDialogState extends State<_SetPlanDialog> {
                 ),
                 if (!_noEnd)
                   ListTile(
-                    leading: const Icon(Icons.event_outlined),
+                    leading: const Icon(LucideIcons.calendar),
                     title: Text(
                       _until == null
                           ? l.pickEndDate

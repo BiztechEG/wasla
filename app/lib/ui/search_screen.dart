@@ -8,6 +8,8 @@ import '../data/models.dart';
 import '../state/providers.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// Finds discoverable workspaces by name and sends join requests.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -97,13 +99,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onChanged: _onChanged,
               decoration: InputDecoration(
                 hintText: l.searchHint,
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(LucideIcons.search),
               ),
             ),
           ),
           Expanded(
             child: _results == null
-                ? EmptyState(icon: Icons.search, title: l.searchMinChars)
+                ? EmptyState(icon: LucideIcons.search, title: l.searchMinChars)
                 : FutureBuilder<List<WorkspaceHit>>(
                     future: _results,
                     builder: (context, snap) {
@@ -119,7 +121,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       final hits = snap.data!;
                       if (hits.isEmpty) {
                         return EmptyState(
-                          icon: Icons.search_off,
+                          icon: LucideIcons.searchX,
                           title: l.noResults,
                         );
                       }

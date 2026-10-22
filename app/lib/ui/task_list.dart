@@ -4,6 +4,8 @@ import '../data/task_models.dart';
 import 'task_format.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// A task in a list: its state, title, where it belongs and when it is due.
 class TaskTile extends StatelessWidget {
   const TaskTile({
@@ -139,7 +141,7 @@ class _StateMark extends StatelessWidget {
     final theme = Theme.of(context);
     if (status == TaskStatus.done) {
       return Icon(
-        Icons.check_circle,
+        LucideIcons.circleCheckBig,
         size: 24,
         color: theme.colorScheme.primary,
       );

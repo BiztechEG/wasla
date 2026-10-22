@@ -853,7 +853,7 @@ class _AttendanceHistoryScreenState
               children: [
                 IconButton(
                   tooltip: l.previousMonth,
-                  icon: const Icon(Icons.chevron_left),
+                  icon: const Icon(LucideIcons.chevronLeftDir),
                   onPressed: () => setState(
                     () => _month = DateTime(_month.year, _month.month - 1),
                   ),
@@ -869,7 +869,7 @@ class _AttendanceHistoryScreenState
                 ),
                 IconButton(
                   tooltip: l.nextMonth,
-                  icon: const Icon(Icons.chevron_right),
+                  icon: const Icon(LucideIcons.chevronRightDir),
                   onPressed: thisMonth
                       ? null
                       : () => setState(

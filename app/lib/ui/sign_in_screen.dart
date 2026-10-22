@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/providers.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// Email sign-in with a one-time code. New emails get an account on the way.
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -102,7 +104,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         textDirection: TextDirection.ltr,
                         decoration: InputDecoration(
                           labelText: l.emailLabel,
-                          prefixIcon: const Icon(Icons.mail_outline),
+                          prefixIcon: const Icon(LucideIcons.mail),
                         ),
                         validator: (v) =>
                             _emailPattern.hasMatch(v?.trim() ?? '')

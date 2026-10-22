@@ -1237,22 +1237,22 @@ class _ChatViewState extends ConsumerState<ChatView> {
     // tagged with; in an untagged private message one is picked.
     final taskProject = widget.target.projectId ?? m.projectId;
     final choices = <_Action>[
-      if (!closed) _Action('reply', Icons.reply, l.reply),
-      if (hasText) _Action('copy', Icons.copy, l.copy),
-      if (hasText) _Action('select', Icons.text_fields, l.selectText),
-      if (m.file != null) _Action('download', Icons.download, l.download),
+      if (!closed) _Action('reply', LucideIcons.replyDir, l.reply),
+      if (hasText) _Action('copy', LucideIcons.copy, l.copy),
+      if (hasText) _Action('select', LucideIcons.type, l.selectText),
+      if (m.file != null) _Action('download', LucideIcons.download, l.download),
       if (m.file != null)
-        _Action('drive', Icons.add_to_drive_outlined, l.saveToDrive),
+        _Action('drive', LucideIcons.cloudUpload, l.saveToDrive),
       if (!closed)
-        _Action('task', Icons.add_task, l.makeTask, short: l.taskShort),
+        _Action('task', LucideIcons.listPlus, l.makeTask, short: l.taskShort),
       if (widget.membership.allowSharing && (hasText || m.file != null))
         _Action('share', LucideIcons.share2, l.share),
       if (mine && widget.target.isProject)
-        _Action('seen', Icons.done_all, l.seenByTitle),
+        _Action('seen', LucideIcons.checkCheck, l.seenByTitle),
       if (mine || canModerate)
         _Action(
           'delete',
-          Icons.delete_outline,
+          LucideIcons.trash2,
           l.deleteMessage,
           destructive: true,
         ),
@@ -1390,7 +1390,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                       ),
                       IconButton(
                         tooltip: context.l10n.copy,
-                        icon: const Icon(Icons.copy),
+                        icon: const Icon(LucideIcons.copy),
                         onPressed: () async {
                           final copied = this.context.l10n.copied;
                           await Clipboard.setData(ClipboardData(text: m.body!));
@@ -1500,7 +1500,7 @@ class _ClosedNote extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.lock_outline,
+                LucideIcons.lock,
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -1623,7 +1623,7 @@ class _MessageList extends StatelessWidget {
     final messages = state.messages;
     if (messages.isEmpty && state.pending.isEmpty) {
       return EmptyState(
-        icon: Icons.chat_bubble_outline,
+        icon: LucideIcons.messageCircle,
         title: l.noMessagesYet,
         body: l.firstMessageHint,
       );
@@ -1938,7 +1938,7 @@ class _Bubble extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.block, size: 16, color: muted),
+            Icon(LucideIcons.ban, size: 16, color: muted),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -1958,7 +1958,7 @@ class _Bubble extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.reply, size: 14, color: muted),
+                Icon(LucideIcons.replyDir, size: 14, color: muted),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -2023,7 +2023,7 @@ class _Bubble extends ConsumerWidget {
                             ? WaslaColors.accent
                             : theme.colorScheme.primary,
                       ),
-                      icon: const Icon(Icons.download, size: 20),
+                      icon: const Icon(LucideIcons.download, size: 20),
                       onPressed: () => downloadFile(context, ref, file),
                     ),
                   ),
@@ -2082,7 +2082,7 @@ class _Bubble extends ConsumerWidget {
             if (mine && !m.deleted) ...[
               const SizedBox(width: 4),
               Icon(
-                read ? Icons.done_all : Icons.done,
+                read ? LucideIcons.checkCheck : LucideIcons.check,
                 size: 16,
                 color: read ? theme.colorScheme.primary : muted,
               ),
@@ -2376,7 +2376,7 @@ class _SwipeToReplyState extends State<_SwipeToReply>
                     radius: 15,
                     backgroundColor: theme.colorScheme.primaryContainer,
                     child: Icon(
-                      Icons.reply,
+                      LucideIcons.replyDir,
                       size: 18,
                       color: theme.colorScheme.primary,
                     ),
@@ -2442,20 +2442,20 @@ class _HoverActionsState extends State<_HoverActions> {
                     if (widget.onReact != null)
                       _HoverButton(
                         key: const Key('hoverReact'),
-                        icon: Icons.add_reaction_outlined,
+                        icon: LucideIcons.smilePlus,
                         tooltip: l.react,
                         onTap: widget.onReact!,
                       ),
                     if (widget.onReply != null)
                       _HoverButton(
                         key: const Key('hoverReply'),
-                        icon: Icons.reply,
+                        icon: LucideIcons.replyDir,
                         tooltip: l.reply,
                         onTap: (_) => widget.onReply!(),
                       ),
                     _HoverButton(
                       key: const Key('hoverMore'),
-                      icon: Icons.more_horiz,
+                      icon: LucideIcons.ellipsis,
                       tooltip: l.moreActions,
                       onTap: onMenu,
                     ),
@@ -2727,7 +2727,7 @@ class _ActionSheetState extends State<_ActionSheet> {
             else
               ListTile(
                 key: const Key('moreActions'),
-                leading: const Icon(Icons.more_horiz),
+                leading: const Icon(LucideIcons.ellipsis),
                 title: Text(l.moreActions),
                 onTap: () => setState(() => _more = true),
               ),
@@ -2765,7 +2765,10 @@ class _LinkChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(drive ? Icons.add_to_drive : Icons.link, size: 20),
+              Icon(
+                drive ? LucideIcons.cloudUpload : LucideIcons.link,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -2776,7 +2779,7 @@ class _LinkChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.open_in_new, size: 16),
+              const Icon(LucideIcons.externalLink, size: 16),
             ],
           ),
         ),
@@ -2956,8 +2959,8 @@ class _PendingBubble extends StatelessWidget {
                           const SizedBox(width: 4),
                           Icon(
                             message.failed
-                                ? Icons.error_outline
-                                : Icons.schedule,
+                                ? LucideIcons.circleAlert
+                                : LucideIcons.clock,
                             size: 16,
                             color: message.failed
                                 ? theme.colorScheme.error
@@ -3046,7 +3049,7 @@ class _RecordingBar extends StatelessWidget {
                 tooltip: l.cancelRecording,
                 onPressed: onCancel,
                 color: theme.colorScheme.error,
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(LucideIcons.trash2),
               ),
               Expanded(
                 child: Container(
@@ -3073,7 +3076,7 @@ class _RecordingBar extends StatelessWidget {
                   key: const Key('sendVoice'),
                   tooltip: l.send,
                   onPressed: onSend,
-                  icon: const Icon(Icons.send),
+                  icon: const Icon(LucideIcons.sendHorizontalDir),
                 ),
               ),
             ],
@@ -3123,7 +3126,7 @@ class _RecordingDotState extends State<_RecordingDot>
   Widget build(BuildContext context) => FadeTransition(
     opacity: Tween(begin: 1.0, end: 0.25).animate(_blink),
     child: Icon(
-      Icons.mic,
+      LucideIcons.mic,
       size: 20,
       color: Theme.of(context).colorScheme.error,
     ),
@@ -3163,7 +3166,7 @@ class _HoldingStrip extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.arrow_back_ios,
+                    LucideIcons.chevronLeftDir,
                     size: 14,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -3344,7 +3347,7 @@ class _LockHint extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            progress > 0.6 ? Icons.lock : Icons.lock_open,
+            progress > 0.6 ? LucideIcons.lock : LucideIcons.lockOpen,
             size: 20,
             color: Color.lerp(
               theme.colorScheme.onSurfaceVariant,
@@ -3353,7 +3356,7 @@ class _LockHint extends StatelessWidget {
             ),
           ),
           Icon(
-            Icons.keyboard_arrow_up,
+            LucideIcons.chevronUp,
             size: 18,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -3437,7 +3440,7 @@ class _Composer extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(8, 0, 0, 6),
                   child: Row(
                     children: [
-                      Icon(Icons.reply, size: 18, color: muted),
+                      Icon(LucideIcons.replyDir, size: 18, color: muted),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -3453,7 +3456,7 @@ class _Composer extends StatelessWidget {
                       IconButton(
                         tooltip: l.cancel,
                         visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(LucideIcons.x, size: 18),
                         onPressed: onCancelReply,
                       ),
                     ],
@@ -3540,7 +3543,7 @@ class _Composer extends StatelessWidget {
                                   ),
                                 ),
                                 Icon(
-                                  Icons.arrow_drop_down,
+                                  LucideIcons.chevronDown,
                                   size: 18,
                                   color: muted,
                                 ),
@@ -3584,7 +3587,7 @@ class _Composer extends StatelessWidget {
                                       : muted,
                                   icon: Icon(
                                     emojiOpen
-                                        ? Icons.keyboard_outlined
+                                        ? LucideIcons.keyboard
                                         : LucideIcons.smile,
                                     size: 22,
                                   ),
@@ -3703,7 +3706,11 @@ class _LongTextCard extends StatelessWidget {
         children: [
           asFile
               ? FileBadge(name: l.longTextFile, size: 36)
-              : Icon(Icons.notes, size: 28, color: theme.colorScheme.primary),
+              : Icon(
+                  LucideIcons.notebookText,
+                  size: 28,
+                  color: theme.colorScheme.primary,
+                ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -3737,7 +3744,7 @@ class _LongTextCard extends StatelessWidget {
           IconButton(
             tooltip: l.cancel,
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close, size: 18),
+            icon: const Icon(LucideIcons.x, size: 18),
             onPressed: onDrop,
           ),
         ],
@@ -3777,7 +3784,7 @@ class _LatestButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.arrow_downward, size: 18, color: scheme.primary),
+              Icon(LucideIcons.arrowDown, size: 18, color: scheme.primary),
               if (count > 0) ...[
                 const SizedBox(width: 6),
                 Badge(
@@ -3916,7 +3923,7 @@ class _DateSheetState extends ConsumerState<_DateSheet> {
                 IconButton(
                   key: const Key('prevMonth'),
                   tooltip: l.previousMonth,
-                  icon: const Icon(Icons.chevron_left),
+                  icon: const Icon(LucideIcons.chevronLeftDir),
                   onPressed: () => setState(
                     () => _month = DateTime(_month.year, _month.month - 1),
                   ),
@@ -3933,7 +3940,7 @@ class _DateSheetState extends ConsumerState<_DateSheet> {
                 IconButton(
                   key: const Key('nextMonth'),
                   tooltip: l.nextMonth,
-                  icon: const Icon(Icons.chevron_right),
+                  icon: const Icon(LucideIcons.chevronRightDir),
                   onPressed: isThisMonth
                       ? null
                       : () => setState(
@@ -4215,7 +4222,7 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
               builder: (list) {
                 if (list.isEmpty) {
                   return EmptyState(
-                    icon: Icons.forum_outlined,
+                    icon: LucideIcons.messagesSquare,
                     title: l.originalNotFound,
                   );
                 }
@@ -4320,7 +4327,7 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
                         onPressed: _sending || _text.text.trim().isEmpty
                             ? null
                             : () => _send(root),
-                        icon: const Icon(Icons.send),
+                        icon: const Icon(LucideIcons.sendHorizontalDir),
                       ),
                     ],
                   ),

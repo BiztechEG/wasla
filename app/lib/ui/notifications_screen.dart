@@ -18,6 +18,8 @@ import 'start_screen.dart';
 import 'task_format.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 String noteText(AppLocalizations l, AppNotification n) {
   final who = n.actorName ?? '';
   return switch (n.kind) {
@@ -61,27 +63,27 @@ String noteText(AppLocalizations l, AppNotification n) {
 }
 
 IconData _icon(NotificationKind kind) => switch (kind) {
-  NotificationKind.assigned => Icons.assignment_ind_outlined,
-  NotificationKind.status => Icons.swap_horiz,
-  NotificationKind.comment => Icons.chat_bubble_outline,
-  NotificationKind.dueChanged => Icons.event_outlined,
-  NotificationKind.nudge => Icons.notifications_active_outlined,
-  NotificationKind.dueSoon => Icons.alarm,
-  NotificationKind.overdue => Icons.alarm,
-  NotificationKind.reminder => Icons.alarm,
-  NotificationKind.unassigned => Icons.person_remove_outlined,
-  NotificationKind.deleted => Icons.delete_outline,
-  NotificationKind.planRequest => Icons.request_quote_outlined,
-  NotificationKind.invoice => Icons.receipt_long_outlined,
-  NotificationKind.planActive => Icons.verified_outlined,
-  NotificationKind.planEnding => Icons.hourglass_bottom,
-  NotificationKind.planExpired => Icons.hourglass_empty,
-  NotificationKind.invite => Icons.mail_outline,
-  NotificationKind.inviteAccepted => Icons.how_to_reg_outlined,
-  NotificationKind.joinRequest => Icons.person_add_alt_1_outlined,
-  NotificationKind.requestAccepted => Icons.check_circle_outline,
-  NotificationKind.requestDeclined => Icons.do_not_disturb_on_outlined,
-  NotificationKind.memberJoined => Icons.group_add_outlined,
+  NotificationKind.assigned => LucideIcons.squareUser,
+  NotificationKind.status => LucideIcons.arrowLeftRight,
+  NotificationKind.comment => LucideIcons.messageCircle,
+  NotificationKind.dueChanged => LucideIcons.calendar,
+  NotificationKind.nudge => LucideIcons.bellRing,
+  NotificationKind.dueSoon => LucideIcons.alarmClock,
+  NotificationKind.overdue => LucideIcons.alarmClock,
+  NotificationKind.reminder => LucideIcons.alarmClock,
+  NotificationKind.unassigned => LucideIcons.userMinus,
+  NotificationKind.deleted => LucideIcons.trash2,
+  NotificationKind.planRequest => LucideIcons.badgeDollarSign,
+  NotificationKind.invoice => LucideIcons.receiptText,
+  NotificationKind.planActive => LucideIcons.badgeCheck,
+  NotificationKind.planEnding => LucideIcons.hourglass,
+  NotificationKind.planExpired => LucideIcons.hourglass,
+  NotificationKind.invite => LucideIcons.mail,
+  NotificationKind.inviteAccepted => LucideIcons.userCheck,
+  NotificationKind.joinRequest => LucideIcons.userPlus,
+  NotificationKind.requestAccepted => LucideIcons.circleCheck,
+  NotificationKind.requestDeclined => LucideIcons.circleMinus,
+  NotificationKind.memberJoined => LucideIcons.userPlus,
 };
 
 /// How an invitation or request ended, for the small tag on it.
@@ -142,7 +144,7 @@ class NotificationsScreen extends ConsumerWidget {
                 children: [
                   const SizedBox(height: 60),
                   EmptyState(
-                    icon: Icons.notifications_none,
+                    icon: LucideIcons.bell,
                     title: l.notificationsEmpty,
                     body: l.notificationsEmptyHint,
                   ),

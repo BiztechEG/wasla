@@ -374,7 +374,7 @@ class _NewProjectSheetState extends ConsumerState<NewProjectSheet> {
                           ),
                           child: _color == hex
                               ? Icon(
-                                  Icons.check,
+                                  LucideIcons.check,
                                   color: theme.brightness == Brightness.dark
                                       ? Colors.black
                                       : Colors.white,

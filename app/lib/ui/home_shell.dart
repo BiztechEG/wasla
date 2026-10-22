@@ -386,7 +386,7 @@ class _WorkspaceSwitcher extends ConsumerWidget {
                     ),
                     trailing: m.workspaceId == current?.workspaceId
                         ? Icon(
-                            Icons.check_circle,
+                            LucideIcons.circleCheckBig,
                             color: theme.colorScheme.primary,
                           )
                         : null,
@@ -430,7 +430,7 @@ class _WorkspaceSwitcher extends ConsumerWidget {
           ListTile(
             leading: CircleAvatar(
               backgroundColor: theme.colorScheme.primaryContainer,
-              child: Icon(Icons.add, color: theme.colorScheme.primary),
+              child: Icon(LucideIcons.plus, color: theme.colorScheme.primary),
             ),
             title: Text(l.addWorkspace),
             onTap: () {

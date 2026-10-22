@@ -6,6 +6,8 @@ import '../state/providers.dart';
 import 'inbox.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// People asking to join; admins accept or decline each one.
 class JoinRequestsScreen extends ConsumerWidget {
   const JoinRequestsScreen({super.key, required this.membership});
@@ -30,7 +32,7 @@ class JoinRequestsScreen extends ConsumerWidget {
                   children: [
                     const SizedBox(height: 80),
                     EmptyState(
-                      icon: Icons.how_to_reg_outlined,
+                      icon: LucideIcons.userCheck,
                       title: l.noJoinRequests,
                     ),
                   ],

@@ -9,6 +9,8 @@ import 'billing_format.dart';
 import 'chat_format.dart';
 import 'widgets.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 /// Opens the subscription page of the company [workspaceId] belongs to, for
 /// a billing notification. Nothing opens for a workspace one has left.
 void openBilling(BuildContext context, WidgetRef ref, String workspaceId) {
@@ -68,7 +70,7 @@ class BillingScreen extends ConsumerWidget {
                   builder: (_) => InvoiceComposer(billing: b),
                 ),
               ),
-              icon: const Icon(Icons.receipt_long_outlined),
+              icon: const Icon(LucideIcons.receiptText),
               label: Text(l.newInvoice),
             )
           : null,
@@ -161,7 +163,7 @@ class _UnpaidBanner extends StatelessWidget {
     return Card(
       color: color.withValues(alpha: 0.10),
       child: ListTile(
-        leading: Icon(Icons.receipt_long_outlined, color: color),
+        leading: Icon(LucideIcons.receiptText, color: color),
         title: Text(
           l.unpaidInvoices(invoices.length),
           style: TextStyle(color: color, fontWeight: FontWeight.w600),
@@ -261,8 +263,8 @@ class _WorkspaceCard extends ConsumerWidget {
               children: [
                 Icon(
                   statusColor == null
-                      ? Icons.event_available_outlined
-                      : Icons.error_outline,
+                      ? LucideIcons.calendarCheck
+                      : LucideIcons.circleAlert,
                   size: 18,
                   color: statusColor ?? scheme.onSurfaceVariant,
                 ),
@@ -304,7 +306,7 @@ class _WorkspaceCard extends ConsumerWidget {
                 if (admin)
                   OutlinedButton.icon(
                     onPressed: () => setPlanByHand(context, ref, billing, w),
-                    icon: const Icon(Icons.tune, size: 18),
+                    icon: const Icon(LucideIcons.slidersHorizontal, size: 18),
                     label: Text(l.setPlanByHand),
                   )
                 else ...[
@@ -554,7 +556,7 @@ class _PlanChoice extends StatelessWidget {
         enabled: !tooSmall,
         onTap: onTap,
         leading: Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          selected ? LucideIcons.circleDot : LucideIcons.circle,
           color: selected ? scheme.primary : null,
         ),
         title: Text(
@@ -600,7 +602,7 @@ class InvoiceTile extends StatelessWidget {
     final i = invoice;
     return ListTile(
       onTap: onTap,
-      leading: const Icon(Icons.receipt_long_outlined),
+      leading: const Icon(LucideIcons.receiptText),
       title: Text(
         showCompany ? '${i.companyName} · ${i.number}' : i.number,
         maxLines: 1,
@@ -785,7 +787,7 @@ class InvoiceScreen extends ConsumerWidget {
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: () => markInvoicePaid(context, ref, i),
-                    icon: const Icon(Icons.check_circle_outline),
+                    icon: const Icon(LucideIcons.circleCheck),
                     label: Text(l.markPaid),
                   ),
                   const SizedBox(height: 8),
@@ -865,7 +867,7 @@ class PaymentCard extends StatelessWidget {
             ),
           if (payment.phone.isNotEmpty)
             ListTile(
-              leading: const Icon(Icons.phone_outlined),
+              leading: const Icon(LucideIcons.phone),
               title: LtrLine(payment.phone),
               onTap: () => openLink(
                 context,
@@ -874,7 +876,7 @@ class PaymentCard extends StatelessWidget {
             ),
           if (payment.email.isNotEmpty)
             ListTile(
-              leading: const Icon(Icons.mail_outline),
+              leading: const Icon(LucideIcons.mail),
               title: LtrLine(payment.email),
               onTap: () => openLink(context, 'mailto:${payment.email}'),
             ),

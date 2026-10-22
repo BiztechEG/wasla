@@ -152,12 +152,12 @@ class _SetupList extends ConsumerWidget {
                     sh.graceMinutes,
                   ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRightDir),
                 onTap: () => _editShift(context, ref, sh),
               ),
             ListTile(
               key: const Key('addShift'),
-              leading: const Icon(Icons.add),
+              leading: const Icon(LucideIcons.plus),
               title: Text(l.addShift),
               onTap: () => _editShift(context, ref, null),
             ),
@@ -176,7 +176,7 @@ class _SetupList extends ConsumerWidget {
                 subtitle: Text(
                   site.isField ? l.fieldSiteHint : l.radiusLine(site.radiusM),
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRightDir),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) =>
@@ -186,7 +186,7 @@ class _SetupList extends ConsumerWidget {
               ),
             ListTile(
               key: const Key('addSite'),
-              leading: const Icon(Icons.add),
+              leading: const Icon(LucideIcons.plus),
               title: Text(l.addSite),
               subtitle: s.sites.isEmpty ? Text(l.noSitesHint) : null,
               onTap: () => Navigator.of(context).push(
@@ -621,7 +621,7 @@ class _SiteEditorScreenState extends ConsumerState<SiteEditorScreen> {
           if (widget.site != null)
             IconButton(
               tooltip: l.delete,
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(LucideIcons.trash2),
               onPressed: _delete,
             ),
         ],
