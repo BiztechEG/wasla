@@ -1827,5 +1827,6 @@
   "deleteLabel": "حذف التصنيف",
   "confirmDeleteLabel": "حذف التصنيف «{name}»؟ لن تُحذف الرسائل نفسها.",
   "@confirmDeleteLabel": {"placeholders": {"name": {"type": "String"}}},
-  "errorLabelExists": "لديك تصنيف بهذا الاسم بالفعل"
+  "errorLabelExists": "لديك تصنيف بهذا الاسم بالفعل",
+  "otherLabel": "تصنيف آخر"
 }

@@ -1436,6 +1436,17 @@ class _ChatViewState extends ConsumerState<ChatView> {
           )),
         )
         .value;
+    // The labels one used last, to put the message under in one tap.
+    final recentLabels =
+        (ref.read(myLabelsProvider(widget.membership.workspaceId)).value ??
+                const <MessageLabel>[])
+            .take(3)
+            .toList();
+    final onLabels = {
+      ...?ref
+          .read(chatLabelsProvider(widget.target.conversationId))
+          .value?[m.id],
+    };
     final choices = <_Action>[
       if (!closed) _Action('reply', LucideIcons.replyDir, l.reply),
       if (hasText) _Action('copy', LucideIcons.copy, l.copy),
@@ -1445,7 +1456,6 @@ class _ChatViewState extends ConsumerState<ChatView> {
         _Action('drive', LucideIcons.cloudUpload, l.saveToDrive),
       if (!closed)
         _Action('task', LucideIcons.listPlus, l.makeTask, short: l.taskShort),
-      _Action('label', LucideIcons.hash, l.addToLabel),
       if (widget.membership.allowSharing && (hasText || m.file != null))
         _Action('share', LucideIcons.share2, l.share),
       if (mine && widget.target.isProject)
@@ -1476,6 +1486,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
           Offset.zero & overlay.size,
         ),
         items: [
+          _LabelMenuEntry(recent: recentLabels, on: onLabels),
           if (!closed) ...[
             _ReactionMenuEntry(mine: _mine(m, me)),
             const PopupMenuDivider(),
@@ -1504,6 +1515,12 @@ class _ChatViewState extends ConsumerState<ChatView> {
         isScrollControlled: true,
         builder: (context) => _ActionSheet(
           choices: choices,
+          labels: QuickLabels(
+            recent: recentLabels,
+            on: onLabels,
+            onPick: (x) => Navigator.pop(context, '$_labelPrefix${x.id}'),
+            onMore: () => Navigator.pop(context, 'label'),
+          ),
           reactions: closed
               ? null
               : ReactionBar(
@@ -1518,6 +1535,16 @@ class _ChatViewState extends ConsumerState<ChatView> {
     if (choice != null &&
         (choice == _moreReactions || choice.startsWith(_reactPrefix))) {
       return _onReactChoice(m, choice);
+    }
+    if (choice != null && choice.startsWith(_labelPrefix)) {
+      final id = choice.substring(_labelPrefix.length);
+      return setMessageLabel(
+        context,
+        ref,
+        messageId: m.id,
+        label: recentLabels.firstWhere((x) => x.id == id),
+        on: !onLabels.contains(id),
+      );
     }
     switch (choice) {
       case 'reply':
@@ -2818,6 +2845,40 @@ class _HoverButton extends StatelessWidget {
 const _reactPrefix = 'react:';
 const _moreReactions = 'react+';
 
+/// What the quick labels hand back: one of them, by its id; or 'label' for
+/// the rest.
+const _labelPrefix = 'label:';
+
+/// The labels one used last as the first row of a message's menu.
+class _LabelMenuEntry extends PopupMenuEntry<String> {
+  const _LabelMenuEntry({required this.recent, required this.on});
+
+  final List<MessageLabel> recent;
+  final Set<String> on;
+
+  @override
+  double get height => 52;
+
+  @override
+  bool represents(String? value) => false;
+
+  @override
+  State<_LabelMenuEntry> createState() => _LabelMenuEntryState();
+}
+
+class _LabelMenuEntryState extends State<_LabelMenuEntry> {
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    child: QuickLabels(
+      recent: widget.recent,
+      on: widget.on,
+      onPick: (x) => Navigator.pop(context, '$_labelPrefix${x.id}'),
+      onMore: () => Navigator.pop(context, 'label'),
+    ),
+  );
+}
+
 /// The quick reactions as the first row of a message's menu.
 class _ReactionMenuEntry extends PopupMenuEntry<String> {
   const _ReactionMenuEntry({required this.mine});
@@ -2938,12 +2999,18 @@ class _Action {
   final bool destructive;
 }
 
-/// The sheet a long press on a message opens: reactions, the three things
-/// most often done as big buttons, and the rest behind «More».
+/// The sheet a long press on a message opens: the labels used last,
+/// reactions, the three things most often done as big buttons, and the rest
+/// behind «More».
 class _ActionSheet extends StatefulWidget {
-  const _ActionSheet({required this.choices, required this.reactions});
+  const _ActionSheet({
+    required this.choices,
+    required this.labels,
+    required this.reactions,
+  });
 
   final List<_Action> choices;
+  final Widget labels;
   final Widget? reactions;
 
   /// The ones that make the quick row, in this order.
@@ -2972,9 +3039,13 @@ class _ActionSheetState extends State<_ActionSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 0),
+              child: Center(child: widget.labels),
+            ),
             if (widget.reactions != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: widget.reactions,

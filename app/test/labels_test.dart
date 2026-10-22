@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,9 +74,7 @@ void main() {
     // An existing label is ticked, and a new one made by typing it.
     await tester.longPress(find.text('Contract draft v2'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('moreActions')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add to a label'));
+    await tester.tap(find.byKey(const Key('quickLabelMore')));
     await tester.pumpAndSettle();
     expect(find.text('Only you see your labels'), findsOneWidget);
     await tester.tap(find.byKey(const Key('pickLabel-Contracts')));
@@ -137,9 +136,7 @@ void main() {
 
     await tester.longPress(find.text('Keep this'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('moreActions')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add to a label'));
+    await tester.tap(find.byKey(const Key('quickLabelMore')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pickLabel-Later')));
     await tester.pumpAndSettle();
@@ -147,6 +144,68 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('label-Later')), findsNothing);
     expect(api.labelLinks.values.single, isEmpty);
+  });
+
+  testWidgets('the labels used last are a tap away in the message menu', (
+    tester,
+  ) async {
+    final api = _company();
+    final branch = api.addProjectChat('ws1', _branch);
+    api.receive(branch, 'u2', 'Mona Adel', 'Older');
+    api.receive(branch, 'u2', 'Mona Adel', 'Quote 7');
+    final older = api.chatMessages[branch]!.last.id;
+    for (final name in ['Oldest', 'Money', 'Urgent', 'Site']) {
+      await api.labelMessage(older, name: name);
+    }
+    await startApp(tester, api, prefs: {'locale': 'en'});
+    await _openChat(tester, 'New Branch');
+
+    // The three used last show above the reactions.
+    await tester.longPress(find.text('Quote 7'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quickLabel-Site')), findsOneWidget);
+    expect(find.byKey(const Key('quickLabel-Urgent')), findsOneWidget);
+    expect(find.byKey(const Key('quickLabel-Money')), findsOneWidget);
+    expect(find.byKey(const Key('quickLabel-Oldest')), findsNothing);
+    expect(find.byTooltip('Another label'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('quickLabel-Money')));
+    await tester.pumpAndSettle();
+    final quote = api.chatMessages[branch]!.first.id;
+    final money = api.labels.entries.firstWhere((e) => e.value.$2 == 'Money');
+    expect(api.labelLinks[money.key], contains(quote));
+    expect(find.byKey(const Key('label-Money')), findsNWidgets(2));
+
+    // The message is ticked under it, and a tap takes it off.
+    await tester.longPress(find.text('Quote 7'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('quickLabel-Money')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('quickLabel-Money')));
+    await tester.pumpAndSettle();
+    expect(api.labelLinks[money.key], isNot(contains(quote)));
+    expect(find.byKey(const Key('label-Money')), findsOneWidget);
+
+    // A right click has them too.
+    await tester.tap(find.text('Quote 7'), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quickLabel-Site')));
+    await tester.pumpAndSettle();
+    final site = api.labels.entries.firstWhere((e) => e.value.$2 == 'Site');
+    expect(api.labelLinks[site.key], contains(quote));
+  });
+
+  testWidgets('with no labels yet, the menu offers to add one', (tester) async {
+    final api = _company();
+    final branch = api.addProjectChat('ws1', _branch);
+    api.receive(branch, 'u2', 'Mona Adel', 'First');
+    await startApp(tester, api, prefs: {'locale': 'en'});
+    await _openChat(tester, 'New Branch');
+
+    await tester.longPress(find.text('First'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Another label'), findsNothing);
+    await tester.tap(find.text('Add to a label'));
+    await tester.pumpAndSettle();
+    expect(find.text('Only you see your labels'), findsOneWidget);
   });
 
   testWidgets('labels are listed under More, renamed and deleted', (

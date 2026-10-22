@@ -1602,5 +1602,6 @@
   "labelName": "Label name",
   "deleteLabel": "Delete label",
   "confirmDeleteLabel": "Delete the label “{name}”? The messages themselves stay.",
-  "errorLabelExists": "You already have a label with this name"
+  "errorLabelExists": "You already have a label with this name",
+  "otherLabel": "Another label"
 }
