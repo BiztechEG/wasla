@@ -17,6 +17,7 @@ import 'chat_screen.dart';
 import 'files_common.dart';
 import 'invite_sheet.dart';
 import 'modern.dart';
+import 'my_day.dart';
 import 'project_screen.dart';
 import 'projects_tab.dart';
 import 'setup_checklist.dart';
@@ -27,9 +28,12 @@ import 'widgets.dart';
 /// Every chat in one list, as in the design: announcements on top, then
 /// project and private chats, latest first, filterable by project.
 class ChatsTab extends ConsumerStatefulWidget {
-  const ChatsTab({super.key, required this.membership});
+  const ChatsTab({super.key, required this.membership, this.onOpenTasks});
 
   final Membership membership;
+
+  /// Switches to the my-tasks tab, from "My day".
+  final VoidCallback? onOpenTasks;
 
   @override
   ConsumerState<ChatsTab> createState() => _ChatsTabState();
@@ -165,6 +169,11 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                       ),
                       children: [
                         SetupChecklist(membership: widget.membership),
+                        if (_project == null && _kind == _Kind.all)
+                          MyDayCard(
+                            membership: widget.membership,
+                            onOpenTasks: widget.onOpenTasks ?? () {},
+                          ),
                         _ProjectStrip(
                           chats: all,
                           selected: _project,

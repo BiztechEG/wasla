@@ -174,6 +174,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ChatsTab(
                       key: ValueKey(membership.workspaceId),
                       membership: membership,
+                      onOpenTasks: () => setState(() => _tab = 2),
                     ),
                     ProjectsTab(membership: membership),
                     MyTasksTab(membership: membership),

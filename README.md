@@ -74,6 +74,10 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - Owners and admins of a new workspace get a **Get started** card on the home screen: a first project, the team invited (by email or the join link), attendance on, and a first announcement. It shows the next step only (all of them on asking), ticks each one when it is done anywhere in the app (`workspace_setup()`), and goes away once all are done or it is closed.
 
+## My day
+
+- On top of the chats tab, **My day** shows what needs the signed-in person today in the workspace on screen: their late tasks and tasks due today (both open My tasks), unread mentions (opens the chat that mentioned them) and announcements waiting for their acknowledgement. It is not shown when there is none.
+
 ## Approvals
 
 - **More > Waiting for your approval** gathers, for the workspace on screen, everything that waits for the signed-in person: requests to join (owners and admins), check-ins from outside a branch and attendance corrections (attendance managers), and tasks in review that they may close (their own, and every task in the projects they lead). Each is answered right there. A banner on the home screen and a count on More say when something is waiting.

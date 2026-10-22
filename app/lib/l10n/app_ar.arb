@@ -1723,5 +1723,10 @@
   "setupAnnouncementHint": "رسالة ترحيب توصل للجميع",
   "setupHide": "إخفاء",
   "setupAllSteps": "كل الخطوات",
-  "noColleaguesMember": "اطلب من مسؤول مساحة العمل يدعو زملاءك."
+  "noColleaguesMember": "اطلب من مسؤول مساحة العمل يدعو زملاءك.",
+  "myDayTitle": "يومي",
+  "myDayLate": "مهام متأخرة",
+  "myDayToday": "مهام اليوم",
+  "myDayMentions": "إشارات لك",
+  "myDayAcks": "نشرات للتأكيد"
 }

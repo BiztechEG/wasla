@@ -1511,5 +1511,10 @@
   "setupAnnouncementHint": "A welcome that reaches everyone",
   "setupHide": "Hide",
   "setupAllSteps": "All steps",
-  "noColleaguesMember": "Ask your workspace admin to invite your colleagues."
+  "noColleaguesMember": "Ask your workspace admin to invite your colleagues.",
+  "myDayTitle": "My day",
+  "myDayLate": "Late tasks",
+  "myDayToday": "Due today",
+  "myDayMentions": "Mentions",
+  "myDayAcks": "To acknowledge"
 }

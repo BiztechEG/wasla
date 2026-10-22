@@ -197,4 +197,71 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('my day gathers what needs me today', (tester) async {
+    const site = Project(
+      id: 'p1',
+      workspaceId: 'ws1',
+      name: 'Site',
+      color: '#0F6E6A',
+      status: ProjectStatus.active,
+      memberCount: 2,
+    );
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.member),
+      )
+      ..projectsByWorkspace['ws1'] = [site];
+    final now = DateTime.now();
+    api
+      ..addTask(
+        projectId: 'p1',
+        title: 'Late one',
+        dueAt: now.subtract(const Duration(days: 1)),
+      )
+      ..addTask(
+        projectId: 'p1',
+        title: 'Today one',
+        dueAt: DateTime(now.year, now.month, now.day, 23, 59),
+      )
+      ..addTask(
+        projectId: 'p1',
+        title: 'Not mine',
+        assignees: ['u2'],
+        dueAt: now.subtract(const Duration(days: 1)),
+      );
+    final chat = api.addProjectChat('ws1', site);
+    api.receive(chat, 'u2', 'Mona', '@Amr look', mentions: ['me']);
+    await startApp(tester, api, prefs: {'locale': 'en'});
+
+    expect(find.byKey(const Key('myDay')), findsOneWidget);
+    String count(String key) => tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(Text),
+          ),
+        )
+        .first
+        .data!;
+    expect(count('myDayLate'), '1');
+    expect(count('myDayToday'), '1');
+    expect(count('myDayMentions'), '1');
+    expect(find.byKey(const Key('myDayAcks')), findsNothing);
+
+    // Tasks open on the my-tasks tab.
+    await tester.tap(find.byKey(const Key('myDayLate')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('myDay')), findsNothing);
+    expect(find.text('Late one'), findsOneWidget);
+  });
+
+  testWidgets('a quiet day has no card', (tester) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.member),
+      );
+    await startApp(tester, api);
+    expect(find.byKey(const Key('myDay')), findsNothing);
+  });
 }
