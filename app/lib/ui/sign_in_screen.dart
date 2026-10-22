@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../state/providers.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Email sign-in with a one-time code. New emails get an account on the way.
 class SignInScreen extends ConsumerStatefulWidget {

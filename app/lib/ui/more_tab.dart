@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/billing_providers.dart';
@@ -23,8 +24,6 @@ import 'modern.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
 import 'workspaces_screen.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MoreTab extends ConsumerWidget {
   const MoreTab({super.key, required this.membership});

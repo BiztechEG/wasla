@@ -185,6 +185,29 @@ class FakeApi implements WaslaApi {
       ? null
       : QuietHours(from: from, to: to, utcOffset: utcOffset);
 
+  /// Whether owners see the first-steps checklist; off so that most tests
+  /// start in a workspace that is already set up.
+  bool newWorkspace = false;
+
+  @override
+  Future<SetupProgress?> workspaceSetup(String workspaceId) async {
+    if (!newWorkspace) return null;
+    final role = memberships
+        .where((m) => m.workspaceId == workspaceId)
+        .firstOrNull
+        ?.role;
+    if (role == null || !role.canManage) return null;
+    return SetupProgress(
+      project: (projectsByWorkspace[workspaceId] ?? const []).isNotEmpty,
+      team:
+          (membersByWorkspace[workspaceId] ?? const []).length > 1 ||
+          invited.any((i) => i.$1 == workspaceId) ||
+          joinCodes.containsKey(workspaceId),
+      attendance: attendance?.enabled ?? false,
+      announcement: announcementList.isNotEmpty,
+    );
+  }
+
   /// What the management dashboard shows.
   final overviews = <WorkspaceOverview>[];
 

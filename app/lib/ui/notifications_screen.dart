@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../data/task_models.dart';
@@ -17,8 +18,6 @@ import 'my_tasks_tab.dart';
 import 'start_screen.dart';
 import 'task_format.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 String noteText(AppLocalizations l, AppNotification n) {
   final who = n.actorName ?? '';

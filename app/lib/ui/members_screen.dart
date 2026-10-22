@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/providers.dart';
@@ -7,8 +8,6 @@ import 'inbox.dart';
 import 'invite_sheet.dart';
 import 'profile_card.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Everyone in the workspace. Admins change roles, remove people and see
 /// invitations nobody has answered yet.

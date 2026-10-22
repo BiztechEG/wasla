@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/task_models.dart';
 import 'task_format.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// A task in a list: its state, title, where it belongs and when it is due.
 class TaskTile extends StatelessWidget {

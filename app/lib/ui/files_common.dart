@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:video_player/video_player.dart';
 
 import '../data/chat_models.dart';
@@ -16,8 +17,6 @@ import '../state/google_providers.dart';
 import 'chat_format.dart';
 import 'modern.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Asks where to pick from (gallery, camera or files) and returns what was
 /// picked: up to [maxFilesPerPick] photos or files, or one video or camera

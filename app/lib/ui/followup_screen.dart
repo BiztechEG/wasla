@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/task_models.dart';
 import '../state/providers.dart';
@@ -8,8 +9,6 @@ import 'my_tasks_tab.dart';
 import 'task_format.dart';
 import 'task_list.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// For admins and leads: what is late or waiting on them in the projects
 /// they lead, and how much each person has on their plate.

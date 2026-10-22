@@ -138,6 +138,10 @@ abstract class WaslaApi {
   /// Hours when nothing reaches one's phone; null when off.
   Future<QuietHours?> quietHours();
 
+  /// A new workspace's first steps, for its owners and admins; null for
+  /// anyone else.
+  Future<SetupProgress?> workspaceSetup(String workspaceId);
+
   /// Sets quiet hours, or turns them off with nulls.
   Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset);
 
@@ -1024,6 +1028,24 @@ class SupabaseWaslaApi implements WaslaApi {
       from: parseClock(rows.first['quiet_from']),
       to: parseClock(rows.first['quiet_to']),
       utcOffset: (rows.first['utc_offset'] as num).toInt(),
+    );
+  }
+
+  @override
+  Future<SetupProgress?> workspaceSetup(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'workspace_setup',
+        params: {'p_workspace': workspaceId},
+      ),
+    );
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    return SetupProgress(
+      project: r['has_project'] == true,
+      team: r['has_team'] == true,
+      attendance: r['attendance_on'] == true,
+      announcement: r['has_announcement'] == true,
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/chat_providers.dart';
@@ -11,8 +12,6 @@ import 'files_view.dart';
 import 'followup_screen.dart';
 import 'project_overview.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// The project screen's tabs, in order.
 enum ProjectTab { status, chat, files, tasks, announcements }

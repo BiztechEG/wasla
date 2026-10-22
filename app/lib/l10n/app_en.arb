@@ -1498,5 +1498,17 @@
   "chatMuted": "Chat muted",
   "chatUnmuted": "Chat notifications are back",
   "mutedLabel": "Muted",
-  "taskShort": "Task"
+  "taskShort": "Task",
+  "setupTitle": "Get started",
+  "setupProgress": "{done} of {total}",
+  "setupProject": "Create your first project",
+  "setupProjectHint": "Each project has its chat, files and tasks",
+  "setupTeam": "Invite your team",
+  "setupTeamHint": "By email or with the join link",
+  "setupAttendance": "Turn on attendance",
+  "setupAttendanceHint": "Check in by location from the phone",
+  "setupAnnouncement": "Post your first announcement",
+  "setupAnnouncementHint": "A welcome that reaches everyone",
+  "setupHide": "Hide",
+  "setupAllSteps": "All steps"
 }

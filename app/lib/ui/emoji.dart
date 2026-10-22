@@ -4,10 +4,9 @@
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// The reactions offered first, before "+" for any other.
 const quickReactions = ['👍', '❤️', '😂', '🎉', '✅', '🙏'];

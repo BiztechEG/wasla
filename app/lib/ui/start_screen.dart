@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../push/push.dart';
@@ -11,8 +12,6 @@ import 'inbox.dart';
 import 'join_link.dart';
 import 'search_screen.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Where someone lands with no workspace yet, and where anyone goes to add
 /// one: answer invitations, follow up on requests, join their team or start

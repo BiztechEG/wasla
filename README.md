@@ -70,6 +70,10 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - Invitations, requests to join and their answers are notifications like any other: the invited person (as soon as they have an account), every owner and admin of the workspace for a request, the person asking for the answer, and the inviting admin when it is accepted. Once answered, withdrawn or cancelled, they count as read for everyone.
 - Open ones show on top of the bell with Accept and Decline on them, as a banner on the home screen, in the workspace switcher and on the start page. Someone waiting for an answer moves into the workspace as soon as they are accepted.
 
+## First steps
+
+- Owners and admins of a new workspace get a **Get started** card on the home screen: a first project, the team invited (by email or the join link), attendance on, and a first announcement. It shows the next step only (all of them on asking), ticks each one when it is done anywhere in the app (`workspace_setup()`), and goes away once all are done or it is closed.
+
 ## Approvals
 
 - **More > Waiting for your approval** gathers, for the workspace on screen, everything that waits for the signed-in person: requests to join (owners and admins), check-ins from outside a branch and attendance corrections (attendance managers), and tasks in review that they may close (their own, and every task in the projects they lead). Each is answered right there. A banner on the home screen and a count on More say when something is waiting.

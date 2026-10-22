@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/google.dart';
@@ -10,8 +11,6 @@ import '../data/models.dart';
 import '../l10n/app_localizations.dart';
 import '../state/providers.dart';
 import '../theme.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 extension L10nContext on BuildContext {
   AppLocalizations get l10n => AppLocalizations.of(this);

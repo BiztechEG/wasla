@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/google.dart';
 import '../push/push.dart';
@@ -8,8 +9,6 @@ import '../state/providers.dart';
 import '../state/settings.dart';
 import '../state/task_providers.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void openAccount(BuildContext context) =>
     Navigator.of(context)

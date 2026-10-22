@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/api.dart';
 import '../data/models.dart';
@@ -9,8 +10,6 @@ import '../state/settings.dart';
 import 'inbox.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// The link people open to join with a code: the web app, which keeps the
 /// code until they have signed in.

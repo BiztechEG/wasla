@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/chat_providers.dart';
@@ -8,8 +9,6 @@ import 'chats_tab.dart';
 import 'my_tasks_tab.dart';
 import 'project_screen.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Someone's card, from the bottom: who they are, how to reach them, and
 /// the projects you share. [name] shows while it loads, or if they left.

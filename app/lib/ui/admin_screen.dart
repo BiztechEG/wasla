@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/billing_models.dart';
 import '../data/chat_models.dart';
@@ -15,8 +16,6 @@ import 'billing_screen.dart';
 import 'chat_format.dart';
 import 'create_workspace_screen.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// The platform admin dashboard: figures and plan requests, companies,
 /// invoices, and prices. On the web it is a platform admin's first page.

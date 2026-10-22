@@ -142,6 +142,14 @@ final mutedChatsProvider = FutureProvider.autoDispose
     });
 
 /// The signed-in user's quiet hours; null when off.
+final setupProvider = FutureProvider.autoDispose.family<SetupProgress?, String>(
+  (ref, workspaceId) async {
+    final api = ref.watch(apiProvider);
+    if (await _user(ref) == null) return null;
+    return api.workspaceSetup(workspaceId);
+  },
+);
+
 final quietHoursProvider = FutureProvider.autoDispose<QuietHours?>((ref) async {
   final api = ref.watch(apiProvider);
   if (await _user(ref) == null) return null;

@@ -18,6 +18,7 @@ import 'files_common.dart';
 import 'modern.dart';
 import 'project_screen.dart';
 import 'projects_tab.dart';
+import 'setup_checklist.dart';
 import 'task_format.dart';
 import 'task_screen.dart';
 import 'widgets.dart';
@@ -162,6 +163,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                         navClearance(context) + 80,
                       ),
                       children: [
+                        SetupChecklist(membership: widget.membership),
                         _ProjectStrip(
                           chats: all,
                           selected: _project,
@@ -202,9 +204,11 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                                 ? l.chatsEmptyBody
                                 : null,
                           ),
-                          // An admin's first step in a new workspace.
+                          // An admin's first step in a new workspace, unless
+                          // the first-steps list already offers it.
                           if (projects.isEmpty &&
-                              widget.membership.role.canManage)
+                              widget.membership.role.canManage &&
+                              !setupChecklistShown(ref, widget.membership))
                             Center(
                               child: FilledButton.tonalIcon(
                                 key: const Key('firstProject'),

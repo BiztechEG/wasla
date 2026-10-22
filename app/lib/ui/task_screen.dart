@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/chat_models.dart';
 import '../data/task_models.dart';
@@ -14,8 +15,6 @@ import 'files_common.dart';
 import 'task_editor.dart';
 import 'task_format.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// One task: its status, who it is for, when it is due, its files and its
 /// updates, with a box to add an update for the people on it.

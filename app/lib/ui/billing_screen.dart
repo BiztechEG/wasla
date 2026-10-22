@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/billing_models.dart';
 import '../state/billing_providers.dart';
@@ -8,8 +9,6 @@ import 'admin_billing.dart';
 import 'billing_format.dart';
 import 'chat_format.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Opens the subscription page of the company [workspaceId] belongs to, for
 /// a billing notification. Nothing opens for a workspace one has left.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/chat_models.dart';
 import '../data/models.dart';
@@ -8,8 +9,6 @@ import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import 'chat_format.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Shows an unread announcement from the chat list and marks it read.
 Future<void> showAnnouncement(

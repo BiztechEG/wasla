@@ -89,4 +89,53 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('projectName')), findsOneWidget);
   });
+
+  testWidgets('a new workspace owner is walked through the first steps', (
+    tester,
+  ) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..newWorkspace = true
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.owner),
+      );
+    await startApp(tester, api, prefs: {'locale': 'en'});
+
+    // Only the next step shows, and the empty chats don't repeat it.
+    expect(find.text('0 of 4'), findsOneWidget);
+    expect(find.byKey(const Key('setup-project')), findsOneWidget);
+    expect(find.byKey(const Key('setup-team')), findsNothing);
+    expect(find.byKey(const Key('firstProject')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('setup-project')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('projectName')), 'Site');
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 of 4'), findsOneWidget);
+    expect(find.byKey(const Key('setup-team')), findsOneWidget);
+
+    // All of them, the done one ticked.
+    await tester.tap(find.byKey(const Key('allSetupSteps')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('setup-attendance')), findsOneWidget);
+    expect(
+      tester.widget<ListTile>(find.byKey(const Key('setup-project'))).enabled,
+      isFalse,
+    );
+
+    // Hidden, it stays hidden.
+    await tester.tap(find.byKey(const Key('hideSetup')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('setupChecklist')), findsNothing);
+  });
+
+  testWidgets('members have no first steps to take', (tester) async {
+    final api = FakeApi(signedInAs: 'me', name: 'Amr')
+      ..newWorkspace = true
+      ..memberships.add(
+        FakeApi.membership('ws1', 'Engineering', WorkspaceRole.member),
+      );
+    await startApp(tester, api);
+    expect(find.byKey(const Key('setupChecklist')), findsNothing);
+  });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/overview_models.dart';
 import '../state/providers.dart';
@@ -8,8 +9,6 @@ import 'start_screen.dart';
 import 'task_format.dart';
 import 'task_list.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 final managementOverviewProvider =
     FutureProvider.autoDispose<List<WorkspaceOverview>>((ref) async {

@@ -1709,5 +1709,18 @@
   "chatMuted": "كُتمت المحادثة",
   "chatUnmuted": "عادت إشعارات المحادثة",
   "mutedLabel": "مكتومة",
-  "taskShort": "مهمة"
+  "taskShort": "مهمة",
+  "setupTitle": "خطوات البداية",
+  "setupProgress": "{done} من {total}",
+  "@setupProgress": {"placeholders": {"done": {"type": "int"}, "total": {"type": "int"}}},
+  "setupProject": "أنشئ أول مشروع",
+  "setupProjectHint": "لكل مشروع محادثة وملفات ومهام",
+  "setupTeam": "ادعُ فريقك",
+  "setupTeamHint": "بالبريد أو برابط الانضمام",
+  "setupAttendance": "فعّل الحضور والانصراف",
+  "setupAttendanceHint": "تسجيل الحضور بالموقع من الموبايل",
+  "setupAnnouncement": "اكتب أول نشرة",
+  "setupAnnouncementHint": "رسالة ترحيب توصل للجميع",
+  "setupHide": "إخفاء",
+  "setupAllSteps": "كل الخطوات"
 }

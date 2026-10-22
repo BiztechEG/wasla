@@ -201,6 +201,25 @@ class QuietHours {
   final int utcOffset;
 }
 
+/// Which of a new workspace's first steps are done.
+class SetupProgress {
+  const SetupProgress({
+    this.project = false,
+    this.team = false,
+    this.attendance = false,
+    this.announcement = false,
+  });
+
+  final bool project;
+  final bool team;
+  final bool attendance;
+  final bool announcement;
+
+  int get done =>
+      [project, team, attendance, announcement].where((d) => d).length;
+  bool get complete => done == 4;
+}
+
 /// A workspace's join code, as its admins see it.
 class JoinCode {
   const JoinCode({required this.code, required this.autoJoin});

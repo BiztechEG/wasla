@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/chat_models.dart';
 import '../data/models.dart';
@@ -15,8 +16,6 @@ import 'task_editor.dart';
 import 'task_list.dart';
 import 'templates.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// How a project is going, for everyone in it: its lead, its latest
 /// announcement, task counts, public tasks and pinned files.

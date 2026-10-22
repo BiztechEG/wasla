@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../data/task_models.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
 import 'widgets.dart';
-
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 final taskTemplatesProvider = FutureProvider.autoDispose
     .family<List<TaskTemplate>, String>(
