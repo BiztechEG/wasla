@@ -138,6 +138,13 @@ abstract class WaslaApi {
   /// Hours when nothing reaches one's phone; null when off.
   Future<QuietHours?> quietHours();
 
+  /// The statuses of a workspace's members, by user id; those available
+  /// are left out.
+  Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId);
+
+  /// Sets one's status, or with null clears it.
+  Future<void> setMyStatus(UserStatus? status);
+
   /// A new workspace's first steps, for its owners and admins; null for
   /// anyone else.
   Future<SetupProgress?> workspaceSetup(String workspaceId);
@@ -1030,6 +1037,37 @@ class SupabaseWaslaApi implements WaslaApi {
       utcOffset: (rows.first['utc_offset'] as num).toInt(),
     );
   }
+
+  @override
+  Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'workspace_statuses',
+        params: {'p_workspace': workspaceId},
+      ),
+    );
+    return {
+      for (final r in rows)
+        if (StatusKind.parse(r['kind'] as String?) case final kind?)
+          r['user_id'] as String: UserStatus(
+            kind: kind,
+            note: r['note'] as String?,
+            until: r['until'] == null
+                ? null
+                : DateTime.parse(r['until'] as String),
+          ),
+    };
+  }
+
+  @override
+  Future<void> setMyStatus(UserStatus? status) => _client.rpc(
+    'set_my_status',
+    params: {
+      'p_kind': status?.kind.wire,
+      'p_note': status?.note,
+      'p_until': status?.until?.toUtc().toIso8601String(),
+    },
+  );
 
   @override
   Future<SetupProgress?> workspaceSetup(String workspaceId) async {

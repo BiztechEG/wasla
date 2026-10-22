@@ -9,6 +9,7 @@ import '../state/providers.dart';
 import '../state/settings.dart';
 import '../state/task_providers.dart';
 import 'widgets.dart';
+import 'status.dart';
 
 void openAccount(BuildContext context) =>
     Navigator.of(context)
@@ -67,6 +68,10 @@ class AccountScreen extends ConsumerWidget {
             ),
           ),
 
+          if (ref.watch(currentMembershipProvider) case final m?) ...[
+            SectionTitle(l.myStatus),
+            _StatusCard(workspaceId: m.workspaceId),
+          ],
           SectionTitle(l.notificationsTitle),
           const _QuietHoursCard(),
           if (ref.watch(googleAccountProvider).available) ...[
@@ -304,6 +309,34 @@ class _QuietHoursCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One's status, a tap from changing it.
+class _StatusCard extends ConsumerWidget {
+  const _StatusCard({required this.workspaceId});
+
+  final String workspaceId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final status = myStatus(ref, workspaceId);
+    return Card(
+      child: ListTile(
+        key: const Key('statusTile'),
+        leading: Icon(
+          presenceIcon(status?.kind),
+          color: presenceColor(context, status?.kind),
+        ),
+        title: Text(
+          status == null ? l.statusAvailable : presenceText(context, status),
+        ),
+        subtitle: status?.note == null ? null : Text(status!.note!),
+        trailing: const Icon(LucideIcons.chevronRightDir),
+        onTap: () => showStatusSheet(context, ref, workspaceId: workspaceId),
       ),
     );
   }

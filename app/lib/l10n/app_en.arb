@@ -1516,5 +1516,20 @@
   "myDayLate": "Late tasks",
   "myDayToday": "Due today",
   "myDayMentions": "Mentions",
-  "myDayAcks": "To acknowledge"
+  "myDayAcks": "To acknowledge",
+  "statusMeeting": "In a meeting",
+  "statusBusy": "Busy",
+  "statusLeave": "On leave",
+  "statusAvailable": "Available",
+  "statusUntil": "{status} until {time}",
+  "myStatus": "My status",
+  "statusNote": "Note (optional)",
+  "statusNoteHint": "For example: I'll reply after the meeting",
+  "statusNoteLeaveHint": "For example: for anything urgent, ask Rania",
+  "statusUntilLabel": "Until",
+  "statusHour": "An hour",
+  "statusToday": "End of today",
+  "statusPickDate": "Pick a day",
+  "statusNoEnd": "Until I change it",
+  "statusLeaveHint": "Whoever writes to you privately sees your note above the message field."
 }

@@ -185,6 +185,17 @@ class FakeApi implements WaslaApi {
       ? null
       : QuietHours(from: from, to: to, utcOffset: utcOffset);
 
+  /// Statuses by user id.
+  final statuses = <String, UserStatus>{};
+
+  @override
+  Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId) async =>
+      Map.of(statuses);
+
+  @override
+  Future<void> setMyStatus(UserStatus? status) async =>
+      status == null ? statuses.remove(_user) : statuses[_user!] = status;
+
   /// Whether owners see the first-steps checklist; off so that most tests
   /// start in a workspace that is already set up.
   bool newWorkspace = false;

@@ -24,6 +24,7 @@ import 'projects_tab.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
 import 'workspaces_screen.dart';
+import 'status.dart';
 
 /// The four tabs from the design, with notifications in the top bar.
 class HomeShell extends ConsumerStatefulWidget {
@@ -145,7 +146,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ),
                     _BellButton(count: notes),
                     const SizedBox(width: 8),
-                    _MeButton(name: name, onTap: () => openAccount(context)),
+                    _MeButton(
+                      name: name,
+                      status: myStatus(ref, membership.workspaceId)?.kind,
+                      onTap: () => openAccount(context),
+                    ),
                   ],
                 ),
               ),
@@ -260,9 +265,10 @@ class _BellButton extends StatelessWidget {
 
 /// My initials in the top bar; opens my account.
 class _MeButton extends StatelessWidget {
-  const _MeButton({required this.name, required this.onTap});
+  const _MeButton({required this.name, required this.onTap, this.status});
 
   final String name;
+  final StatusKind? status;
   final VoidCallback onTap;
 
   @override
@@ -274,7 +280,18 @@ class _MeButton extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: Avatar(key: const Key('meButton'), name: name, radius: 20),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Avatar(key: const Key('meButton'), name: name, radius: 20),
+            if (status case final kind?)
+              PositionedDirectional(
+                end: -1,
+                bottom: -1,
+                child: PresenceDot(kind: kind),
+              ),
+          ],
+        ),
       ),
     );
   }

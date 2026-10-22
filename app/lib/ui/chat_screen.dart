@@ -23,6 +23,7 @@ import 'mentions.dart';
 import 'my_tasks_tab.dart';
 import 'profile_card.dart';
 import 'project_screen.dart';
+import 'status.dart';
 import 'widgets.dart';
 
 /// Who or what a chat is with, enough to draw it before anything loads.
@@ -169,6 +170,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         projects.where((p) => p.id == id).firstOrNull;
     final filtered = projectOf(_filter);
     final project = projectOf(target.projectId);
+    final otherStatus = target.otherId == null
+        ? null
+        : ref.watch(statusesProvider(ws)).value?[target.otherId];
 
     // Projects this private chat has been about, for the filter menu.
     final filterChoices = target.isProject
@@ -245,6 +249,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
+                      )
+                    else if (otherStatus != null)
+                      Row(
+                        key: const Key('chatStatus'),
+                        children: [
+                          PresenceDot(kind: otherStatus.kind, size: 9),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              presenceText(context, otherStatus),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       )
                     else if (openDetails != null)
                       Text(
@@ -1163,6 +1185,11 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 : l.chatClosedPerson(target.title),
           )
         else ...[
+          // On leave, the other person's note answers before one writes.
+          if (target.otherId case final other?)
+            if (ref.watch(statusesProvider(ws)).value?[other] case final away?
+                when away.kind == StatusKind.leave)
+              _AwayNote(name: target.title, status: away),
           if (suggestions.isNotEmpty)
             // Clicking a name does not take the cursor out of the field.
             TextFieldTapRegion(
@@ -1478,6 +1505,53 @@ class _ChatViewState extends ConsumerState<ChatView> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Above the message field of a private chat with someone on leave: until
+/// when, and their note.
+class _AwayNote extends StatelessWidget {
+  const _AwayNote({required this.name, required this.status});
+
+  final String name;
+  final UserStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = presenceColor(context, status.kind);
+    return Container(
+      key: const Key('awayNote'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(presenceIcon(status.kind), size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${firstName(name)} · ${presenceText(context, status)}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (status.note != null)
+                  Text(status.note!, style: theme.textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

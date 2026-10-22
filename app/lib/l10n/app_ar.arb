@@ -1728,5 +1728,21 @@
   "myDayLate": "مهام متأخرة",
   "myDayToday": "مهام اليوم",
   "myDayMentions": "إشارات لك",
-  "myDayAcks": "نشرات للتأكيد"
+  "myDayAcks": "نشرات للتأكيد",
+  "statusMeeting": "في اجتماع",
+  "statusBusy": "مشغول",
+  "statusLeave": "في إجازة",
+  "statusAvailable": "متاح",
+  "statusUntil": "{status} حتى {time}",
+  "@statusUntil": {"placeholders": {"status": {"type": "String"}, "time": {"type": "String"}}},
+  "myStatus": "حالتي",
+  "statusNote": "ملاحظة (اختياري)",
+  "statusNoteHint": "مثال: أرد بعد الاجتماع",
+  "statusNoteLeaveHint": "مثال: للأمور العاجلة تواصل مع رانيا",
+  "statusUntilLabel": "حتى متى",
+  "statusHour": "ساعة",
+  "statusToday": "لنهاية اليوم",
+  "statusPickDate": "اختر يوماً",
+  "statusNoEnd": "حتى أغيّرها",
+  "statusLeaveHint": "من يراسلك في الخاص سيرى ملاحظتك فوق خانة الكتابة."
 }

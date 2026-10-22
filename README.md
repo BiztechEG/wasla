@@ -92,6 +92,7 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - **Quiet hours** (for example 22:00 to 07:00, in the phone's time zone, kept up to date when it changes) keep everything off the phone; the bell and the app's counts still have it all.
 - **Muting a chat** (8 hours, a week, or until unmuted) from the bell at the top of the chat keeps its messages off the phone; mentions still come through. Muted chats are marked in the list.
 - Both are applied in `queue_push()`, where every phone notification is queued.
+- **My status** (My account): available, in a meeting, busy or on leave, with a note and until when (an hour, the end of the day, a day picked, or until changed). Coworkers see it on one's card and at the top of a private chat; on leave, the note shows above the message field of whoever writes privately. It is kept in `user_status` and read per workspace with `workspace_statuses()`.
 
 ## Chats and files
 

@@ -201,6 +201,29 @@ class QuietHours {
   final int utcOffset;
 }
 
+/// What someone is up to, besides being available.
+enum StatusKind {
+  meeting('meeting'),
+  busy('busy'),
+  leave('leave');
+
+  const StatusKind(this.wire);
+
+  final String wire;
+
+  static StatusKind? parse(String? wire) =>
+      values.where((k) => k.wire == wire).firstOrNull;
+}
+
+/// Someone's status; [until] null: until they change it.
+class UserStatus {
+  const UserStatus({required this.kind, this.note, this.until});
+
+  final StatusKind kind;
+  final String? note;
+  final DateTime? until;
+}
+
 /// Which of a new workspace's first steps are done.
 class SetupProgress {
   const SetupProgress({
