@@ -71,6 +71,31 @@ Deno.test("billing and announcements", () => {
   assertEquals([a.title, a.body], ["نشرة · Delta HQ", "Sami: Closed Thursday"]);
 });
 
+Deno.test("invitations and join requests say what to do", () => {
+  const invite = {
+    ...base,
+    kind: "invite",
+    title: "Delta HQ",
+    actor: "Hoda",
+    body: "admin",
+    data: { type: "invites", workspace: "w", request: "i1" },
+  };
+  const n = format(invite);
+  assertEquals([n.title, n.tag], ["Delta HQ", "invite-i1"]);
+  assertEquals(n.body, "دعاك Hoda للانضمام بدور مسؤول، اضغط للرد على الدعوة");
+  assertEquals(
+    format({ ...invite, locale: "en" }).body,
+    "Hoda invited you to join as admin; tap to answer",
+  );
+  const asked = { ...invite, kind: "join_request", body: "From sales", locale: "en" };
+  assertEquals(format(asked).body, "Hoda asked to join: From sales");
+  assertEquals(format({ ...asked, body: null }).body, "Hoda asked to join the workspace");
+  assertEquals(
+    format({ ...invite, kind: "request_accepted", actor: "Omar", body: null, locale: "en" }).body,
+    "Your request to join was accepted; tap to open the workspace",
+  );
+});
+
 Deno.test("attendance", () => {
   const q = {
     ...base,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/models.dart';
 import '../data/task_models.dart';
 import '../l10n/app_localizations.dart';
 import '../state/providers.dart';
@@ -9,7 +10,11 @@ import 'admin_screen.dart';
 import 'billing_format.dart';
 import 'billing_screen.dart';
 import 'chat_format.dart';
+import 'inbox.dart';
+import 'join_requests_screen.dart';
+import 'members_screen.dart';
 import 'my_tasks_tab.dart';
+import 'start_screen.dart';
 import 'task_format.dart';
 import 'widgets.dart';
 
@@ -43,6 +48,14 @@ String noteText(AppLocalizations l, AppNotification n) {
     NotificationKind.planExpired => l.notePlanExpired(
       planLabel(l, n.detail ?? ''),
     ),
+    NotificationKind.invite => l.noteInvite(
+      who,
+      roleLabel(l, WorkspaceRole.parse(n.detail)),
+    ),
+    NotificationKind.inviteAccepted => l.noteInviteAccepted(who),
+    NotificationKind.joinRequest => l.noteJoinRequest(who),
+    NotificationKind.requestAccepted => l.noteRequestAccepted,
+    NotificationKind.requestDeclined => l.noteRequestDeclined,
   };
 }
 
@@ -62,9 +75,28 @@ IconData _icon(NotificationKind kind) => switch (kind) {
   NotificationKind.planActive => Icons.verified_outlined,
   NotificationKind.planEnding => Icons.hourglass_bottom,
   NotificationKind.planExpired => Icons.hourglass_empty,
+  NotificationKind.invite => Icons.mail_outline,
+  NotificationKind.inviteAccepted => Icons.how_to_reg_outlined,
+  NotificationKind.joinRequest => Icons.person_add_alt_1_outlined,
+  NotificationKind.requestAccepted => Icons.check_circle_outline,
+  NotificationKind.requestDeclined => Icons.do_not_disturb_on_outlined,
 };
 
-/// What happened to one's tasks, newest first.
+/// How an invitation or request ended, for the small tag on it.
+String? _answerLabel(AppLocalizations l, AppNotification n) =>
+    switch (n.requestStatus) {
+      null || AnswerStatus.pending => null,
+      AnswerStatus.accepted => l.answerAccepted,
+      AnswerStatus.rejected => l.answerDeclined,
+      AnswerStatus.cancelled =>
+        n.kind == NotificationKind.joinRequest
+            ? l.answerWithdrawn
+            : l.answerCancelled,
+      AnswerStatus.expired => l.answerExpired,
+    };
+
+/// Everything that happened for me, newest first: invitations and requests
+/// still waiting for my answer on top, then the rest by day.
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
@@ -84,6 +116,11 @@ class NotificationsScreen extends ConsumerWidget {
       ref.invalidate(notificationsProvider);
     }
 
+    void open(AppNotification n) {
+      if (n.unread) markRead([n.id]);
+      _open(context, ref, n);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l.notificationsTitle),
@@ -95,48 +132,240 @@ class NotificationsScreen extends ConsumerWidget {
       body: AsyncView(
         value: list,
         onRetry: () => ref.invalidate(notificationsProvider),
-        builder: (items) => RefreshIndicator(
-          onRefresh: () => ref.refresh(notificationsProvider.future),
-          child: items.isEmpty
-              ? ListView(
+        builder: (items) {
+          if (items.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: () => ref.refresh(notificationsProvider.future),
+              child: ListView(
+                children: [
+                  const SizedBox(height: 60),
+                  EmptyState(
+                    icon: Icons.notifications_none,
+                    title: l.notificationsEmpty,
+                    body: l.notificationsEmptyHint,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final waiting = [
+            for (final n in items)
+              if (n.awaitsAnswer) n,
+          ];
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final byDay = <String, List<AppNotification>>{};
+          for (final n in items) {
+            if (n.awaitsAnswer) continue;
+            final t = n.createdAt.toLocal();
+            final days = today
+                .difference(DateTime(t.year, t.month, t.day))
+                .inDays;
+            final label = switch (days) {
+              <= 0 => l.today,
+              1 => l.yesterday,
+              _ => l.earlierSection,
+            };
+            byDay.putIfAbsent(label, () => []).add(n);
+          }
+
+          Widget tile(AppNotification n) => _NotificationTile(
+            note: n,
+            // Billing news is about a workspace, so it says which.
+            otherWorkspace: n.workspaceId != ws || n.kind.isBilling,
+            onTap: () => open(n),
+          );
+
+          return RefreshIndicator(
+            onRefresh: () {
+              ref.invalidate(myInvitesProvider);
+              return ref.refresh(notificationsProvider.future);
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              children: [
+                if (waiting.isNotEmpty) ...[
+                  SectionTitle(l.needsAnswerSection),
+                  for (final n in waiting)
+                    _AnswerCard(note: n, onOpen: () => open(n)),
+                ],
+                for (final MapEntry(key: label, value: group)
+                    in byDay.entries) ...[
+                  SectionTitle(label),
+                  TileGroup(children: [for (final n in group) tile(n)]),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Opens what a notification is about, in the workspace it came from.
+Future<void> _open(
+  BuildContext context,
+  WidgetRef ref,
+  AppNotification n,
+) async {
+  final navigator = Navigator.of(context);
+  void push(Widget screen) =>
+      navigator.push(MaterialPageRoute<void>(builder: (_) => screen));
+  Membership? membership() => (ref.read(membershipsProvider).value ?? [])
+      .where((m) => m.workspaceId == n.workspaceId)
+      .firstOrNull;
+
+  switch (n.kind) {
+    case NotificationKind.planRequest:
+      push(const AdminScreen());
+    case _ when n.kind.isBilling:
+      openBilling(context, ref, n.workspaceId);
+    case NotificationKind.invite:
+      if (n.requestStatus == AnswerStatus.accepted && membership() != null) {
+        await openWorkspace(context, ref, n.workspaceId);
+      }
+    case NotificationKind.requestAccepted:
+      // Just let in: the list of workspaces may not have it yet.
+      if (membership() == null) {
+        ref.invalidate(membershipsProvider);
+        await ref.read(membershipsProvider.future);
+      }
+      if (context.mounted && membership() != null) {
+        await openWorkspace(context, ref, n.workspaceId);
+      }
+    case NotificationKind.joinRequest:
+      final m = membership();
+      if (m == null) return;
+      push(
+        n.awaitsAnswer
+            ? JoinRequestsScreen(membership: m)
+            : MembersScreen(membership: m),
+      );
+    case NotificationKind.inviteAccepted:
+      final m = membership();
+      if (m != null) push(MembersScreen(membership: m));
+    case NotificationKind.requestDeclined:
+      break;
+    case _:
+      // A deleted task has nothing left to open.
+      if (n.taskId != null && n.kind != NotificationKind.deleted) {
+        openTask(context, n.workspaceId, n.taskId!);
+      }
+  }
+}
+
+/// An invitation or a request to join that is still open, with the answer
+/// right on it.
+class _AnswerCard extends ConsumerWidget {
+  const _AnswerCard({required this.note, required this.onOpen});
+
+  final AppNotification note;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final n = note;
+    final message = n.kind == NotificationKind.joinRequest
+        ? n.detail?.trim()
+        : null;
+
+    final Widget actions;
+    if (n.kind == NotificationKind.invite) {
+      final invite = (ref.watch(myInvitesProvider).value ?? const <MyInvite>[])
+          .where((i) => i.id == n.inviteId)
+          .firstOrNull;
+      actions = invite == null
+          // Not loaded yet, or no longer open: the start page has the rest.
+          ? OutlinedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const StartScreen(asPage: true),
+                ),
+              ),
+              child: Text(l.view),
+            )
+          : AnswerButtons(
+              onAccept: () => acceptInvite(context, ref, invite),
+              onDecline: () => declineInvite(context, ref, invite),
+            );
+    } else {
+      Future<void> answer(bool accept) => answerJoinRequest(
+        context,
+        ref,
+        workspaceId: n.workspaceId,
+        requestId: n.joinRequestId!,
+        accept: accept,
+      );
+      actions = AnswerButtons(
+        onAccept: () => answer(true),
+        onDecline: () => answer(false),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 60),
-                    EmptyState(
-                      icon: Icons.notifications_none,
-                      title: l.notificationsEmpty,
+                    Avatar(
+                      name: n.kind == NotificationKind.joinRequest
+                          ? n.actorName ?? ''
+                          : n.workspaceName,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            n.workspaceName,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(noteText(l, n)),
+                          if (message != null && message.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                '«$message»',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                  color: muted,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 2),
+                          Text(
+                            listTime(context, n.createdAt),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: muted,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) =>
-                      const Divider(height: 1, indent: 72),
-                  itemBuilder: (context, i) {
-                    final n = items[i];
-                    return _NotificationTile(
-                      note: n,
-                      // Billing news is about a workspace, so it says which.
-                      otherWorkspace: n.workspaceId != ws || n.kind.isBilling,
-                      onTap: () {
-                        if (n.unread) markRead([n.id]);
-                        if (n.kind == NotificationKind.planRequest) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const AdminScreen(),
-                            ),
-                          );
-                        } else if (n.kind.isBilling) {
-                          openBilling(context, ref, n.workspaceId);
-                        } else if (n.taskId != null &&
-                            n.kind != NotificationKind.deleted) {
-                          // A deleted task has nothing left to open.
-                          openTask(context, n.workspaceId, n.taskId!);
-                        }
-                      },
-                    );
-                  },
                 ),
+                const SizedBox(height: 14),
+                actions,
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -164,14 +393,18 @@ class _NotificationTile extends StatelessWidget {
       NotificationKind.overdue ||
       NotificationKind.nudge ||
       NotificationKind.planEnding ||
-      NotificationKind.planExpired => true,
+      NotificationKind.planExpired ||
+      NotificationKind.requestDeclined => true,
       _ => false,
     };
+    // Joining news is about a workspace, so the workspace is its title.
+    final title = n.kind.isJoining ? n.workspaceName : n.taskTitle;
     final where = [
-      if (otherWorkspace) n.workspaceName,
+      if (otherWorkspace && !n.kind.isJoining) n.workspaceName,
       ?n.projectName,
       listTime(context, n.createdAt),
     ].join(' · ');
+    final answer = _answerLabel(l, n);
 
     return Material(
       color: n.unread
@@ -190,7 +423,7 @@ class _NotificationTile extends StatelessWidget {
           ),
         ),
         title: Text(
-          n.taskTitle ?? noteText(l, n),
+          title ?? noteText(l, n),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -200,12 +433,19 @@ class _NotificationTile extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (n.taskTitle != null) Text(noteText(l, n)),
-            Text(
-              where,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(color: muted),
+            if (title != null) Text(noteText(l, n)),
+            Row(
+              children: [
+                if (answer != null) ...[Tag(answer), const SizedBox(width: 6)],
+                Flexible(
+                  child: Text(
+                    where,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

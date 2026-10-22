@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/api.dart';
 import '../data/models.dart';
 import 'settings.dart';
+import 'task_providers.dart' show notificationEventsProvider, refreshOn;
 
 final apiProvider = Provider<WaslaApi>(
   (ref) => throw UnimplementedError('apiProvider must be overridden'),
@@ -42,18 +43,24 @@ final deletedWorkspacesProvider =
       return api.deletedWorkspaces();
     });
 
+/// Invitations waiting for the signed-in user; a new one arrives as a
+/// notification.
 final myInvitesProvider = FutureProvider.autoDispose<List<MyInvite>>((
   ref,
 ) async {
   final api = ref.watch(apiProvider);
+  refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
   if (await _user(ref) == null) return const [];
   return api.myInvites();
 });
 
+/// Requests to join that the signed-in user is still waiting on; the answer
+/// arrives as a notification.
 final myJoinRequestsProvider = FutureProvider.autoDispose<List<MyJoinRequest>>((
   ref,
 ) async {
   final api = ref.watch(apiProvider);
+  refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
   if (await _user(ref) == null) return const [];
   return api.myJoinRequests();
 });
@@ -102,9 +109,12 @@ final sentInvitesProvider = FutureProvider.autoDispose
       return api.sentInvites(workspaceId);
     });
 
+/// People asking to join a workspace, for its admins; each new one arrives
+/// as a notification.
 final joinRequestsProvider = FutureProvider.autoDispose
     .family<List<JoinRequest>, String>((ref, workspaceId) async {
       final api = ref.watch(apiProvider);
+      refreshOn(ref, notificationEventsProvider, ref.invalidateSelf);
       await _user(ref);
       return api.joinRequests(workspaceId);
     });

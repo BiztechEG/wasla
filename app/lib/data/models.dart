@@ -141,6 +141,7 @@ class DeletedWorkspace {
 /// An invitation addressed to the signed-in user.
 class MyInvite {
   const MyInvite({
+    this.id = '',
     required this.token,
     required this.workspaceId,
     required this.workspaceName,
@@ -148,6 +149,7 @@ class MyInvite {
     required this.invitedByName,
   });
 
+  final String id;
   final String token;
   final String workspaceId;
   final String workspaceName;
@@ -155,6 +157,7 @@ class MyInvite {
   final String invitedByName;
 
   factory MyInvite.fromJson(Json json) => MyInvite(
+    id: json['id'] as String? ?? '',
     token: json['token'] as String,
     workspaceId: json['workspace_id'] as String,
     workspaceName: _text(json['workspace_name']),

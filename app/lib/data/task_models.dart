@@ -365,13 +365,27 @@ enum NotificationKind {
   invoice('invoice'),
   planActive('plan_active'),
   planEnding('plan_ending'),
-  planExpired('plan_expired');
+  planExpired('plan_expired'),
+  // Joining a workspace: invitations sent to one, requests to join one's
+  // workspace, and the answers. detail is the role invited to, or the
+  // message sent with a request.
+  invite('invite'),
+  inviteAccepted('invite_accepted'),
+  joinRequest('join_request'),
+  requestAccepted('request_accepted'),
+  requestDeclined('request_declined');
 
   const NotificationKind(this.wire);
 
   final String wire;
 
-  bool get isBilling => index >= planRequest.index;
+  bool get isBilling => index >= planRequest.index && index < invite.index;
+
+  /// About joining a workspace rather than a task or the bill.
+  bool get isJoining => index >= invite.index;
+
+  /// Asks for an answer (Accept or Decline) while it is still open.
+  bool get asksAnswer => this == invite || this == joinRequest;
 
   static NotificationKind? parse(Object? value) {
     for (final k in values) {
@@ -395,6 +409,9 @@ class AppNotification {
     this.actorName,
     this.detail,
     this.readAt,
+    this.inviteId,
+    this.joinRequestId,
+    this.requestStatus,
   });
 
   final String id;
@@ -415,7 +432,36 @@ class AppNotification {
   final DateTime createdAt;
   final DateTime? readAt;
 
+  /// The invitation or join request it is about.
+  final String? inviteId;
+  final String? joinRequestId;
+
+  /// Where that invitation or request stands now.
+  final AnswerStatus? requestStatus;
+
   bool get unread => readAt == null;
+
+  /// An invitation or request one can still accept or decline.
+  bool get awaitsAnswer =>
+      kind.asksAnswer && requestStatus == AnswerStatus.pending;
+
+  AppNotification read(DateTime at) => AppNotification(
+    id: id,
+    kind: kind,
+    taskId: taskId,
+    taskTitle: taskTitle,
+    projectName: projectName,
+    projectColor: projectColor,
+    workspaceId: workspaceId,
+    workspaceName: workspaceName,
+    actorName: actorName,
+    detail: detail,
+    createdAt: createdAt,
+    readAt: readAt ?? at,
+    inviteId: inviteId,
+    joinRequestId: joinRequestId,
+    requestStatus: requestStatus,
+  );
 
   static AppNotification? fromJson(Json json) {
     final kind = NotificationKind.parse(json['kind']);
@@ -433,7 +479,27 @@ class AppNotification {
       detail: json['detail'] as String?,
       createdAt: _time(json['created_at']),
       readAt: _timeOrNull(json['read_at']),
+      inviteId: json['invite_id'] as String?,
+      joinRequestId: json['join_request_id'] as String?,
+      requestStatus: AnswerStatus.parse(json['request_status']),
     );
+  }
+}
+
+/// Where an invitation or a join request stands (pending, answered,
+/// withdrawn or run out).
+enum AnswerStatus {
+  pending,
+  accepted,
+  rejected,
+  cancelled,
+  expired;
+
+  static AnswerStatus? parse(Object? value) {
+    for (final s in values) {
+      if (s.name == value) return s;
+    }
+    return null;
   }
 }
 

@@ -44,6 +44,11 @@ const plans: Record<Locale, Record<string, string>> = {
   en: { Free: "Free", Basic: "Basic", Business: "Business", Enterprise: "Enterprise" },
 };
 
+const roles: Record<Locale, Record<string, string>> = {
+  ar: { admin: "مسؤول", member: "عضو" },
+  en: { admin: "admin", member: "member" },
+};
+
 type Note = (name: string, detail: string, l: Locale) => string;
 
 const notes: Record<Locale, Record<string, Note>> = {
@@ -63,6 +68,11 @@ const notes: Record<Locale, Record<string, Note>> = {
     plan_active: (_, d, l) => `فُعّلت خطة ${plans[l][d] ?? d}`,
     plan_ending: (_, d, l) => `تنتهي خطة ${plans[l][d] ?? d} خلال أسبوع، جدّد الاشتراك للاستمرار`,
     plan_expired: (_, d, l) => `انتهت خطة ${plans[l][d] ?? d} وانتقلت المساحة إلى الخطة المجانية`,
+    invite: (n, d, l) => `دعاك ${n} للانضمام بدور ${roles[l][d] ?? d}، اضغط للرد على الدعوة`,
+    invite_accepted: (n) => `قَبِل ${n} دعوتك وانضم إلى مساحة العمل`,
+    join_request: (n, d) => (d ? `${n} يطلب الانضمام: ${d}` : `${n} يطلب الانضمام إلى مساحة العمل`),
+    request_accepted: () => "قُبل طلبك للانضمام، اضغط لفتح مساحة العمل",
+    request_declined: () => "لم يُقبل طلبك للانضمام إلى مساحة العمل",
     attendance_in: () => "بدأت ورديتك ولم تسجّل حضورك بعد",
     attendance_out: () => "انتهت ورديتك ولم تسجّل انصرافك بعد",
     attendance_review: (
@@ -92,6 +102,11 @@ const notes: Record<Locale, Record<string, Note>> = {
     plan_ending: (_, d, l) => `The ${plans[l][d] ?? d} plan ends within a week; renew to keep it`,
     plan_expired: (_, d, l) =>
       `The ${plans[l][d] ?? d} plan ran out, so the workspace is on the free plan`,
+    invite: (n, d, l) => `${n} invited you to join as ${roles[l][d] ?? d}; tap to answer`,
+    invite_accepted: (n) => `${n} accepted your invitation and joined`,
+    join_request: (n, d) => (d ? `${n} asked to join: ${d}` : `${n} asked to join the workspace`),
+    request_accepted: () => "Your request to join was accepted; tap to open the workspace",
+    request_declined: () => "Your request to join wasn't accepted",
     attendance_in: () => "Your shift has started and you haven't checked in",
     attendance_out: () => "Your shift has ended and you haven't checked out",
     attendance_review: (
@@ -154,7 +169,11 @@ export function format(q: Queued): Shown {
   return {
     title: q.title || appName[l],
     body: note ? note(actor, body, l) : body,
-    tag: data.task ? `task-${data.task}` : `${q.kind}-${ws}`,
+    tag: data.task
+      ? `task-${data.task}`
+      : data.request
+      ? `${q.kind}-${data.request}`
+      : `${q.kind}-${ws}`,
     data,
   };
 }

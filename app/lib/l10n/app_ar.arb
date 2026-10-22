@@ -40,21 +40,11 @@
   "accept": "قبول",
   "decline": "رفض",
   "myRequestsSection": "طلبات بانتظار الموافقة",
-  "waitingForAdmin": "بانتظار موافقة المسؤول",
   "withdraw": "سحب الطلب",
   "createWorkspaceAction": "إنشاء مساحة عمل لشركتك",
   "createWorkspaceHint": "بصفتك المالك يمكنك دعوة فريقك",
   "findWorkspaceAction": "البحث عن مساحة عمل",
   "findWorkspaceHint": "اطلب الانضمام وانتظر موافقة المسؤول",
-  "noInvitesHint": "إذا دعاك فريقك فستظهر الدعوة هنا. يجب الدخول بالبريد نفسه الذي أُرسلت إليه الدعوة.",
-  "signedInAs": "الحساب: {email}",
-  "@signedInAs": {
-    "placeholders": {
-      "email": {
-        "type": "String"
-      }
-    }
-  },
   "newWorkspaceTitle": "مساحة عمل جديدة",
   "companyNameLabel": "اسم الشركة",
   "workspaceNameLabel": "اسم مساحة العمل",
@@ -199,14 +189,6 @@
   "roleLabel": "الدور",
   "addToProjects": "إضافة إلى مشاريع (اختياري)",
   "sendInvite": "إنشاء الدعوة",
-  "inviteSent": "الدعوة جاهزة، وستظهر عند الدخول إلى وصلة بالبريد {email}",
-  "@inviteSent": {
-    "placeholders": {
-      "email": {
-        "type": "String"
-      }
-    }
-  },
   "noJoinRequests": "لا توجد طلبات جديدة",
   "retry": "إعادة المحاولة",
   "errorGeneric": "حدث خطأ. حاول مرة أخرى.",
@@ -1620,5 +1602,49 @@
   "recordedSelf": "بنفسه",
   "outsideRejected": "من خارج الفرع، مرفوض",
   "outsidePending": "من خارج الفرع، للمراجعة",
-  "reportTotal": "الإجمالي"
+  "reportTotal": "الإجمالي",
+  "noteInvite": "دعاك {name} للانضمام بدور {role}",
+  "@noteInvite": {"placeholders": {"name": {"type": "String"}, "role": {"type": "String"}}},
+  "noteInviteAccepted": "قَبِل {name} دعوتك وانضم إلى مساحة العمل",
+  "@noteInviteAccepted": {"placeholders": {"name": {"type": "String"}}},
+  "noteJoinRequest": "{name} يطلب الانضمام",
+  "@noteJoinRequest": {"placeholders": {"name": {"type": "String"}}},
+  "noteRequestAccepted": "قُبل طلبك للانضمام، يمكنك البدء الآن",
+  "noteRequestDeclined": "لم يُقبل طلبك للانضمام",
+  "needsAnswerSection": "بانتظار ردك",
+  "earlierSection": "أقدم",
+  "notificationsEmptyHint": "ستجد هنا المهام المسندة إليك، والدعوات وطلبات الانضمام، وكل ما يحتاج ردك.",
+  "answerAccepted": "تم القبول",
+  "answerDeclined": "مرفوضة",
+  "answerCancelled": "أُلغيت",
+  "answerWithdrawn": "سُحب الطلب",
+  "answerExpired": "انتهت صلاحيتها",
+  "openWorkspace": "فتح مساحة العمل",
+  "review": "مراجعة",
+  "later": "لاحقاً",
+  "view": "عرض",
+  "done": "تم",
+  "bannerInvite": "{name} يدعوك للانضمام إلى {workspace}",
+  "@bannerInvite": {"placeholders": {"name": {"type": "String"}, "workspace": {"type": "String"}}},
+  "bannerInvites": "{count, plural, =1{لديك دعوة للانضمام إلى مساحة عمل} =2{لديك دعوتان للانضمام إلى مساحات عمل} few{لديك {count} دعوات للانضمام إلى مساحات عمل} other{لديك {count} دعوة للانضمام إلى مساحات عمل}}",
+  "@bannerInvites": {"placeholders": {"count": {"type": "int"}}},
+  "bannerJoinRequests": "{count, plural, =1{شخص يطلب الانضمام إلى مساحة العمل} =2{شخصان يطلبان الانضمام إلى مساحة العمل} few{{count} أشخاص يطلبون الانضمام إلى مساحة العمل} many{{count} شخصاً يطلبون الانضمام إلى مساحة العمل} other{{count} شخص يطلبون الانضمام إلى مساحة العمل}}",
+  "@bannerJoinRequests": {"placeholders": {"count": {"type": "int"}}},
+  "joinTeamTitle": "انضم إلى فريقك",
+  "joinTeamBody": "اطلب من مسؤول مساحة العمل في شركتك أن يدعوك بهذا البريد، وستظهر الدعوة هنا فوراً:",
+  "sendMyEmail": "أرسل بريدي للمسؤول",
+  "myEmailShare": "أضفني إلى مساحة العمل على وصلة من فضلك، بريدي: {email}",
+  "@myEmailShare": {"placeholders": {"email": {"type": "String"}}},
+  "orFindWorkspace": "ابحث عن مساحة عمل فريقك",
+  "newCompanySection": "شركتك جديدة على وصلة؟",
+  "requestWaiting": "بانتظار موافقة المسؤول، وسنُعلمك فور الرد",
+  "inviteReadyTitle": "الدعوة جاهزة",
+  "inviteReadyBody": "سيجدها {email} في وصلة عند الدخول بهذا البريد. أرسلها له ليعرف أنها بانتظاره.",
+  "@inviteReadyBody": {"placeholders": {"email": {"type": "String"}}},
+  "shareInvite": "إرسال الدعوة",
+  "inviteShareText": "دعوتك للانضمام إلى {workspace} على وصلة. حمّل التطبيق وادخل بالبريد {email} وستجد الدعوة بانتظارك.",
+  "@inviteShareText": {"placeholders": {"workspace": {"type": "String"}, "email": {"type": "String"}}},
+  "inviteShareLink": "رابط التطبيق: {url}",
+  "@inviteShareLink": {"placeholders": {"url": {"type": "String"}}},
+  "manageSection": "إدارة مساحة العمل"
 }

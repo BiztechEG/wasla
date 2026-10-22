@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import '../state/providers.dart';
+import 'inbox.dart';
 import 'invite_sheet.dart';
 import 'profile_card.dart';
 import 'widgets.dart';
@@ -86,19 +87,39 @@ class MembersScreen extends ConsumerWidget {
                         ),
                         title: LtrLine(invite.contact),
                         subtitle: Text(roleLabel(l, invite.role)),
-                        trailing: IconButton(
-                          tooltip: l.cancelInvite,
-                          icon: const Icon(Icons.close),
-                          onPressed: () async {
-                            final ok = await runAction(
-                              context,
-                              () =>
-                                  ref.read(apiProvider).cancelInvite(invite.id),
-                            );
-                            if (ok && context.mounted) {
-                              ref.invalidate(sentInvitesProvider(ws));
-                            }
-                          },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (invite.email != null)
+                              IconButton(
+                                tooltip: l.shareInvite,
+                                icon: const Icon(Icons.send_outlined),
+                                onPressed: () => shareText(
+                                  context,
+                                  ref,
+                                  inviteMessage(
+                                    context,
+                                    membership.workspaceName,
+                                    invite.email!,
+                                  ),
+                                ),
+                              ),
+                            IconButton(
+                              tooltip: l.cancelInvite,
+                              icon: const Icon(Icons.close),
+                              onPressed: () async {
+                                final ok = await runAction(
+                                  context,
+                                  () => ref
+                                      .read(apiProvider)
+                                      .cancelInvite(invite.id),
+                                );
+                                if (ok && context.mounted) {
+                                  ref.invalidate(sentInvitesProvider(ws));
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
                   ],

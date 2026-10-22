@@ -135,11 +135,65 @@ class FakeApi implements WaslaApi {
   @override
   Future<List<SentInvite>> sentInvites(String workspaceId) async => const [];
 
-  @override
-  Future<List<JoinRequest>> joinRequests(String workspaceId) async => const [];
+  /// People asking to join, by workspace, as its admins see them.
+  final joinRequestsByWorkspace = <String, List<JoinRequest>>{};
+
+  /// Answers given to join requests: the request and whether accepted.
+  final decided = <(String, bool)>[];
 
   @override
-  Future<List<MyJoinRequest>> myJoinRequests() async => const [];
+  Future<List<JoinRequest>> joinRequests(String workspaceId) async =>
+      List.of(joinRequestsByWorkspace[workspaceId] ?? const []);
+
+  /// Requests the signed-in user sent and is waiting on.
+  final myRequests = <MyJoinRequest>[];
+
+  @override
+  Future<List<MyJoinRequest>> myJoinRequests() async => List.of(myRequests);
+
+  /// Invitations sent: workspace and email.
+  final invited = <(String, String)>[];
+
+  /// An admin lets the signed-in user in, as the server would tell them.
+  void admit(String workspaceId, String name) {
+    myRequests.removeWhere((r) => r.workspaceId == workspaceId);
+    memberships.add(membership(workspaceId, name, WorkspaceRole.member));
+    notifyJoining(
+      NotificationKind.requestAccepted,
+      workspaceId: workspaceId,
+      workspaceName: name,
+      actor: 'Mona',
+    );
+  }
+
+  /// Adds a notification about joining a workspace, as the server would.
+  void notifyJoining(
+    NotificationKind kind, {
+    required String workspaceId,
+    required String workspaceName,
+    String? actor,
+    String? detail,
+    String? inviteId,
+    String? joinRequestId,
+    AnswerStatus? status,
+  }) {
+    notificationList.insert(
+      0,
+      AppNotification(
+        id: 'n${_seq++}',
+        kind: kind,
+        workspaceId: workspaceId,
+        workspaceName: workspaceName,
+        actorName: actor,
+        detail: detail,
+        createdAt: _tick(),
+        inviteId: inviteId,
+        joinRequestId: joinRequestId,
+        requestStatus: status,
+      ),
+    );
+    _noteEvents.add(null);
+  }
 
   /// Set per project in tests; otherwise just the signed-in user, as lead.
   final projectMembersById = <String, List<ProjectMember>>{};
@@ -246,7 +300,8 @@ class FakeApi implements WaslaApi {
   @override
   Future<void> requestToJoin(String workspaceId, {String? message}) async {}
   @override
-  Future<void> cancelJoinRequest(String requestId) async {}
+  Future<void> cancelJoinRequest(String requestId) async =>
+      myRequests.removeWhere((r) => r.id == requestId);
   @override
   Future<void> setMemberRole(
     String workspaceId,
@@ -261,14 +316,36 @@ class FakeApi implements WaslaApi {
     required String email,
     required WorkspaceRole role,
     List<String> projectIds = const [],
-  }) async {}
+  }) async => invited.add((workspaceId, email));
   @override
   Future<void> cancelInvite(String inviteId) async {}
   @override
   Future<void> decideJoinRequest(
     String requestId, {
     required bool accept,
-  }) async {}
+  }) async {
+    decided.add((requestId, accept));
+    for (final list in joinRequestsByWorkspace.values) {
+      list.removeWhere((r) => r.id == requestId);
+    }
+    for (var i = 0; i < notificationList.length; i++) {
+      final n = notificationList[i];
+      if (n.joinRequestId != requestId) continue;
+      notificationList[i] = AppNotification(
+        id: n.id,
+        kind: n.kind,
+        workspaceId: n.workspaceId,
+        workspaceName: n.workspaceName,
+        actorName: n.actorName,
+        detail: n.detail,
+        createdAt: n.createdAt,
+        readAt: _clock,
+        joinRequestId: n.joinRequestId,
+        requestStatus: accept ? AnswerStatus.accepted : AnswerStatus.rejected,
+      );
+    }
+  }
+
   @override
   Future<void> setProjectStatus(String projectId, ProjectStatus status) async {}
   @override
@@ -1311,20 +1388,7 @@ class FakeApi implements WaslaApi {
     for (var i = 0; i < notificationList.length; i++) {
       final n = notificationList[i];
       if (ids != null && !ids.contains(n.id)) continue;
-      notificationList[i] = AppNotification(
-        id: n.id,
-        kind: n.kind,
-        taskId: n.taskId,
-        taskTitle: n.taskTitle,
-        projectName: n.projectName,
-        projectColor: n.projectColor,
-        workspaceId: n.workspaceId,
-        workspaceName: n.workspaceName,
-        actorName: n.actorName,
-        detail: n.detail,
-        createdAt: n.createdAt,
-        readAt: n.readAt ?? _clock,
-      );
+      notificationList[i] = n.read(_clock);
     }
   }
 
