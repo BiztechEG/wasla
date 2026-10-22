@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import '../state/providers.dart';
+import 'inbox.dart';
 import 'widgets.dart';
 
 /// People asking to join; admins accept or decline each one.
@@ -14,34 +15,8 @@ class JoinRequestsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final theme = Theme.of(context);
     final ws = membership.workspaceId;
     final requests = ref.watch(joinRequestsProvider(ws));
-    final localizations = MaterialLocalizations.of(context);
-    final faint = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-
-    Future<void> decide(JoinRequest r, bool accept) async {
-      if (!accept &&
-          !await confirm(
-            context,
-            message: l.confirmDecline,
-            action: l.decline,
-            destructive: true,
-          )) {
-        return;
-      }
-      if (!context.mounted) return;
-      final ok = await runAction(
-        context,
-        () => ref.read(apiProvider).decideJoinRequest(r.id, accept: accept),
-      );
-      if (ok && context.mounted) {
-        ref.invalidate(joinRequestsProvider(ws));
-        ref.invalidate(membersProvider(ws));
-      }
-    }
 
     return Scaffold(
       appBar: AppBar(title: Text(l.joinRequests)),
@@ -64,71 +39,82 @@ class JoinRequestsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final r = list[i];
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Avatar(name: r.fullName),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        r.fullName,
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      if (r.email != null)
-                                        LtrLine(r.email!, style: faint),
-                                      Text(
-                                        localizations.formatMediumDate(
-                                          r.createdAt.toLocal(),
-                                        ),
-                                        style: faint,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (r.message != null && r.message!.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              Text(r.message!),
-                            ],
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: BusyButton(
-                                    label: l.accept,
-                                    onPressed: () => decide(r, true),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () => decide(r, false),
-                                    child: Text(l.decline),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                  itemBuilder: (context, i) =>
+                      JoinRequestCard(workspaceId: ws, request: list[i]),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Someone asking to join: who, when, their message, and the answer.
+class JoinRequestCard extends ConsumerWidget {
+  const JoinRequestCard({
+    super.key,
+    required this.workspaceId,
+    required this.request,
+  });
+
+  final String workspaceId;
+  final JoinRequest request;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final r = request;
+    final faint = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    Future<void> answer(bool accept) => answerJoinRequest(
+      context,
+      ref,
+      workspaceId: workspaceId,
+      requestId: r.id,
+      accept: accept,
+    );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Avatar(name: r.fullName),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        r.fullName,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    );
-                  },
+                      if (r.email != null) LtrLine(r.email!, style: faint),
+                      Text(
+                        MaterialLocalizations.of(context)
+                            .formatMediumDate(r.createdAt.toLocal()),
+                        style: faint,
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+            ),
+            if (r.message != null && r.message!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(r.message!),
+            ],
+            const SizedBox(height: 14),
+            AnswerButtons(
+              onAccept: () => answer(true),
+              onDecline: () => answer(false),
+            ),
+          ],
         ),
       ),
     );

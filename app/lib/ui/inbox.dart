@@ -9,7 +9,7 @@ import '../data/models.dart';
 import '../state/chat_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
-import 'join_requests_screen.dart';
+import 'approvals_screen.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
 
@@ -217,7 +217,7 @@ final dismissedBannersProvider =
     NotifierProvider<DismissedBanners, Set<String>>(DismissedBanners.new);
 
 /// On the home screen, what waits for an answer from me: invitations to
-/// other workspaces, then (for admins) people asking to join this one. One
+/// other workspaces, then what waits for my approval in this one. One
 /// banner at a time, each with its next step on it.
 class PendingBanner extends ConsumerWidget {
   const PendingBanner({super.key, required this.membership});
@@ -236,14 +236,11 @@ class PendingBanner extends ConsumerWidget {
       for (final i in ref.watch(myInvitesProvider).value ?? <MyInvite>[])
         if (!mine.contains(i.workspaceId) && !dismissed.contains(i.token)) i,
     ];
-    final ws = membership.workspaceId;
-    final requests = membership.role.canManage
-        ? [
-            for (final r
-                in ref.watch(joinRequestsProvider(ws)).value ?? <JoinRequest>[])
-              if (!dismissed.contains(r.id)) r,
-          ]
-        : const <JoinRequest>[];
+    final approvals = ref.watch(approvalsProvider(membership.workspaceId));
+    final waiting = [
+      for (final k in approvals.keys)
+        if (!dismissed.contains(k)) k,
+    ];
 
     void later(Iterable<String> keys) =>
         ref.read(dismissedBannersProvider.notifier).dismiss(keys);
@@ -271,14 +268,14 @@ class PendingBanner extends ConsumerWidget {
         onAction: () async => push(const StartScreen(asPage: true)),
         onLater: () => later(invites.map((i) => i.token)),
       );
-    } else if (requests.isNotEmpty) {
+    } else if (waiting.isNotEmpty) {
       banner = _Banner(
-        key: const Key('joinRequestsBanner'),
-        icon: LucideIcons.userPlus,
-        text: l.bannerJoinRequests(requests.length),
+        key: const Key('approvalsBanner'),
+        icon: LucideIcons.listChecks,
+        text: l.bannerApprovals(approvals.count),
         action: l.review,
-        onAction: () async => push(JoinRequestsScreen(membership: membership)),
-        onLater: () => later(requests.map((r) => r.id)),
+        onAction: () async => openApprovals(context, membership),
+        onLater: () => later(waiting),
       );
     } else {
       banner = null;

@@ -1429,7 +1429,6 @@
   "done": "Done",
   "bannerInvite": "{name} invited you to {workspace}",
   "bannerInvites": "{count, plural, =1{You have an invitation to a workspace} other{You have {count} invitations to workspaces}}",
-  "bannerJoinRequests": "{count, plural, =1{1 person is asking to join this workspace} other{{count} people are asking to join this workspace}}",
   "joinTeamTitle": "Join your team",
   "joinTeamBody": "Ask your company's workspace admin to invite this email. The invitation shows up here right away:",
   "sendMyEmail": "Send my email to the admin",
@@ -1462,5 +1461,10 @@
   "joinCodeJoins": "You'll join straight away as a member.",
   "joinCodeAsks": "Your request goes to the admins to approve.",
   "joinCodeRequested": "You already asked; it's waiting for approval.",
-  "joinNow": "Join now"
+  "joinNow": "Join now",
+  "approvalsTitle": "Waiting for your approval",
+  "approvalsHint": "Requests to join, attendance and tasks to review",
+  "approvalsEmptyBody": "Requests to join, check-ins from outside, corrections and tasks waiting for your review all show up here.",
+  "tasksToReview": "Tasks to review",
+  "bannerApprovals": "{count, plural, =1{1 item is waiting for your approval} other{{count} items are waiting for your approval}}"
 }

@@ -95,11 +95,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('joinRequestsBanner')), findsOneWidget);
-    expect(
-      find.text('1 person is asking to join this workspace'),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('approvalsBanner')), findsOneWidget);
+    expect(find.text('1 item is waiting for your approval'), findsOneWidget);
 
     await _openBell(tester);
     expect(find.text('Waiting for your answer'), findsOneWidget);

@@ -1628,8 +1628,6 @@
   "@bannerInvite": {"placeholders": {"name": {"type": "String"}, "workspace": {"type": "String"}}},
   "bannerInvites": "{count, plural, =1{لديك دعوة للانضمام إلى مساحة عمل} =2{لديك دعوتان للانضمام إلى مساحات عمل} few{لديك {count} دعوات للانضمام إلى مساحات عمل} other{لديك {count} دعوة للانضمام إلى مساحات عمل}}",
   "@bannerInvites": {"placeholders": {"count": {"type": "int"}}},
-  "bannerJoinRequests": "{count, plural, =1{شخص يطلب الانضمام إلى مساحة العمل} =2{شخصان يطلبان الانضمام إلى مساحة العمل} few{{count} أشخاص يطلبون الانضمام إلى مساحة العمل} many{{count} شخصاً يطلبون الانضمام إلى مساحة العمل} other{{count} شخص يطلبون الانضمام إلى مساحة العمل}}",
-  "@bannerJoinRequests": {"placeholders": {"count": {"type": "int"}}},
   "joinTeamTitle": "انضم إلى فريقك",
   "joinTeamBody": "اطلب من مسؤول مساحة العمل في شركتك أن يدعوك بهذا البريد، وستظهر الدعوة هنا فوراً:",
   "sendMyEmail": "أرسل بريدي للمسؤول",
@@ -1669,5 +1667,11 @@
   "joinCodeJoins": "ستنضم مباشرة كعضو.",
   "joinCodeAsks": "سيصل طلبك إلى المسؤولين للموافقة.",
   "joinCodeRequested": "أرسلت طلباً بالفعل، وهو بانتظار الموافقة.",
-  "joinNow": "انضم الآن"
+  "joinNow": "انضم الآن",
+  "approvalsTitle": "بانتظار موافقتك",
+  "approvalsHint": "طلبات الانضمام والحضور والمهام للمراجعة",
+  "approvalsEmptyBody": "طلبات الانضمام، والحضور من خارج الفرع، وطلبات التصحيح، والمهام التي تنتظر مراجعتك، كلها تظهر هنا.",
+  "tasksToReview": "مهام للمراجعة",
+  "bannerApprovals": "{count, plural, =1{طلب واحد بانتظار موافقتك} =2{طلبان بانتظار موافقتك} few{{count} طلبات بانتظار موافقتك} many{{count} طلباً بانتظار موافقتك} other{{count} طلب بانتظار موافقتك}}",
+  "@bannerApprovals": {"placeholders": {"count": {"type": "int"}}}
 }

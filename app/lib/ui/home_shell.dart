@@ -12,6 +12,7 @@ import '../state/chat_providers.dart';
 import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/task_providers.dart';
+import 'approvals_screen.dart';
 import 'chats_tab.dart';
 import 'inbox.dart';
 import 'modern.dart';
@@ -89,16 +90,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         .length;
 
     // What waits for my answer in the "more" tab: invitations to other
-    // workspaces, and for admins people asking to join this one.
+    // workspaces, and what waits for my approval in this one.
     final waiting =
         (ref.watch(myInvitesProvider).value?.length ?? 0) +
-        (membership.role.canManage
-            ? ref
-                      .watch(joinRequestsProvider(membership.workspaceId))
-                      .value
-                      ?.length ??
-                  0
-            : 0);
+        ref.watch(approvalsProvider(membership.workspaceId)).count;
 
     final theme = Theme.of(context);
     final titles = [l.tabChats, l.tabProjects, l.tabMyTasks, l.tabMore];

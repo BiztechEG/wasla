@@ -11,6 +11,7 @@ import '../state/settings.dart';
 import '../state/task_providers.dart';
 import '../state/attendance_providers.dart';
 import 'admin_screen.dart';
+import 'approvals_screen.dart';
 import 'attendance_screen.dart';
 import 'attendance_setup_screen.dart';
 import 'attendance_team_screen.dart';
@@ -44,6 +45,7 @@ class MoreTab extends ConsumerWidget {
         ? ref.watch(joinRequestsProvider(ws)).value
         : null;
     final invites = ref.watch(myInvitesProvider).value ?? const <MyInvite>[];
+    final approvals = ref.watch(approvalsProvider(ws)).count;
     final attendance = ref.watch(attendanceTodayProvider(ws)).value;
     final attendanceOn = attendance?.enabled ?? false;
 
@@ -110,6 +112,21 @@ class MoreTab extends ConsumerWidget {
               subtitle: seats == null ? null : Text(seats),
               trailing: Tag(roleLabel(l, membership.role), strong: true),
             ),
+            if (canManage || (attendance?.isManager ?? false) || approvals > 0)
+              ListTile(
+                key: const Key('approvalsTile'),
+                leading: const Icon(Icons.fact_check_outlined),
+                title: Text(l.approvalsTitle),
+                subtitle: Text(l.approvalsHint),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (approvals > 0) Badge(label: Text('$approvals')),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () => openApprovals(context, membership),
+              ),
             ListTile(
               leading: const Icon(Icons.groups_outlined),
               title: Text(l.members),

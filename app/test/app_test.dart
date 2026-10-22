@@ -228,7 +228,11 @@ void main() {
 
     await tester.tap(find.byTooltip('المزيد'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('الأعضاء'));
+    final members = find.text('الأعضاء');
+    await tester.scrollUntilVisible(members, 100);
+    await Scrollable.ensureVisible(tester.element(members), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(members);
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();

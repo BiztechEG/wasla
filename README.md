@@ -68,6 +68,10 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - Invitations, requests to join and their answers are notifications like any other: the invited person (as soon as they have an account), every owner and admin of the workspace for a request, the person asking for the answer, and the inviting admin when it is accepted. Once answered, withdrawn or cancelled, they count as read for everyone.
 - Open ones show on top of the bell with Accept and Decline on them, as a banner on the home screen, in the workspace switcher and on the start page. Someone waiting for an answer moves into the workspace as soon as they are accepted.
 
+## Approvals
+
+- **More > Waiting for your approval** gathers, for the workspace on screen, everything that waits for the signed-in person: requests to join (owners and admins), check-ins from outside a branch and attendance corrections (attendance managers), and tasks in review that they may close (their own, and every task in the projects they lead). Each is answered right there. A banner on the home screen and a count on More say when something is waiting.
+
 ## Chats and files
 
 - Every project has a group chat for its members. Private chats are between two people only: workspace owners and admins cannot read them, and a private message can be tagged with a project the two people share so it shows under that project.
