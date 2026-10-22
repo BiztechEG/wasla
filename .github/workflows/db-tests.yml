@@ -1,13 +1,21 @@
 name: Database tests
 
+# Runs on pull requests that touch the database or its functions; on main,
+# the deploy workflow runs the same tests before deploying. A new push to a
+# pull request cancels the run for the push before it.
 on:
   pull_request:
-  push:
-    branches: [main]
+    paths: ['supabase/**', '.github/workflows/db-tests.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: db-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   db-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Run migrations and permission tests
@@ -15,6 +23,7 @@ jobs:
 
   functions:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: supabase/functions

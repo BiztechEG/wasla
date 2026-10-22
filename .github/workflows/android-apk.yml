@@ -1,19 +1,16 @@
 name: Android test build
 
 # Builds an installable APK for testing on Android phones before the app is
-# in the Play Store. Download it from the run's Artifacts section.
+# in the Play Store. Run it by hand (Actions > Android test build > Run
+# workflow, on any branch) and download the APK from the run's Artifacts.
+# It no longer runs on every change: an APK build is the costliest job, and
+# site.yml already builds the published one on main.
 # Once the app's signing key is set up (see android-key.yml), builds are signed
 # with it and install over each other; until then each build has a throwaway
 # key, so uninstall the previous test build first. The public download on the
 # website is built by site.yml.
 
-on:
-  pull_request:
-    paths: ['app/**', '.github/workflows/android-apk.yml', '.github/scripts/android-signing.sh']
-  push:
-    branches: [main]
-    paths: ['app/**', '.github/workflows/android-apk.yml', '.github/scripts/android-signing.sh']
-  workflow_dispatch:
+on: workflow_dispatch
 
 jobs:
   apk:

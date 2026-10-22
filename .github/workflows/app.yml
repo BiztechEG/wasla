@@ -1,15 +1,21 @@
 name: App checks
 
+# Runs on pull requests only: what reaches main went through one, and the
+# website workflow builds the app again there anyway. A new push to a pull
+# request cancels the run for the push before it.
 on:
   pull_request:
     paths: ['app/**', '.github/workflows/app.yml']
-  push:
-    branches: [main]
-    paths: ['app/**', '.github/workflows/app.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: app

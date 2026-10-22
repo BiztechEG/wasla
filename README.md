@@ -35,11 +35,13 @@ flutter run --dart-define=SUPABASE_URL=https://... --dart-define=SUPABASE_KEY=..
 
 Checks: `flutter analyze` and `flutter test` inside `app/`.
 
+To spare Actions minutes, the checks run on pull requests only (the app's when `app/` changes, the database's when `supabase/` changes), a new push to a pull request cancels the run for the push before it, and the Android test build runs only by hand. On main, only the website and database deploys run (each builds or tests what it ships).
+
 The same app runs in a browser: `flutter run -d chrome`, or `flutter build web --release --no-web-resources-cdn` for files any web host can serve (the result is in `app/build/web`; add `--base-href /app/` when it is served from a folder).
 
 ### Try it on an Android phone
 
-The **Android test build** workflow builds an APK on every change to the app (and on demand from the Actions tab). Open the run, download `wasla-android-N` under Artifacts, unzip it and install `app-release.apk` on the phone (Android asks to allow installing from that source once). Until the app's signing key is set up (see [The website](#the-website)), each build is signed with a throwaway key, so uninstall the previous test build first. iPhone builds wait for the Apple developer account.
+The **Android test build** workflow builds an APK on demand: Actions > Android test build > Run workflow, on any branch (it no longer runs on every change, to save Actions minutes). Open the run, download `wasla-android-N` under Artifacts, unzip it and install `app-release.apk` on the phone (Android asks to allow installing from that source once). Until the app's signing key is set up (see [The website](#the-website)), each build is signed with a throwaway key, so uninstall the previous test build first. iPhone builds wait for the Apple developer account.
 
 Sign-in uses a 6-digit email code. In the Supabase dashboard (Authentication > Email Templates), both the **Confirm signup** template (first sign-in) and the **Magic Link** template (later sign-ins) must include `{{ .Token }}` so the code is in the email. Supabase's built-in email sender only reaches the project's team members, and on new free projects it also locks the templates to a link-only default. So connect an SMTP provider first (Authentication > Emails > SMTP Settings), then edit the two templates.
 

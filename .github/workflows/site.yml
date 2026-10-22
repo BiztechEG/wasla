@@ -31,8 +31,11 @@ on:
       - '.github/scripts/**'
   workflow_dispatch:
 
+# On main, uploads wait their turn rather than stop halfway; a pull request's
+# new push cancels the check for the push before it.
 concurrency:
   group: website-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   site:
