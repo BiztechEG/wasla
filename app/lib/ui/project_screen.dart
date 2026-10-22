@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/chat_providers.dart';
@@ -10,6 +11,7 @@ import 'chats_tab.dart';
 import 'files_view.dart';
 import 'followup_screen.dart';
 import 'project_overview.dart';
+import 'task_editor.dart';
 import 'widgets.dart';
 
 /// The project screen's tabs, in order.
@@ -80,7 +82,7 @@ class ProjectScreen extends ConsumerWidget {
             if (canEdit && active)
               IconButton(
                 tooltip: l.followUp,
-                icon: const Icon(Icons.insights_outlined),
+                icon: const Icon(LucideIcons.chartLine),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => FollowUpScreen(
@@ -92,7 +94,7 @@ class ProjectScreen extends ConsumerWidget {
               ),
             IconButton(
               tooltip: l.projectMembersAction,
-              icon: const Icon(Icons.group_outlined),
+              icon: const Icon(LucideIcons.users),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => _MembersScreen(project: current),
@@ -101,6 +103,7 @@ class ProjectScreen extends ConsumerWidget {
             ),
             if (isAdmin)
               PopupMenuButton<ProjectStatus>(
+                icon: const Icon(LucideIcons.ellipsisVertical),
                 onSelected: setStatus,
                 itemBuilder: (_) => [
                   if (current.status != ProjectStatus.active)
@@ -156,7 +159,7 @@ class ProjectScreen extends ConsumerWidget {
                       ),
                       builder: (id) => id == null
                           ? EmptyState(
-                              icon: Icons.lock_outline,
+                              icon: LucideIcons.lock,
                               title: l.errorNotAllowed,
                             )
                           : ChatView(
@@ -208,6 +211,7 @@ bool _canEdit(WidgetRef ref, Project project) {
   final isAdmin = ref.watch(currentMembershipProvider)?.role.canManage ?? false;
   final members = ref.watch(projectMembersProvider(project.id)).value;
   return isAdmin ||
+      managesDepartment(ref, project.workspaceId, project.departmentId) ||
       (members?.any((m) => m.userId == me && m.role == ProjectRole.lead) ??
           false);
 }
@@ -249,7 +253,7 @@ class _StatusBanner extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              archived ? Icons.inventory_2_outlined : Icons.lock_outline,
+              archived ? LucideIcons.archive : LucideIcons.lock,
               size: 18,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -306,7 +310,7 @@ class _MembersTab extends ConsumerWidget {
                       existing: {for (final m in list) m.userId},
                     ),
                   ),
-                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                  icon: const Icon(LucideIcons.userPlus),
                   label: Text(l.addMember),
                 ),
               ),
@@ -377,6 +381,7 @@ class _MemberMenu extends ConsumerWidget {
     final isLead = member.role == ProjectRole.lead;
 
     return PopupMenuButton<String>(
+      icon: const Icon(LucideIcons.ellipsisVertical),
       onSelected: (action) async {
         if (action == 'remove' &&
             !await confirm(
@@ -449,7 +454,7 @@ class _AddMemberSheet extends ConsumerWidget {
                       .toList();
                   if (candidates.isEmpty) {
                     return EmptyState(
-                      icon: Icons.groups_outlined,
+                      icon: LucideIcons.users,
                       title: l.everyoneAdded,
                     );
                   }
@@ -464,7 +469,7 @@ class _AddMemberSheet extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: LtrLine(m.contact),
-                          trailing: const Icon(Icons.add_circle_outline),
+                          trailing: const Icon(LucideIcons.circlePlus),
                           onTap: () async {
                             final ok = await runAction(
                               context,

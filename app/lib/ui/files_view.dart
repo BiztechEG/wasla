@@ -157,7 +157,7 @@ class _ProjectFilesViewState extends ConsumerState<ProjectFilesView> {
                           Padding(
                             padding: const EdgeInsets.only(top: 40),
                             child: EmptyState(
-                              icon: Icons.folder_open_outlined,
+                              icon: LucideIcons.folderOpen,
                               title: l.filesEmpty,
                               body: l.filesEmptyBody,
                             ),
@@ -234,7 +234,7 @@ class _ProjectFilesViewState extends ConsumerState<ProjectFilesView> {
         _Action('goto', LucideIcons.messageSquareShare, l.goToMessage),
       _Action('download', LucideIcons.download, l.download),
       if (allowShare) _Action('share', LucideIcons.share2, l.share),
-      _Action('drive', Icons.add_to_drive_outlined, l.saveToDrive),
+      _Action('drive', LucideIcons.cloudUpload, l.saveToDrive),
       if (canPin)
         _Action(
           'pin',
@@ -457,7 +457,7 @@ class _Thumb extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
-          file.isVideo ? Icons.play_arrow_rounded : LucideIcons.mic,
+          file.isVideo ? LucideIcons.play : LucideIcons.mic,
           color: file.isVideo ? Colors.white : scheme.primary,
         ),
       );

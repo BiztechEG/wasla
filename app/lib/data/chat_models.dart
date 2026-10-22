@@ -140,6 +140,7 @@ class ChatMessage {
     this.fromFiles = false,
     this.replyCount = 0,
     this.repliers = const [],
+    this.poll,
   });
 
   final String id;
@@ -173,6 +174,9 @@ class ChatMessage {
   /// Who wrote the latest replies, latest first (up to three).
   final List<String> repliers;
 
+  /// Set when the message asks the chat a question; [body] is the question.
+  final Poll? poll;
+
   /// A copy with [userId]'s [emoji] reaction added, or taken back.
   ChatMessage withReaction(String emoji, String userId) {
     final next = {for (final e in reactions.entries) e.key: List.of(e.value)};
@@ -186,6 +190,7 @@ class ChatMessage {
     Map<String, List<String>>? reactions,
     int? replyCount,
     List<String>? repliers,
+    Poll? poll,
   }) => ChatMessage(
     id: id,
     senderId: senderId,
@@ -204,6 +209,7 @@ class ChatMessage {
     fromFiles: fromFiles,
     replyCount: replyCount ?? this.replyCount,
     repliers: repliers ?? this.repliers,
+    poll: poll ?? this.poll,
   );
 
   factory ChatMessage.fromJson(Json json) => ChatMessage(
@@ -242,7 +248,97 @@ class ChatMessage {
       for (final id in (json['repliers'] as List? ?? const []))
         if (id != null) id as String,
     ],
+    poll: json['poll'] is Map
+        ? Poll.fromJson(Json.from(json['poll'] as Map))
+        : null,
   );
+}
+
+/// A question to the chat: its options, and who picked each.
+class Poll {
+  const Poll({
+    required this.options,
+    this.multiple = false,
+    this.closed = false,
+    this.votes = const {},
+  });
+
+  final List<String> options;
+
+  /// More than one option may be picked.
+  final bool multiple;
+
+  /// No longer taking votes.
+  final bool closed;
+
+  /// Who picked each option, by its place.
+  final Map<int, List<String>> votes;
+
+  List<String> votersOf(int option) => votes[option] ?? const [];
+
+  /// Everyone who answered.
+  Set<String> get voters => {for (final v in votes.values) ...v};
+
+  /// The options [userId] picked.
+  Set<int> picksOf(String? userId) => {
+    for (final e in votes.entries)
+      if (e.value.contains(userId)) e.key,
+  };
+
+  /// A copy with [userId]'s answer replaced by [picks].
+  Poll withVote(String userId, Set<int> picks) => Poll(
+    options: options,
+    multiple: multiple,
+    closed: closed,
+    votes: {
+      for (var i = 0; i < options.length; i++)
+        if ([
+              ...votersOf(i).where((u) => u != userId),
+              if (picks.contains(i)) userId,
+            ]
+            case final users when users.isNotEmpty)
+          i: users,
+    },
+  );
+
+  Poll closedCopy() =>
+      Poll(options: options, multiple: multiple, closed: true, votes: votes);
+
+  factory Poll.fromJson(Json json) => Poll(
+    options: [for (final o in json['options'] as List? ?? const []) '$o'],
+    multiple: json['multiple'] as bool? ?? false,
+    closed: json['closed'] as bool? ?? false,
+    votes: {
+      for (final e in ((json['votes'] as Map?) ?? const {}).entries)
+        ?int.tryParse('${e.key}'): [
+          for (final id in e.value as List) id as String,
+        ],
+    },
+  );
+}
+
+/// A chat's pinned message, and whether one may change it.
+class PinnedMessage {
+  const PinnedMessage({
+    required this.messageId,
+    required this.senderName,
+    this.body,
+    this.fileName,
+  });
+
+  final String messageId;
+  final String senderName;
+  final String? body;
+  final String? fileName;
+}
+
+/// What is pinned in a chat ([message] null: nothing), and whether one may
+/// pin or take it down.
+class ChatPin {
+  const ChatPin({this.message, this.canPin = false});
+
+  final PinnedMessage? message;
+  final bool canPin;
 }
 
 /// How far someone has read a chat.
@@ -361,12 +457,16 @@ class Announcement {
     this.needsAck = false,
     this.ackedByMe = false,
     this.ackCount = 0,
+    this.broadcastId,
   });
 
   final String id;
   final String? projectId;
   final String body;
   final bool pinned;
+
+  /// Set when it went to several workspaces at once.
+  final String? broadcastId;
 
   /// Its readers are asked to confirm they have read it.
   final bool needsAck;
@@ -392,6 +492,32 @@ class Announcement {
     audience: json['audience'] as int? ?? 0,
     needsAck: json['needs_ack'] as bool? ?? false,
     ackedByMe: json['acked_by_me'] as bool? ?? false,
+    ackCount: json['ack_count'] as int? ?? 0,
+    broadcastId: json['broadcast_id'] as String?,
+  );
+}
+
+/// How an announcement sent to several workspaces is doing in one of them.
+class BroadcastReach {
+  const BroadcastReach({
+    required this.workspaceId,
+    required this.workspaceName,
+    this.audience = 0,
+    this.readCount = 0,
+    this.ackCount = 0,
+  });
+
+  final String workspaceId;
+  final String workspaceName;
+  final int audience;
+  final int readCount;
+  final int ackCount;
+
+  factory BroadcastReach.fromJson(Json json) => BroadcastReach(
+    workspaceId: json['workspace_id'] as String,
+    workspaceName: _text(json['workspace_name']),
+    audience: json['audience'] as int? ?? 0,
+    readCount: json['read_count'] as int? ?? 0,
     ackCount: json['ack_count'] as int? ?? 0,
   );
 }

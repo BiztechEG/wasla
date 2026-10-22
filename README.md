@@ -70,6 +70,14 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - Invitations, requests to join and their answers are notifications like any other: the invited person (as soon as they have an account), every owner and admin of the workspace for a request, the person asking for the answer, and the inviting admin when it is accepted. Once answered, withdrawn or cancelled, they count as read for everyone.
 - Open ones show on top of the bell with Accept and Decline on them, as a banner on the home screen, in the workspace switcher and on the start page. Someone waiting for an answer moves into the workspace as soon as they are accepted.
 
+## First steps
+
+- Owners and admins of a new workspace get a **Get started** card on the home screen: a first project, the team invited (by email or the join link), attendance on, and a first announcement. It shows the next step only (all of them on asking), ticks each one when it is done anywhere in the app (`workspace_setup()`), and goes away once all are done or it is closed.
+
+## My day
+
+- On top of the chats tab, **My day** shows what needs the signed-in person today in the workspace on screen: their late tasks and tasks due today (both open My tasks), unread mentions (opens the chat that mentioned them) and announcements waiting for their acknowledgement. It is not shown when there is none.
+
 ## Approvals
 
 - **More > Waiting for your approval** gathers, for the workspace on screen, everything that waits for the signed-in person: requests to join (owners and admins), check-ins from outside a branch and attendance corrections (attendance managers), and tasks in review that they may close (their own, and every task in the projects they lead). Each is answered right there. A banner on the home screen and a count on More say when something is waiting.
@@ -78,12 +86,25 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 
 - **More > Management dashboard** shows company owners every workspace of their companies, and workspace owners and admins the workspaces they run, side by side: people, open, late and in-review tasks, tasks done this week against the week before, project chat activity (messages and how many people wrote), today's attendance, and each project's progress. It comes from `management_overview()`, which counts and never reads: no message text, and private chats are not counted at all.
 
+## Announcements to several workspaces
+
+- A workspace-wide announcement can also go to the other workspaces one owns or administers ("Also send to"). Each gets its own copy for its people, sharing a `broadcast_id`; on it, "Follow up" shows, per workspace, how many it was for, read it and confirmed it (`post_broadcast()`, `broadcast_reach()`).
+
+## Weekly report
+
+- Every Sunday at 06:00 UTC (`send_weekly_reports()` on pg_cron), whoever runs a workspace (owners, admins, the company's owner) or a department gets last week's numbers from the dashboard: tasks done against the week before, open and late, in review, and late arrivals where attendance is on. One notification per workspace (it opens the dashboard) and one email with all of them, through the same `email` function as invitations. My account > Weekly report turns it off.
+
+## Departments
+
+- **More > Departments** (owners and admins): a department groups projects and names their managers. A department manager sees every project of the department and runs it as its leads do (tasks, people, files, the chat, approvals), without being on its team or getting the workspace's admin rights, and follows it on the dashboard (department's projects only, no attendance). It is done in `can_see_project()`, `is_project_lead()` and the lists built on them (`20261102000001_departments.sql`).
+
 ## My account and notification controls
 
 - The picture in the top bar opens **My account**: one's name, quiet hours, Google, appearance, language and signing out. More keeps only the workspace's things.
 - **Quiet hours** (for example 22:00 to 07:00, in the phone's time zone, kept up to date when it changes) keep everything off the phone; the bell and the app's counts still have it all.
 - **Muting a chat** (8 hours, a week, or until unmuted) from the bell at the top of the chat keeps its messages off the phone; mentions still come through. Muted chats are marked in the list.
 - Both are applied in `queue_push()`, where every phone notification is queued.
+- **My status** (My account): available, in a meeting, busy or on leave, with a note and until when (an hour, the end of the day, a day picked, or until changed). Coworkers see it on one's card and at the top of a private chat; on leave, the note shows above the message field of whoever writes privately. It is kept in `user_status` and read per workspace with `workspace_statuses()`.
 
 ## Chats and files
 
@@ -92,12 +113,23 @@ It needs two repository secrets under Settings > Secrets and variables > Actions
 - New messages and read marks arrive live through Supabase Realtime (the `messages` and `conversation_reads` tables are in the `supabase_realtime` publication; what each person receives still follows the database permissions).
 - Files deleted from a chat, a project or a task, and uploads that were never sent, are removed from storage the next night by the Edge Function `cleanup` (run by the `pg_cron` job `wasla-file-cleanup`), so they stop counting against the plan.
 
+- **Polls**: from the attach button, a question with 2 to 10 options (one answer, or more if allowed). Votes are kept on the message (`messages.poll`), so they reach everyone live like reactions; whoever asked, or runs the project, closes it.
+- **Pinned message**: one per chat, shown on top of it and a tap from the message. Either person pins in a private chat; in a project's chat, whoever runs the project.
+- **In a browser**: files dragged from the computer onto a chat are sent like attached ones (five at a time, 50 MB each). Tapping a file the app can't show itself (text, web pages, PDFs…) downloads it rather than opening a new tab. On a wide window, the phone button in the top bar (or My account) shows the app as wide as a phone in the middle of the window.
+
 ## Phone notifications
 
 - New chat messages, announcements, and everything the bell shows (tasks, reminders, billing) reach the phones of the people concerned through Firebase Cloud Messaging, written in each phone's app language. Tapping one opens the chat, task or announcements it is about. They don't show while the app is open; the app updates live instead.
 - The app registers its phone with `register_push_token` at every start and language change, and removes it on sign-out. Triggers queue a row in `push_outbox` per person with a phone; the Edge Function `push` sends them. The database calls it through `pg_net` as soon as something is queued, and the `pg_cron` job `wasla-push` retries every minute (three tries, nothing over an hour late).
 - The functions prove themselves with the key in `push_config`; its `base_url` points at the hosted project's functions and must change when the database moves to its own server.
 - Setup: the Android app's settings from Firebase's `google-services.json` are in `app/lib/push/firebase_options.dart` (Firebase project `wasla-a114f`), and the repository secret `FIREBASE_SERVICE_ACCOUNT` holds the service account JSON (Firebase > Project settings > Service accounts > Generate new private key). The Deploy database workflow hands it to the functions; run it again after adding or changing the secret. iPhones wait for the Apple developer account.
+
+## Desktop notifications
+
+- In a browser, the same notifications arrive as desktop notifications (Web Push), even with the page closed. The chats offer to turn them on once, and My account has the switch; the browser asks the person, as browsers only do after a click. They don't show while the app is the window in front.
+- A browser that allows them registers its push subscription (as JSON) with `register_push_token` and platform `web`; the same `push_outbox` queue feeds it, and the `push` function sends to browsers with the Web Push protocol (encrypted with aes128gcm, signed with VAPID) besides Firebase for phones.
+- No setup: the `push` function makes its VAPID key pair the first time it runs (`push_tick` calls it until there is one) and keeps it in `push_config`; the app gets the public half from `web_push_key()`. The service worker is `app/web/push_sw.js`, registered with its own scope (`/app/push/`) so Flutter's worker leaves it alone.
+- Safari on iPhone only allows them once the site is added to the home screen.
 
 ## Tasks and follow-up
 

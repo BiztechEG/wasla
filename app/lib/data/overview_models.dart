@@ -19,6 +19,7 @@ class WorkspaceOverview {
     this.activePeopleWeek = 0,
     this.attendance,
     this.projectList = const [],
+    this.departmentOnly = false,
   });
 
   final String workspaceId;
@@ -44,6 +45,9 @@ class WorkspaceOverview {
   final AttendanceOverview? attendance;
   final List<ProjectOverview> projectList;
 
+  /// Seen as a department's manager: only the department's projects.
+  final bool departmentOnly;
+
   factory WorkspaceOverview.fromJson(Json json) => WorkspaceOverview(
     workspaceId: json['workspace_id'] as String,
     workspaceName: json['workspace_name'] as String? ?? '',
@@ -64,6 +68,7 @@ class WorkspaceOverview {
       for (final p in json['project_list'] as List? ?? const [])
         ProjectOverview.fromJson(Json.from(p as Map)),
     ],
+    departmentOnly: json['department_only'] as bool? ?? false,
   );
 }
 

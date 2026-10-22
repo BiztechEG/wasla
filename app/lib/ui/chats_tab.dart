@@ -15,19 +15,26 @@ import 'announcements_view.dart';
 import 'chat_format.dart';
 import 'chat_screen.dart';
 import 'files_common.dart';
+import 'invite_sheet.dart';
 import 'modern.dart';
+import 'my_day.dart';
 import 'project_screen.dart';
 import 'projects_tab.dart';
+import 'setup_checklist.dart';
 import 'task_format.dart';
 import 'task_screen.dart';
 import 'widgets.dart';
+import 'desktop_notifications.dart';
 
 /// Every chat in one list, as in the design: announcements on top, then
 /// project and private chats, latest first, filterable by project.
 class ChatsTab extends ConsumerStatefulWidget {
-  const ChatsTab({super.key, required this.membership});
+  const ChatsTab({super.key, required this.membership, this.onOpenTasks});
 
   final Membership membership;
+
+  /// Switches to the my-tasks tab, from "My day".
+  final VoidCallback? onOpenTasks;
 
   @override
   ConsumerState<ChatsTab> createState() => _ChatsTabState();
@@ -162,6 +169,13 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                         navClearance(context) + 80,
                       ),
                       children: [
+                        const DesktopNotificationsBanner(),
+                        SetupChecklist(membership: widget.membership),
+                        if (_project == null && _kind == _Kind.all)
+                          MyDayCard(
+                            membership: widget.membership,
+                            onOpenTasks: widget.onOpenTasks ?? () {},
+                          ),
                         _ProjectStrip(
                           chats: all,
                           selected: _project,
@@ -201,23 +215,34 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                             body: _project == null && _kind == _Kind.all
                                 ? l.chatsEmptyBody
                                 : null,
+                            action: _project != null || _kind != _Kind.all
+                                ? null
+                                // An admin's first step in a new workspace,
+                                // unless the first-steps list offers it.
+                                : projects.isEmpty &&
+                                      widget.membership.role.canManage
+                                ? (setupChecklistShown(ref, widget.membership)
+                                      ? null
+                                      : EmptyAction(
+                                          key: const Key('firstProject'),
+                                          icon: LucideIcons.plus,
+                                          label: l.newProject,
+                                          onPressed: () =>
+                                              showModalBottomSheet<void>(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                builder: (_) => NewProjectSheet(
+                                                  workspaceId: ws,
+                                                ),
+                                              ),
+                                        ))
+                                : EmptyAction(
+                                    key: const Key('firstMessage'),
+                                    icon: LucideIcons.squarePen,
+                                    label: l.newMessage,
+                                    onPressed: () => _newChat(context),
+                                  ),
                           ),
-                          // An admin's first step in a new workspace.
-                          if (projects.isEmpty &&
-                              widget.membership.role.canManage)
-                            Center(
-                              child: FilledButton.tonalIcon(
-                                key: const Key('firstProject'),
-                                icon: const Icon(LucideIcons.plus, size: 18),
-                                label: Text(l.newProject),
-                                onPressed: () => showModalBottomSheet<void>(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  builder: (_) =>
-                                      NewProjectSheet(workspaceId: ws),
-                                ),
-                              ),
-                            ),
                         ],
                         for (final n in shownNotes.take(3))
                           _AnnouncementRow(
@@ -888,7 +913,7 @@ class _PeopleSheetState extends ConsumerState<_PeopleSheet> {
                 onChanged: (v) => setState(() => _query = v.trim()),
                 decoration: InputDecoration(
                   hintText: l.searchMembers,
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(LucideIcons.search),
                   isDense: true,
                 ),
               ),
@@ -901,9 +926,26 @@ class _PeopleSheetState extends ConsumerState<_PeopleSheet> {
                 builder: (all) {
                   final others = all.where((m) => m.userId != me).toList();
                   if (others.isEmpty) {
+                    final membership = ref.watch(currentMembershipProvider);
+                    final canInvite =
+                        membership != null && membership.role.canManage;
                     return EmptyState(
-                      icon: Icons.group_outlined,
+                      icon: LucideIcons.users,
                       title: l.noColleagues,
+                      body: canInvite ? null : l.noColleaguesMember,
+                      action: canInvite
+                          ? EmptyAction(
+                              key: const Key('inviteColleagues'),
+                              icon: LucideIcons.userPlus,
+                              label: l.inviteMembers,
+                              onPressed: () {
+                                // The sheet closes; the invitation opens from
+                                // the screen under it.
+                                final nav = Navigator.of(context)..pop();
+                                showInviteSheet(nav.context, membership);
+                              },
+                            )
+                          : null,
                     );
                   }
                   final shown = others
@@ -1058,7 +1100,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
                       theme.brightness,
                     ).withValues(alpha: 0.14),
                     child: Icon(
-                      Icons.folder_outlined,
+                      LucideIcons.folder,
                       size: 20,
                       color: WaslaColors.project(p.color, theme.brightness),
                     ),
@@ -1071,7 +1113,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
               section(l.searchTasks),
               for (final t in found.tasks)
                 ListTile(
-                  leading: const Icon(Icons.task_alt),
+                  leading: const Icon(LucideIcons.circleCheck),
                   title: line(t.title),
                   subtitle: line(
                     t.dueAt == null
@@ -1117,7 +1159,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
               section(l.searchAnnouncements),
               for (final a in found.announcements)
                 ListTile(
-                  leading: const Icon(Icons.campaign_outlined),
+                  leading: const Icon(LucideIcons.megaphone),
                   title: Text(
                     a.body,
                     maxLines: 2,

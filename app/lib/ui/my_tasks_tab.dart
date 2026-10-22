@@ -145,6 +145,13 @@ class _MyTasksTabState extends ConsumerState<MyTasksTab> {
                               body: _created
                                   ? l.createdEmptyBody
                                   : l.myTasksEmptyBody,
+                              action: EmptyAction(
+                                key: const Key('emptyNewTask'),
+                                icon: LucideIcons.plus,
+                                label: _created ? l.assignTask : l.newTask,
+                                onPressed: () =>
+                                    newTask(context, workspaceId: ws),
+                              ),
                             ),
                           ],
                         )

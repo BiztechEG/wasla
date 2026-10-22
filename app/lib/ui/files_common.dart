@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:video_player/video_player.dart';
 
 import '../data/chat_models.dart';
@@ -20,44 +22,62 @@ import 'widgets.dart';
 /// Asks where to pick from (gallery, camera or files) and returns what was
 /// picked: up to [maxFilesPerPick] photos or files, or one video or camera
 /// shot. Empty when nothing was picked.
-Future<List<Upload>> pickUploads(BuildContext context, WidgetRef ref) async {
+/// [onPoll]: also offers to ask the chat a question, which it then does.
+Future<List<Upload>> pickUploads(
+  BuildContext context,
+  WidgetRef ref, {
+  VoidCallback? onPoll,
+}) async {
   final l = context.l10n;
   final source = await showModalBottomSheet<String>(
     context: context,
     builder: (context) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: Text(l.attachPhoto),
-            onTap: () => Navigator.pop(context, 'gallery'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_camera_outlined),
-            title: Text(l.attachCamera),
-            onTap: () => Navigator.pop(context, 'camera'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.video_library_outlined),
-            title: Text(l.attachVideo),
-            onTap: () => Navigator.pop(context, 'video'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.videocam_outlined),
-            title: Text(l.attachRecordVideo),
-            onTap: () => Navigator.pop(context, 'record'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.insert_drive_file_outlined),
-            title: Text(l.attachFile),
-            onTap: () => Navigator.pop(context, 'file'),
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.images),
+              title: Text(l.attachPhoto),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.camera),
+              title: Text(l.attachCamera),
+              onTap: () => Navigator.pop(context, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.squarePlay),
+              title: Text(l.attachVideo),
+              onTap: () => Navigator.pop(context, 'video'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.video),
+              title: Text(l.attachRecordVideo),
+              onTap: () => Navigator.pop(context, 'record'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.file),
+              title: Text(l.attachFile),
+              onTap: () => Navigator.pop(context, 'file'),
+            ),
+            if (onPoll != null)
+              ListTile(
+                key: const Key('attachPoll'),
+                leading: const Icon(LucideIcons.chartBarBig),
+                title: Text(l.newPoll),
+                onTap: () => Navigator.pop(context, 'poll'),
+              ),
+          ],
+        ),
       ),
     ),
   );
   if (source == null || !context.mounted) return const [];
+  if (source == 'poll') {
+    onPoll?.call();
+    return const [];
+  }
   final picker = ref.read(pickerProvider);
   try {
     final Picked picked = switch (source) {
@@ -74,17 +94,8 @@ Future<List<Upload>> pickUploads(BuildContext context, WidgetRef ref) async {
         tooLarge: 0,
       ),
     };
-    final files = picked.files;
     if (!context.mounted) return const [];
-    if (files.length > maxFilesPerPick) {
-      showMessage(context, l.tooManyFiles(maxFilesPerPick));
-    } else if (picked.tooLarge > 0) {
-      showMessage(
-        context,
-        files.isEmpty ? l.fileTooLarge : l.filesTooLarge(picked.tooLarge),
-      );
-    }
-    return files.take(maxFilesPerPick).toList();
+    return takeFiles(context, picked);
   } on FileTooLarge {
     if (context.mounted) showMessage(context, l.fileTooLarge);
   } catch (e) {
@@ -93,8 +104,25 @@ Future<List<Upload>> pickUploads(BuildContext context, WidgetRef ref) async {
   return const [];
 }
 
+/// The files of [picked] one send takes, saying so when some are left out
+/// (too many, or too large).
+List<Upload> takeFiles(BuildContext context, Picked picked) {
+  final l = context.l10n;
+  final files = picked.files;
+  if (files.length > maxFilesPerPick) {
+    showMessage(context, l.tooManyFiles(maxFilesPerPick));
+  } else if (picked.tooLarge > 0) {
+    showMessage(
+      context,
+      files.isEmpty ? l.fileTooLarge : l.filesTooLarge(picked.tooLarge),
+    );
+  }
+  return files.take(maxFilesPerPick).toList();
+}
+
 /// Photos and videos open full screen; anything else opens in the phone's
-/// viewer.
+/// viewer, or in a browser is downloaded: a new tab showing a text or web
+/// page file (or the app's own page replaced by it) is not what a tap means.
 Future<void> openFile(
   BuildContext context,
   WidgetRef ref,
@@ -112,6 +140,7 @@ Future<void> openFile(
     );
     return;
   }
+  if (kIsWeb) return downloadFile(context, ref, file);
   try {
     final url = await ref.read(fileUrlProvider(file.path).future);
     if (context.mounted) await openLink(context, url);
@@ -225,17 +254,17 @@ class StoredImage extends ConsumerWidget {
     // Offline or an expired link: tap to load it again.
     final failed = GestureDetector(
       onTap: () => ref.invalidate(fileUrlProvider(path)),
-      child: box(Icons.refresh),
+      child: box(LucideIcons.refreshCw),
     );
     final link = ref.watch(fileUrlProvider(path));
     if (link.hasError) return failed;
     final url = link.value;
-    if (url == null || url.isEmpty) return box(Icons.image_outlined);
+    if (url == null || url.isEmpty) return box(LucideIcons.image);
     return Image.network(
       url,
       fit: fit,
       loadingBuilder: (context, child, progress) =>
-          progress == null ? child : box(Icons.image_outlined),
+          progress == null ? child : box(LucideIcons.image),
       errorBuilder: (_, _, _) => failed,
     );
   }
@@ -261,18 +290,18 @@ class ImageViewerScreen extends ConsumerWidget {
             IconButton(
               key: const Key('saveToDrive'),
               tooltip: l.saveToDrive,
-              icon: const Icon(Icons.add_to_drive_outlined),
+              icon: const Icon(LucideIcons.cloudUpload),
               onPressed: () => saveFileToDrive(context, ref, file),
             ),
             IconButton(
               key: const Key('downloadFile'),
               tooltip: l.download,
-              icon: const Icon(Icons.download),
+              icon: const Icon(LucideIcons.download),
               onPressed: () => downloadFile(context, ref, file),
             ),
             IconButton(
               tooltip: l.openFile,
-              icon: const Icon(Icons.open_in_new),
+              icon: const Icon(LucideIcons.externalLink),
               onPressed: () async {
                 final url = await ref.read(fileUrlProvider(file.path).future);
                 if (context.mounted) await openLink(context, url);
@@ -437,12 +466,12 @@ class _FramedPhotoState extends ConsumerState<_FramedPhoto> {
     // Offline or an expired link: tap to load it again.
     final failed = GestureDetector(
       onTap: () => ref.invalidate(fileUrlProvider(widget.path)),
-      child: box(Icons.refresh),
+      child: box(LucideIcons.refreshCw),
     );
     final link = ref.watch(fileUrlProvider(widget.path));
     if (link.hasError) return failed;
     final url = link.value;
-    if (url == null || url.isEmpty) return box(Icons.image_outlined);
+    if (url == null || url.isEmpty) return box(LucideIcons.image);
     final image = NetworkImage(url);
     if (url != _url) {
       _url = url;
@@ -458,7 +487,7 @@ class _FramedPhotoState extends ConsumerState<_FramedPhoto> {
         image: image,
         fit: BoxFit.cover,
         loadingBuilder: (context, child, progress) =>
-            progress == null ? child : box(Icons.image_outlined),
+            progress == null ? child : box(LucideIcons.image),
         errorBuilder: (_, _, _) => failed,
       ),
     );
@@ -487,7 +516,7 @@ class _VideoTile extends StatelessWidget {
               color: Colors.black.withValues(alpha: 0.45),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.play_arrow, color: Colors.white, size: 34),
+            child: const Icon(LucideIcons.play, color: Colors.white, size: 34),
           ),
           PositionedDirectional(
             start: 8,
@@ -495,7 +524,7 @@ class _VideoTile extends StatelessWidget {
             end: 8,
             child: Row(
               children: [
-                const Icon(Icons.videocam, color: Colors.white70, size: 16),
+                const Icon(LucideIcons.video, color: Colors.white70, size: 16),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -569,17 +598,17 @@ class _VideoViewerScreenState extends ConsumerState<VideoViewerScreen> {
           actions: [
             IconButton(
               tooltip: l.saveToDrive,
-              icon: const Icon(Icons.add_to_drive_outlined),
+              icon: const Icon(LucideIcons.cloudUpload),
               onPressed: () => saveFileToDrive(context, ref, widget.file),
             ),
             IconButton(
               tooltip: l.download,
-              icon: const Icon(Icons.download),
+              icon: const Icon(LucideIcons.download),
               onPressed: () => downloadFile(context, ref, widget.file),
             ),
             IconButton(
               tooltip: l.openFile,
-              icon: const Icon(Icons.open_in_new),
+              icon: const Icon(LucideIcons.externalLink),
               onPressed: () async {
                 final url = await ref.read(
                   fileUrlProvider(widget.file.path).future,
@@ -625,7 +654,7 @@ class _Playback extends StatelessWidget {
                   ),
                   if (!value.isPlaying)
                     const Icon(
-                      Icons.play_circle_fill,
+                      LucideIcons.circlePlay,
                       color: Colors.white70,
                       size: 72,
                     ),
@@ -817,7 +846,7 @@ class _VoicePlayerState extends ConsumerState<VoicePlayer> {
                     ),
                     onPressed: _toggle,
                     icon: Icon(
-                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      playing ? LucideIcons.pause : LucideIcons.play,
                       size: 24,
                     ),
                   ),

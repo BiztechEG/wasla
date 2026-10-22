@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/api.dart';
 import '../data/chat_models.dart';
@@ -11,13 +12,27 @@ import 'files_common.dart';
 import 'task_format.dart';
 import 'widgets.dart';
 
-/// Whether the signed-in user leads [projectId] or administers its
-/// workspace: they can give tasks to anyone in the project.
+/// Whether one manages the department [departmentId] (a project's).
+bool managesDepartment(
+  WidgetRef ref,
+  String workspaceId,
+  String? departmentId,
+) =>
+    departmentId != null &&
+    (ref
+            .watch(myDepartmentsProvider(workspaceId))
+            .value
+            ?.containsKey(departmentId) ??
+        false);
+
+/// Whether the signed-in user leads the project, manages its department or
+/// administers its workspace: they can give tasks to anyone in the project.
 bool managesProject(
   WidgetRef ref,
   String workspaceId,
-  List<ProjectMember>? members,
-) {
+  List<ProjectMember>? members, {
+  String? departmentId,
+}) {
   final me = ref.watch(authProvider).value;
   final memberships = ref.watch(membershipsProvider).value ?? const [];
   final role = memberships
@@ -25,6 +40,7 @@ bool managesProject(
       .firstOrNull
       ?.role;
   if (role?.canManage ?? false) return true;
+  if (managesDepartment(ref, workspaceId, departmentId)) return true;
   return members?.any((m) => m.userId == me && m.role == ProjectRole.lead) ??
       false;
 }
@@ -234,7 +250,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
             for (final r in <TaskRepeat?>[null, ...TaskRepeat.values])
               ListTile(
                 title: Text(repeatLabel(l, r)),
-                trailing: r == _repeat ? const Icon(Icons.check) : null,
+                trailing: r == _repeat ? const Icon(LucideIcons.check) : null,
                 onTap: () => Navigator.pop(context, (r,)),
               ),
             Padding(
@@ -276,7 +292,17 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
         ? null
         : ref.watch(projectMembersProvider(projectId)).value;
     final existing = _existing;
-    final manager = existing?.canAssign ?? managesProject(ref, ws, members);
+    final manager =
+        existing?.canAssign ??
+        managesProject(
+          ref,
+          ws,
+          members,
+          departmentId: projects
+              .where((p) => p.id == projectId)
+              .firstOrNull
+              ?.departmentId,
+        );
     final names = {
       for (final a in existing?.task.assignees ?? const <TaskPerson>[])
         a.id: a.name,
@@ -370,7 +396,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
           TileGroup(
             children: [
               ListTile(
-                leading: const Icon(Icons.person_outline),
+                leading: const Icon(LucideIcons.user),
                 title: Text(l.assigneesLabel),
                 subtitle: Text(
                   joinNames(context, [
@@ -380,13 +406,15 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: manager ? const Icon(Icons.chevron_right) : null,
+                trailing: manager
+                    ? const Icon(LucideIcons.chevronRightDir)
+                    : null,
                 onTap: manager && members != null
                     ? () => _pickAssignees(choices)
                     : null,
               ),
               ListTile(
-                leading: const Icon(Icons.event_outlined),
+                leading: const Icon(LucideIcons.calendar),
                 title: Text(l.dueLabel),
                 subtitle: Text(
                   _due == null ? l.setDue : dueFull(context, _due!),
@@ -395,7 +423,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                     ? null
                     : IconButton(
                         tooltip: l.clearDue,
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(LucideIcons.x),
                         onPressed: () => setState(() {
                           _due = null;
                           _repeat = null;
@@ -409,7 +437,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.notifications_none,
+                        LucideIcons.bell,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 16),
@@ -439,7 +467,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                 ),
               ListTile(
                 key: const Key('repeatTile'),
-                leading: const Icon(Icons.repeat),
+                leading: const Icon(LucideIcons.repeat),
                 title: Text(l.repeatLabel),
                 subtitle: Text(
                   _due == null ? l.repeatNeedsDue : repeatLabel(l, _repeat),
@@ -447,7 +475,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                 enabled: _due != null,
                 trailing: _due == null
                     ? null
-                    : const Icon(Icons.arrow_drop_down),
+                    : const Icon(LucideIcons.chevronDown),
                 onTap: _due == null ? null : _pickRepeat,
               ),
             ],
@@ -494,11 +522,11 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
             for (final f in _files)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.insert_drive_file_outlined),
+                leading: const Icon(LucideIcons.file),
                 title: Text(f.name, overflow: TextOverflow.ellipsis),
                 trailing: IconButton(
                   tooltip: l.remove,
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(LucideIcons.x),
                   onPressed: () => setState(() => _files.remove(f)),
                 ),
               ),
@@ -506,7 +534,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
               alignment: AlignmentDirectional.centerStart,
               child: OutlinedButton.icon(
                 onPressed: _attach,
-                icon: const Icon(Icons.attach_file),
+                icon: const Icon(LucideIcons.paperclip),
                 label: Text(l.attach),
               ),
             ),

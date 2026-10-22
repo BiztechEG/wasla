@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/billing_models.dart';
 import '../data/chat_models.dart';
@@ -38,7 +39,7 @@ class AdminScreen extends StatelessWidget {
                 onPressed: () =>
                     Navigator.of(context)
                         .push(MaterialPageRoute<void>(builder: (_) => app!)),
-                icon: const Icon(Icons.apps),
+                icon: const Icon(LucideIcons.layoutGrid),
                 label: Text(l.openApp),
               ),
           ],
@@ -231,7 +232,7 @@ class _LogoCardState extends ConsumerState<_LogoCard> {
                     children: [
                       FilledButton.tonalIcon(
                         onPressed: _busy ? null : () => _save(reset: false),
-                        icon: const Icon(Icons.image_outlined),
+                        icon: const Icon(LucideIcons.image),
                         label: Text(l.changeLogo),
                       ),
                       if (custom)
@@ -330,7 +331,7 @@ class _RequestTile extends StatelessWidget {
     final r = request;
     return ListTile(
       onTap: () => _openCompany(context, r.companyId),
-      leading: const Icon(Icons.request_quote_outlined),
+      leading: const Icon(LucideIcons.badgeDollarSign),
       title: Text('${r.companyName} · ${r.workspaceName}'),
       subtitle: Text(
         [
@@ -344,7 +345,7 @@ class _RequestTile extends StatelessWidget {
         ].join('\n'),
       ),
       isThreeLine: true,
-      trailing: const Icon(Icons.chevron_right),
+      trailing: const Icon(LucideIcons.chevronRightDir),
     );
   }
 }
@@ -390,7 +391,7 @@ class _CompaniesTabState extends ConsumerState<_CompaniesTab> {
               onChanged: _changed,
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(LucideIcons.search),
                 hintText: l.searchCompanies,
               ),
             ),
@@ -401,10 +402,7 @@ class _CompaniesTabState extends ConsumerState<_CompaniesTab> {
             value: companies,
             onRetry: () => ref.invalidate(adminCompaniesProvider(_query)),
             builder: (list) => list.isEmpty
-                ? EmptyState(
-                    icon: Icons.business_outlined,
-                    title: l.noCompanies,
-                  )
+                ? EmptyState(icon: LucideIcons.building2, title: l.noCompanies)
                 : RefreshIndicator(
                     onRefresh: () =>
                         ref.refresh(adminCompaniesProvider(_query).future),
@@ -466,7 +464,7 @@ class _CompanyTile extends StatelessWidget {
               message: l.planRequests,
               child: Badge(
                 label: Text('${c.pendingRequests}'),
-                child: const Icon(Icons.request_quote_outlined),
+                child: const Icon(LucideIcons.badgeDollarSign),
               ),
             ),
           if (c.unpaidInvoices > 0) ...[
@@ -476,7 +474,7 @@ class _CompanyTile extends StatelessWidget {
               child: Badge(
                 label: Text('${c.unpaidInvoices}'),
                 backgroundColor: theme.colorScheme.tertiary,
-                child: const Icon(Icons.receipt_long_outlined),
+                child: const Icon(LucideIcons.receiptText),
               ),
             ),
           ],
@@ -542,10 +540,7 @@ class _InvoicesTabState extends ConsumerState<_InvoicesTab> {
             onRetry: () =>
                 ref.invalidate(adminInvoicesProvider(_filter.status)),
             builder: (list) => list.isEmpty
-                ? EmptyState(
-                    icon: Icons.receipt_long_outlined,
-                    title: l.noInvoices,
-                  )
+                ? EmptyState(icon: LucideIcons.receiptText, title: l.noInvoices)
                 : RefreshIndicator(
                     onRefresh: () => ref.refresh(
                       adminInvoicesProvider(_filter.status).future,
@@ -715,7 +710,7 @@ class _PricesTab extends ConsumerWidget {
                   (info) => info.isEmpty
                       ? Card(
                           child: ListTile(
-                            leading: const Icon(Icons.info_outline),
+                            leading: const Icon(LucideIcons.info),
                             title: Text(l.paymentNotSet),
                             onTap: () => _editPayment(context, ref, info),
                           ),

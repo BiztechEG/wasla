@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/overview_models.dart';
 import '../state/providers.dart';
@@ -39,7 +40,7 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               if (list.isEmpty) ...[
                 const SizedBox(height: 60),
-                EmptyState(icon: Icons.insights_outlined, title: l.dashEmpty),
+                EmptyState(icon: LucideIcons.chartLine, title: l.dashEmpty),
               ] else ...[
                 if (list.length > 1) ...[
                   SectionTitle(l.dashAll),
@@ -52,7 +53,7 @@ class DashboardScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.lock_outline,
+                    LucideIcons.lock,
                     size: 16,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -163,7 +164,12 @@ class _WorkspaceCard extends ConsumerWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Text(w.companyName, style: muted),
+                        Text(
+                          w.departmentOnly
+                              ? '${w.companyName} · ${l.departmentOnly}'
+                              : w.companyName,
+                          style: muted,
+                        ),
                       ],
                     ),
                   ),
@@ -195,20 +201,20 @@ class _WorkspaceCard extends ConsumerWidget {
               const SizedBox(height: 8),
               line(
                 trend > 0
-                    ? Icons.trending_up
+                    ? LucideIcons.trendingUp
                     : trend < 0
-                    ? Icons.trending_down
-                    : Icons.trending_flat,
+                    ? LucideIcons.trendingDown
+                    : LucideIcons.minus,
                 l.dashDoneWeek(w.doneWeek, w.doneWeekBefore),
                 color: trend < 0 ? lateColor(context) : null,
               ),
               line(
-                Icons.forum_outlined,
+                LucideIcons.messagesSquare,
                 l.dashChat(w.messagesWeek, w.activePeopleWeek),
               ),
               if (a != null)
                 line(
-                  Icons.schedule_outlined,
+                  LucideIcons.clock,
                   a.dayOff
                       ? l.dashDayOff
                       : l.dashAttendance(a.present, a.people, a.late),

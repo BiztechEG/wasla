@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/task_models.dart';
 import 'task_format.dart';
@@ -139,7 +140,7 @@ class _StateMark extends StatelessWidget {
     final theme = Theme.of(context);
     if (status == TaskStatus.done) {
       return Icon(
-        Icons.check_circle,
+        LucideIcons.circleCheckBig,
         size: 24,
         color: theme.colorScheme.primary,
       );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/api.dart';
 import '../data/models.dart';
@@ -344,7 +345,7 @@ class _JoinLinkScreenState extends ConsumerState<JoinLinkScreen> {
               if (code == null)
                 FilledButton.icon(
                   key: const Key('joinLinkOn'),
-                  icon: const Icon(Icons.link, size: 18),
+                  icon: const Icon(LucideIcons.link, size: 18),
                   label: Text(l.joinLinkTurnOn),
                   onPressed: () => _set(enabled: true),
                 )
@@ -388,14 +389,17 @@ class _JoinLinkScreenState extends ConsumerState<JoinLinkScreen> {
                         const SizedBox(height: 16),
                         FilledButton.icon(
                           key: const Key('shareJoinLink'),
-                          icon: const Icon(Icons.send_outlined, size: 18),
+                          icon: const Icon(
+                            LucideIcons.sendHorizontalDir,
+                            size: 18,
+                          ),
                           label: Text(l.share),
                           onPressed: () =>
                               shareText(context, ref, _shareText(code)),
                         ),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
-                          icon: const Icon(Icons.copy_rounded, size: 18),
+                          icon: const Icon(LucideIcons.copy, size: 18),
                           label: Text(l.copy),
                           onPressed: () async {
                             await Clipboard.setData(
@@ -413,14 +417,14 @@ class _JoinLinkScreenState extends ConsumerState<JoinLinkScreen> {
                   children: [
                     SwitchListTile(
                       key: const Key('joinLinkAuto'),
-                      secondary: const Icon(Icons.bolt_outlined),
+                      secondary: const Icon(LucideIcons.zap),
                       title: Text(l.joinLinkAuto),
                       subtitle: Text(l.joinLinkAutoHint),
                       value: code.autoJoin,
                       onChanged: (on) => _set(enabled: true, auto: on),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.refresh),
+                      leading: const Icon(LucideIcons.refreshCw),
                       title: Text(l.joinLinkRenew),
                       onTap: () async {
                         if (await confirm(
@@ -433,7 +437,7 @@ class _JoinLinkScreenState extends ConsumerState<JoinLinkScreen> {
                       },
                     ),
                     ListTile(
-                      leading: Icon(Icons.link_off, color: scheme.error),
+                      leading: Icon(LucideIcons.unlink, color: scheme.error),
                       title: Text(
                         l.joinLinkOff,
                         style: TextStyle(color: scheme.error),

@@ -176,6 +176,14 @@ class FakeApi implements WaslaApi {
   @override
   Future<QuietHours?> quietHours() async => quiet;
 
+  bool weekly = true;
+
+  @override
+  Future<bool> weeklyReport() async => weekly;
+
+  @override
+  Future<void> setWeeklyReport(bool on) async => weekly = on;
+
   @override
   Future<void> setQuietHours(
     TimeOfDay? from,
@@ -184,6 +192,82 @@ class FakeApi implements WaslaApi {
   ) async => quiet = from == null || to == null
       ? null
       : QuietHours(from: from, to: to, utcOffset: utcOffset);
+
+  /// Departments by workspace, and those the signed-in user manages.
+  final departmentsByWorkspace = <String, List<Department>>{};
+  final managedDepartments = <String, String>{};
+
+  @override
+  Future<List<Department>> departments(String workspaceId) async =>
+      List.of(departmentsByWorkspace[workspaceId] ?? const []);
+
+  @override
+  Future<Map<String, String>> myDepartments(String workspaceId) async =>
+      Map.of(managedDepartments);
+
+  @override
+  Future<void> saveDepartment(
+    String workspaceId, {
+    String? departmentId,
+    required String name,
+    required List<String> managerIds,
+    required List<String> projectIds,
+  }) async {
+    final list = departmentsByWorkspace.putIfAbsent(workspaceId, () => []);
+    final saved = Department(
+      id: departmentId ?? 'd${_seq++}',
+      name: name,
+      managerIds: managerIds,
+      projectIds: projectIds,
+    );
+    final i = list.indexWhere((d) => d.id == departmentId);
+    if (i < 0) {
+      list.add(saved);
+    } else {
+      list[i] = saved;
+    }
+  }
+
+  @override
+  Future<void> deleteDepartment(String departmentId) async {
+    for (final list in departmentsByWorkspace.values) {
+      list.removeWhere((d) => d.id == departmentId);
+    }
+  }
+
+  /// Statuses by user id.
+  final statuses = <String, UserStatus>{};
+
+  @override
+  Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId) async =>
+      Map.of(statuses);
+
+  @override
+  Future<void> setMyStatus(UserStatus? status) async =>
+      status == null ? statuses.remove(_user) : statuses[_user!] = status;
+
+  /// Whether owners see the first-steps checklist; off so that most tests
+  /// start in a workspace that is already set up.
+  bool newWorkspace = false;
+
+  @override
+  Future<SetupProgress?> workspaceSetup(String workspaceId) async {
+    if (!newWorkspace) return null;
+    final role = memberships
+        .where((m) => m.workspaceId == workspaceId)
+        .firstOrNull
+        ?.role;
+    if (role == null || !role.canManage) return null;
+    return SetupProgress(
+      project: (projectsByWorkspace[workspaceId] ?? const []).isNotEmpty,
+      team:
+          (membersByWorkspace[workspaceId] ?? const []).length > 1 ||
+          invited.any((i) => i.$1 == workspaceId) ||
+          joinCodes.containsKey(workspaceId),
+      attendance: attendance?.enabled ?? false,
+      announcement: announcementList.isNotEmpty,
+    );
+  }
 
   /// What the management dashboard shows.
   final overviews = <WorkspaceOverview>[];
@@ -724,6 +808,85 @@ class FakeApi implements WaslaApi {
     _events.add(ChatEvent(conversationId: conversationId));
   }
 
+  /// Pinned message by chat; chats where the signed-in user may not pin.
+  final pins = <String, String>{};
+  final noPinning = <String>{};
+
+  @override
+  Future<void> createPoll(
+    String conversationId, {
+    required String question,
+    required List<String> options,
+    bool multiple = false,
+    String? projectId,
+  }) async {
+    await sendMessage(
+      chatWorkspace[conversationId] ?? '',
+      conversationId,
+      body: question,
+      projectId: projectId,
+    );
+    final list = chatMessages[conversationId]!;
+    list[0] = list[0].copyWith(
+      poll: Poll(options: options, multiple: multiple),
+    );
+  }
+
+  /// Applies [change] to the poll of [messageId] and tells its chat.
+  void _poll(String messageId, Poll Function(Poll) change) {
+    for (final entry in chatMessages.entries) {
+      final i = entry.value.indexWhere((m) => m.id == messageId);
+      if (i < 0) continue;
+      final m = entry.value[i];
+      entry.value[i] = m.copyWith(poll: change(m.poll!));
+      _events.add(ChatEvent(conversationId: entry.key));
+    }
+  }
+
+  @override
+  Future<void> votePoll(String messageId, Set<int> options) async =>
+      _poll(messageId, (p) => p.withVote('me', options));
+
+  /// Someone else answering a poll.
+  void vote(String messageId, String userId, Set<int> options) =>
+      _poll(messageId, (p) => p.withVote(userId, options));
+
+  @override
+  Future<void> closePoll(String messageId) async =>
+      _poll(messageId, (p) => p.closedCopy());
+
+  @override
+  Future<void> pinMessage(String messageId, {bool pin = true}) async {
+    for (final entry in chatMessages.entries) {
+      if (!entry.value.any((m) => m.id == messageId)) continue;
+      if (pin) {
+        pins[entry.key] = messageId;
+      } else if (pins[entry.key] == messageId) {
+        pins.remove(entry.key);
+      }
+      _events.add(ChatEvent(conversationId: entry.key));
+    }
+  }
+
+  @override
+  Future<ChatPin> chatPin(String conversationId) async {
+    final id = pins[conversationId];
+    final m = id == null
+        ? null
+        : chatMessages[conversationId]?.where((m) => m.id == id).firstOrNull;
+    return ChatPin(
+      canPin: !noPinning.contains(conversationId),
+      message: m == null
+          ? null
+          : PinnedMessage(
+              messageId: m.id,
+              senderName: m.senderName,
+              body: m.body,
+              fileName: m.file?.name,
+            ),
+    );
+  }
+
   /// The mentions each sent message carried, in order.
   final sentMentions = <List<String>>[];
 
@@ -916,6 +1079,7 @@ class FakeApi implements WaslaApi {
           needsAck: a.needsAck,
           ackedByMe: ackedAnnouncements.contains(a.id),
           ackCount: a.ackCount,
+          broadcastId: a.broadcastId,
         ),
   ];
 
@@ -964,6 +1128,39 @@ class FakeApi implements WaslaApi {
       needsAck: needsAck,
     ),
   );
+
+  /// Announcements sent to several workspaces: their workspaces, and how
+  /// each is doing.
+  final broadcasts = <List<String>>[];
+  final reach = <String, List<BroadcastReach>>{};
+
+  @override
+  Future<void> postBroadcast(
+    List<String> workspaceIds, {
+    required String body,
+    bool pinned = false,
+    bool needsAck = false,
+  }) async {
+    broadcasts.add(workspaceIds);
+    announcementList.insert(
+      0,
+      Announcement(
+        id: 'a${_seq++}',
+        body: body,
+        pinned: pinned,
+        authorId: 'me',
+        authorName: name,
+        createdAt: _tick(),
+        audience: 3,
+        needsAck: needsAck,
+        broadcastId: 'b${broadcasts.length}',
+      ),
+    );
+  }
+
+  @override
+  Future<List<BroadcastReach>> broadcastReach(String broadcastId) async =>
+      reach[broadcastId] ?? const [];
 
   @override
   Future<void> markAnnouncementsRead(List<String> ids) async =>
@@ -1469,6 +1666,12 @@ class FakeApi implements WaslaApi {
   @override
   Future<void> unregisterPushToken(String token) async =>
       pushTokens.remove(token);
+
+  /// The server's key for desktop notifications.
+  String? webKey = 'BWebPushKey';
+
+  @override
+  Future<String?> webPushKey() async => webKey;
 
   @override
   Future<void> markNotificationsRead([List<String>? ids]) async {

@@ -91,6 +91,18 @@ class _ProjectsTabState extends ConsumerState<ProjectsTab> {
                         : canManage
                         ? l.projectsEmptyAdmin
                         : l.projectsEmptyMember,
+                    action: canManage && _filter == ProjectStatus.active
+                        ? EmptyAction(
+                            key: const Key('emptyNewProject'),
+                            icon: LucideIcons.plus,
+                            label: l.newProject,
+                            onPressed: () => showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              builder: (_) => NewProjectSheet(workspaceId: ws),
+                            ),
+                          )
+                        : null,
                   ),
                 ],
                 for (final p in shown)
@@ -374,7 +386,7 @@ class _NewProjectSheetState extends ConsumerState<NewProjectSheet> {
                           ),
                           child: _color == hex
                               ? Icon(
-                                  Icons.check,
+                                  LucideIcons.check,
                                   color: theme.brightness == Brightness.dark
                                       ? Colors.black
                                       : Colors.white,

@@ -201,6 +201,74 @@ class QuietHours {
   final int utcOffset;
 }
 
+/// A group of a workspace's projects, with the people who manage them.
+class Department {
+  const Department({
+    required this.id,
+    required this.name,
+    this.managerIds = const [],
+    this.projectIds = const [],
+  });
+
+  final String id;
+  final String name;
+  final List<String> managerIds;
+  final List<String> projectIds;
+
+  factory Department.fromJson(Json json) => Department(
+    id: json['id'] as String,
+    name: _text(json['name']),
+    managerIds: [
+      for (final id in json['manager_ids'] as List? ?? const []) '$id',
+    ],
+    projectIds: [
+      for (final id in json['project_ids'] as List? ?? const []) '$id',
+    ],
+  );
+}
+
+/// What someone is up to, besides being available.
+enum StatusKind {
+  meeting('meeting'),
+  busy('busy'),
+  leave('leave');
+
+  const StatusKind(this.wire);
+
+  final String wire;
+
+  static StatusKind? parse(String? wire) =>
+      values.where((k) => k.wire == wire).firstOrNull;
+}
+
+/// Someone's status; [until] null: until they change it.
+class UserStatus {
+  const UserStatus({required this.kind, this.note, this.until});
+
+  final StatusKind kind;
+  final String? note;
+  final DateTime? until;
+}
+
+/// Which of a new workspace's first steps are done.
+class SetupProgress {
+  const SetupProgress({
+    this.project = false,
+    this.team = false,
+    this.attendance = false,
+    this.announcement = false,
+  });
+
+  final bool project;
+  final bool team;
+  final bool attendance;
+  final bool announcement;
+
+  int get done =>
+      [project, team, attendance, announcement].where((d) => d).length;
+  bool get complete => done == 4;
+}
+
 /// A workspace's join code, as its admins see it.
 class JoinCode {
   const JoinCode({required this.code, required this.autoJoin});
@@ -268,6 +336,7 @@ class Project {
     required this.color,
     required this.status,
     required this.memberCount,
+    this.departmentId,
   });
 
   final String id;
@@ -276,6 +345,9 @@ class Project {
   final String color;
   final ProjectStatus status;
   final int memberCount;
+
+  /// The department it is in, if any.
+  final String? departmentId;
 
   factory Project.fromJson(Json json) {
     final counts = json['project_members'];
@@ -289,6 +361,7 @@ class Project {
       color: json['color'] as String? ?? '#0F6E6A',
       status: ProjectStatus.parse(json['status']),
       memberCount: count,
+      departmentId: json['department_id'] as String?,
     );
   }
 }

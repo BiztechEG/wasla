@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/google.dart';
 import '../push/push.dart';
@@ -7,6 +8,9 @@ import '../state/google_providers.dart';
 import '../state/providers.dart';
 import '../state/settings.dart';
 import '../state/task_providers.dart';
+import 'desktop_notifications.dart';
+import 'phone_view.dart';
+import 'status.dart';
 import 'widgets.dart';
 
 void openAccount(BuildContext context) =>
@@ -47,7 +51,7 @@ class AccountScreen extends ConsumerWidget {
               subtitle: LtrLine(profile?.email ?? profile?.phone ?? ''),
               trailing: IconButton(
                 tooltip: l.editName,
-                icon: const Icon(Icons.edit_outlined),
+                icon: const Icon(LucideIcons.pencil),
                 onPressed: () async {
                   final name = await promptText(
                     context,
@@ -66,8 +70,22 @@ class AccountScreen extends ConsumerWidget {
             ),
           ),
 
+          if (ref.watch(currentMembershipProvider) case final m?) ...[
+            SectionTitle(l.myStatus),
+            _StatusCard(workspaceId: m.workspaceId),
+          ],
           SectionTitle(l.notificationsTitle),
+          const DesktopNotificationsCard(),
           const _QuietHoursCard(),
+          if (ref.watch(currentMembershipProvider) case final m?
+              when m.role.canManage ||
+                  m.isCompanyOwner ||
+                  (ref
+                          .watch(myDepartmentsProvider(m.workspaceId))
+                          .value
+                          ?.isNotEmpty ??
+                      false))
+            const _WeeklyReportCard(),
           if (ref.watch(googleAccountProvider).available) ...[
             SectionTitle(l.googleSection),
             const _GoogleCard(),
@@ -128,6 +146,21 @@ class AccountScreen extends ConsumerWidget {
                       },
                     ),
                   ),
+                  if (ref.watch(isWebProvider) &&
+                      (settings.phoneView ||
+                          phoneViewFits(MediaQuery.sizeOf(context)))) ...[
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      key: const Key('phoneViewSwitch'),
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(LucideIcons.smartphone),
+                      title: Text(l.phoneViewTitle),
+                      subtitle: Text(l.phoneViewHint),
+                      value: settings.phoneView,
+                      onChanged: (on) =>
+                          ref.read(settingsProvider.notifier).setPhoneView(on),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -135,7 +168,7 @@ class AccountScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           Card(
             child: ListTile(
-              leading: Icon(Icons.logout, color: theme.colorScheme.error),
+              leading: Icon(LucideIcons.logOut, color: theme.colorScheme.error),
               title: Text(
                 l.signOut,
                 style: TextStyle(color: theme.colorScheme.error),
@@ -180,7 +213,7 @@ class _GoogleCard extends ConsumerWidget {
         children: [
           SwitchListTile(
             key: const Key('calendarAuto'),
-            secondary: const Icon(Icons.calendar_month_outlined),
+            secondary: const Icon(LucideIcons.calendarDays),
             title: Text(l.googleCalendarAuto),
             subtitle: Text(l.googleCalendarAutoHint),
             value: calendar.auto,
@@ -195,7 +228,7 @@ class _GoogleCard extends ConsumerWidget {
           ),
           ListTile(
             key: const Key('googleDisconnect'),
-            leading: const Icon(Icons.link_off),
+            leading: const Icon(LucideIcons.unlink),
             title: Text(l.googleDisconnect),
             onTap: () => runAction(context, () async {
               await notifier.forget();
@@ -245,7 +278,7 @@ class _QuietHoursCard extends ConsumerWidget {
         children: [
           SwitchListTile(
             key: const Key('quietHours'),
-            secondary: const Icon(Icons.bedtime_outlined),
+            secondary: const Icon(LucideIcons.moon),
             title: Text(l.quietHours),
             subtitle: Text(l.quietHoursHint),
             value: quiet != null,
@@ -286,7 +319,7 @@ class _QuietHoursCard extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.notifications_off_outlined,
+                  LucideIcons.bellOff,
                   size: 18,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -303,6 +336,63 @@ class _QuietHoursCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One's status, a tap from changing it.
+class _StatusCard extends ConsumerWidget {
+  const _StatusCard({required this.workspaceId});
+
+  final String workspaceId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final status = myStatus(ref, workspaceId);
+    return Card(
+      child: ListTile(
+        key: const Key('statusTile'),
+        leading: Icon(
+          presenceIcon(status?.kind),
+          color: presenceColor(context, status?.kind),
+        ),
+        title: Text(
+          status == null ? l.statusAvailable : presenceText(context, status),
+        ),
+        subtitle: status?.note == null ? null : Text(status!.note!),
+        trailing: const Icon(LucideIcons.chevronRightDir),
+        onTap: () => showStatusSheet(context, ref, workspaceId: workspaceId),
+      ),
+    );
+  }
+}
+
+/// For whoever runs a team: the Sunday report, on or off.
+class _WeeklyReportCard extends ConsumerWidget {
+  const _WeeklyReportCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final on = ref.watch(weeklyReportProvider).value;
+    return Card(
+      child: SwitchListTile(
+        key: const Key('weeklyReport'),
+        secondary: const Icon(LucideIcons.chartLine),
+        title: Text(l.weeklyReportTitle),
+        subtitle: Text(l.weeklyReportHint),
+        value: on ?? true,
+        onChanged: on == null
+            ? null
+            : (value) async {
+                final ok = await runAction(
+                  context,
+                  () => ref.read(apiProvider).setWeeklyReport(value),
+                );
+                if (ok) ref.invalidate(weeklyReportProvider);
+              },
       ),
     );
   }

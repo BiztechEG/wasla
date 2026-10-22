@@ -11,6 +11,7 @@ import 'package:intl/intl.dart' show NumberFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/chat_models.dart';
+import '../data/drops.dart';
 import '../data/models.dart';
 import '../data/voice.dart';
 import '../state/chat_providers.dart';
@@ -23,6 +24,8 @@ import 'mentions.dart';
 import 'my_tasks_tab.dart';
 import 'profile_card.dart';
 import 'project_screen.dart';
+import 'status.dart';
+import 'task_editor.dart';
 import 'widgets.dart';
 
 /// Who or what a chat is with, enough to draw it before anything loads.
@@ -169,6 +172,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         projects.where((p) => p.id == id).firstOrNull;
     final filtered = projectOf(_filter);
     final project = projectOf(target.projectId);
+    final otherStatus = target.otherId == null
+        ? null
+        : ref.watch(statusesProvider(ws)).value?[target.otherId];
 
     // Projects this private chat has been about, for the filter menu.
     final filterChoices = target.isProject
@@ -245,6 +251,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
+                      )
+                    else if (otherStatus != null)
+                      Row(
+                        key: const Key('chatStatus'),
+                        children: [
+                          PresenceDot(kind: otherStatus.kind, size: 9),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              presenceText(context, otherStatus),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       )
                     else if (openDetails != null)
                       Text(
@@ -415,6 +439,41 @@ class ChatView extends ConsumerStatefulWidget {
   ConsumerState<ChatView> createState() => _ChatViewState();
 }
 
+/// Over a chat while files from the computer are dragged onto it.
+class _DropHint extends StatelessWidget {
+  const _DropHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('dropHint'),
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.primary, width: 2),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.upload, size: 40, color: scheme.onPrimaryContainer),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.dropFilesHere,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A phone's on-screen keyboard; with a real keyboard (web, a computer)
 /// Enter sends.
 bool get _onPhone =>
@@ -474,6 +533,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
   Timer? _flashTimer;
   bool _jumping = false;
 
+  /// Files from the computer are being dragged over this chat.
+  bool _dropHover = false;
+
+  /// Whether files can be sent here now, as of the last build.
+  bool _takesFiles = false;
+  final _dropSubs = <StreamSubscription<Object?>>[];
+
   ChatKey get _key => (
     workspaceId: widget.membership.workspaceId,
     conversationId: widget.target.conversationId,
@@ -492,6 +558,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
     super.initState();
     _text.addListener(_onText);
     _scroll.addListener(_countNewer);
+    final drops = ref.read(fileDropsProvider);
+    _dropSubs.addAll([
+      drops.hover.listen((at) {
+        final over = at != null && _takesDropAt(at);
+        if (over != _dropHover && mounted) setState(() => _dropHover = over);
+      }),
+      drops.dropped.listen(_dropped),
+    ]);
     if (widget.initialMessageId case final id?) {
       var done = false;
       ref.listenManual(chatProvider(_key), (_, next) {
@@ -646,6 +720,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
     _scroll.dispose();
     _flashTimer?.cancel();
     _recTick?.cancel();
+    for (final sub in _dropSubs) {
+      sub.cancel();
+    }
     if (_rec != _Rec.off) ref.read(voiceRecorderProvider).cancel();
     super.dispose();
   }
@@ -1014,10 +1091,71 @@ class _ChatViewState extends ConsumerState<ChatView> {
     );
   }
 
+  /// Whether files dropped at [at] (in the window) land on this chat, on
+  /// the screen in front, and can be sent here.
+  bool _takesDropAt(Offset at) {
+    if (!mounted || !_takesFiles) return false;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return false;
+    return (Offset.zero & box.size).contains(box.globalToLocal(at));
+  }
+
+  Future<void> _dropped(FileDrop drop) async {
+    if (_dropHover && mounted) setState(() => _dropHover = false);
+    if (!_takesDropAt(drop.at)) return;
+    final files = takeFiles(context, (
+      files: drop.files,
+      tooLarge: drop.tooLarge,
+    ));
+    if (files.isNotEmpty) await _send(files: files);
+  }
+
   Future<void> _attach() async {
     if (!ref.read(chatProvider(_key)).hasValue) return;
-    final uploads = await pickUploads(context, ref);
+    final uploads = await pickUploads(context, ref, onPoll: _newPoll);
     if (uploads.isNotEmpty && mounted) await _send(files: uploads);
+  }
+
+  Future<void> _pin(String messageId, {required bool pin}) async {
+    final ok = await runAction(
+      context,
+      () => ref.read(apiProvider).pinMessage(messageId, pin: pin),
+    );
+    if (ok && mounted) {
+      ref.invalidate(
+        chatPinProvider((
+          workspaceId: widget.membership.workspaceId,
+          conversationId: widget.target.conversationId,
+        )),
+      );
+    }
+  }
+
+  Future<void> _newPoll() async {
+    final poll = await showModalBottomSheet<_PollDraft>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const _PollComposer(),
+    );
+    if (poll == null || !mounted) return;
+    final target = widget.target;
+    final ok = await runAction(
+      context,
+      () => ref
+          .read(apiProvider)
+          .createPoll(
+            target.conversationId,
+            question: poll.question,
+            options: poll.options,
+            multiple: poll.multiple,
+            projectId: target.isProject ? null : _tag,
+          ),
+    );
+    if (ok && mounted) {
+      await ref.read(chatProvider(_key).notifier).refresh();
+    }
   }
 
   @override
@@ -1039,6 +1177,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     final canModerate =
         target.isProject &&
         (widget.membership.role.canManage ||
+            managesDepartment(ref, ws, project?.departmentId) ||
             (members?.any(
                   (m) => m.userId == me && m.role == ProjectRole.lead,
                 ) ??
@@ -1086,8 +1225,26 @@ class _ChatViewState extends ConsumerState<ChatView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _countNewer());
     });
 
-    return Column(
+    final pin = ref
+        .watch(
+          chatPinProvider((
+            workspaceId: ws,
+            conversationId: target.conversationId,
+          )),
+        )
+        .value;
+
+    _takesFiles = chat.hasValue && !closed;
+    final column = Column(
       children: [
+        if (pin?.message case final pinned?)
+          _PinnedBar(
+            pin: pinned,
+            onTap: () => _jumpTo(pinned.messageId),
+            onUnpin: pin!.canPin && !closed
+                ? () => _pin(pinned.messageId, pin: false)
+                : null,
+          ),
         Expanded(
           child: Stack(
             children: [
@@ -1121,6 +1278,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
                     onQuoteTap: _jumpTo,
                     onProfile: _profile,
                     onReact: closed ? null : _react,
+                    onVote: closed
+                        ? null
+                        : (m, picks) => runAction(
+                            context,
+                            () => ref
+                                .read(chatProvider(_key).notifier)
+                                .vote(m, picks),
+                          ),
                     onReactMenu: closed
                         ? null
                         : (m, at) => _reactMenu(m, me, at),
@@ -1163,6 +1328,11 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 : l.chatClosedPerson(target.title),
           )
         else ...[
+          // On leave, the other person's note answers before one writes.
+          if (target.otherId case final other?)
+            if (ref.watch(statusesProvider(ws)).value?[other] case final away?
+                when away.kind == StatusKind.leave)
+              _AwayNote(name: target.title, status: away),
           if (suggestions.isNotEmpty)
             // Clicking a name does not take the cursor out of the field.
             TextFieldTapRegion(
@@ -1217,6 +1387,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
         ],
       ],
     );
+    if (!_dropHover) return column;
+    return Stack(
+      children: [
+        column,
+        const Positioned.fill(child: IgnorePointer(child: _DropHint())),
+      ],
+    );
   }
 
   /// What can be done with a message: a sheet from the bottom on a long
@@ -1236,22 +1413,37 @@ class _ChatViewState extends ConsumerState<ChatView> {
     // A task belongs to a project: this chat's, or the one the message is
     // tagged with; in an untagged private message one is picked.
     final taskProject = widget.target.projectId ?? m.projectId;
+    final pin = ref
+        .read(
+          chatPinProvider((
+            workspaceId: widget.membership.workspaceId,
+            conversationId: widget.target.conversationId,
+          )),
+        )
+        .value;
     final choices = <_Action>[
-      if (!closed) _Action('reply', Icons.reply, l.reply),
-      if (hasText) _Action('copy', Icons.copy, l.copy),
-      if (hasText) _Action('select', Icons.text_fields, l.selectText),
-      if (m.file != null) _Action('download', Icons.download, l.download),
+      if (!closed) _Action('reply', LucideIcons.replyDir, l.reply),
+      if (hasText) _Action('copy', LucideIcons.copy, l.copy),
+      if (hasText) _Action('select', LucideIcons.type, l.selectText),
+      if (m.file != null) _Action('download', LucideIcons.download, l.download),
       if (m.file != null)
-        _Action('drive', Icons.add_to_drive_outlined, l.saveToDrive),
-      if (!closed) _Action('task', Icons.add_task, l.makeTask),
+        _Action('drive', LucideIcons.cloudUpload, l.saveToDrive),
+      if (!closed)
+        _Action('task', LucideIcons.listPlus, l.makeTask, short: l.taskShort),
       if (widget.membership.allowSharing && (hasText || m.file != null))
         _Action('share', LucideIcons.share2, l.share),
       if (mine && widget.target.isProject)
-        _Action('seen', Icons.done_all, l.seenByTitle),
+        _Action('seen', LucideIcons.checkCheck, l.seenByTitle),
+      if (m.poll != null && !m.poll!.closed && !closed && (mine || canModerate))
+        _Action('closePoll', LucideIcons.lock, l.closePoll),
+      if (!closed && (pin?.canPin ?? false))
+        pin?.message?.messageId == m.id
+            ? _Action('unpin', LucideIcons.pinOff, l.unpin)
+            : _Action('pin', LucideIcons.pin, l.pin),
       if (mine || canModerate)
         _Action(
           'delete',
-          Icons.delete_outline,
+          LucideIcons.trash2,
           l.deleteMessage,
           destructive: true,
         ),
@@ -1279,9 +1471,11 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 children: [
                   Icon(a.icon, size: 20, color: a.destructive ? error : null),
                   const SizedBox(width: 12),
-                  Text(
-                    a.label,
-                    style: a.destructive ? TextStyle(color: error) : null,
+                  Flexible(
+                    child: Text(
+                      a.label,
+                      style: a.destructive ? TextStyle(color: error) : null,
+                    ),
                   ),
                 ],
               ),
@@ -1291,43 +1485,17 @@ class _ChatViewState extends ConsumerState<ChatView> {
     } else {
       choice = await showModalBottomSheet<String>(
         context: context,
-        builder: (context) {
-          final error = Theme.of(context).colorScheme.error;
-          return SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!closed)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: ReactionBar(
-                          mine: _mine(m, me),
-                          onPick: (e) =>
-                              Navigator.pop(context, '$_reactPrefix$e'),
-                          onMore: () => Navigator.pop(context, _moreReactions),
-                        ),
-                      ),
-                    ),
-                  for (final a in choices)
-                    ListTile(
-                      leading: Icon(
-                        a.icon,
-                        color: a.destructive ? error : null,
-                      ),
-                      title: Text(
-                        a.label,
-                        style: a.destructive ? TextStyle(color: error) : null,
-                      ),
-                      onTap: () => Navigator.pop(context, a.id),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
+        isScrollControlled: true,
+        builder: (context) => _ActionSheet(
+          choices: choices,
+          reactions: closed
+              ? null
+              : ReactionBar(
+                  mine: _mine(m, me),
+                  onPick: (e) => Navigator.pop(context, '$_reactPrefix$e'),
+                  onMore: () => Navigator.pop(context, _moreReactions),
+                ),
+        ),
       );
     }
     if (!mounted) return;
@@ -1368,6 +1536,16 @@ class _ChatViewState extends ConsumerState<ChatView> {
         );
       case 'seen':
         _showSeenBy(m, members ?? const []);
+      case 'pin' || 'unpin':
+        await _pin(m.id, pin: choice == 'pin');
+      case 'closePoll':
+        final ok = await runAction(
+          context,
+          () => ref.read(apiProvider).closePoll(m.id),
+        );
+        if (ok && mounted) {
+          await ref.read(chatProvider(_key).notifier).refresh();
+        }
       case 'delete':
         if (!await confirm(
           context,
@@ -1415,7 +1593,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                       ),
                       IconButton(
                         tooltip: context.l10n.copy,
-                        icon: const Icon(Icons.copy),
+                        icon: const Icon(LucideIcons.copy),
                         onPressed: () async {
                           final copied = this.context.l10n.copied;
                           await Clipboard.setData(ClipboardData(text: m.body!));
@@ -1508,6 +1686,53 @@ class _ChatViewState extends ConsumerState<ChatView> {
   }
 }
 
+/// Above the message field of a private chat with someone on leave: until
+/// when, and their note.
+class _AwayNote extends StatelessWidget {
+  const _AwayNote({required this.name, required this.status});
+
+  final String name;
+  final UserStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = presenceColor(context, status.kind);
+    return Container(
+      key: const Key('awayNote'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(presenceIcon(status.kind), size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${firstName(name)} · ${presenceText(context, status)}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (status.note != null)
+                  Text(status.note!, style: theme.textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ClosedNote extends StatelessWidget {
   const _ClosedNote({required this.text});
 
@@ -1525,7 +1750,7 @@ class _ClosedNote extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.lock_outline,
+                LucideIcons.lock,
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -1595,6 +1820,7 @@ class _MessageList extends StatelessWidget {
     required this.onReact,
     required this.onReactMenu,
     required this.onReactions,
+    this.onVote,
     required this.onRetry,
     required this.onDiscard,
     required this.onDayTap,
@@ -1626,6 +1852,9 @@ class _MessageList extends StatelessWidget {
 
   /// Null where reacting is not possible (a closed chat).
   final void Function(ChatMessage, String emoji)? onReact;
+
+  /// Answers a poll; null where the chat is closed.
+  final void Function(ChatMessage, Set<int> picks)? onVote;
   final void Function(ChatMessage, Offset at)? onReactMenu;
   final void Function(ChatMessage) onReactions;
   final void Function(PendingMessage) onRetry;
@@ -1648,7 +1877,7 @@ class _MessageList extends StatelessWidget {
     final messages = state.messages;
     if (messages.isEmpty && state.pending.isEmpty) {
       return EmptyState(
-        icon: Icons.chat_bubble_outline,
+        icon: LucideIcons.messageCircle,
         title: l.noMessagesYet,
         body: l.firstMessageHint,
       );
@@ -1736,6 +1965,7 @@ class _MessageList extends StatelessWidget {
                 mentions: mentionTargets(message.mentions, names, me),
                 onProfile: onProfile,
                 onReact: onReact == null ? null : (e) => onReact!(message, e),
+                onVote: onVote == null ? null : (p) => onVote!(message, p),
                 onReactMenu: onReactMenu == null
                     ? null
                     : (at) => onReactMenu!(message, at),
@@ -1875,6 +2105,7 @@ class _Bubble extends ConsumerWidget {
     required this.onReact,
     required this.onReactMenu,
     required this.onReactions,
+    this.onVote,
     this.names = const {},
     this.onThread,
     this.replyLabel,
@@ -1901,6 +2132,9 @@ class _Bubble extends ConsumerWidget {
   final void Function(String emoji)? onReact;
   final void Function(Offset at)? onReactMenu;
   final VoidCallback onReactions;
+
+  /// Answers the message's poll; null where it cannot be answered.
+  final void Function(Set<int> picks)? onVote;
 
   /// The workspace's people by id, for who replied.
   final Map<String, String> names;
@@ -1963,7 +2197,7 @@ class _Bubble extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.block, size: 16, color: muted),
+            Icon(LucideIcons.ban, size: 16, color: muted),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -1983,7 +2217,7 @@ class _Bubble extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.reply, size: 14, color: muted),
+                Icon(LucideIcons.replyDir, size: 14, color: muted),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -2048,7 +2282,7 @@ class _Bubble extends ConsumerWidget {
                             ? WaslaColors.accent
                             : theme.colorScheme.primary,
                       ),
-                      icon: const Icon(Icons.download, size: 20),
+                      icon: const Icon(LucideIcons.download, size: 20),
                       onPressed: () => downloadFile(context, ref, file),
                     ),
                   ),
@@ -2074,6 +2308,8 @@ class _Bubble extends ConsumerWidget {
               onMention: (t) => onProfile(t.id!, t.name),
             ),
           ),
+        if (m.poll case final poll?)
+          _PollView(poll: poll, me: me, mine: mine, onVote: onVote),
         for (final link in linksIn(m.body ?? '').take(3))
           Padding(
             padding: EdgeInsets.fromLTRB(media ? 6 : 0, 6, media ? 6 : 0, 0),
@@ -2107,7 +2343,7 @@ class _Bubble extends ConsumerWidget {
             if (mine && !m.deleted) ...[
               const SizedBox(width: 4),
               Icon(
-                read ? Icons.done_all : Icons.done,
+                read ? LucideIcons.checkCheck : LucideIcons.check,
                 size: 16,
                 color: read ? theme.colorScheme.primary : muted,
               ),
@@ -2401,7 +2637,7 @@ class _SwipeToReplyState extends State<_SwipeToReply>
                     radius: 15,
                     backgroundColor: theme.colorScheme.primaryContainer,
                     child: Icon(
-                      Icons.reply,
+                      LucideIcons.replyDir,
                       size: 18,
                       color: theme.colorScheme.primary,
                     ),
@@ -2467,20 +2703,20 @@ class _HoverActionsState extends State<_HoverActions> {
                     if (widget.onReact != null)
                       _HoverButton(
                         key: const Key('hoverReact'),
-                        icon: Icons.add_reaction_outlined,
+                        icon: LucideIcons.smilePlus,
                         tooltip: l.react,
                         onTap: widget.onReact!,
                       ),
                     if (widget.onReply != null)
                       _HoverButton(
                         key: const Key('hoverReply'),
-                        icon: Icons.reply,
+                        icon: LucideIcons.replyDir,
                         tooltip: l.reply,
                         onTap: (_) => widget.onReply!(),
                       ),
                     _HoverButton(
                       key: const Key('hoverMore'),
-                      icon: Icons.more_horiz,
+                      icon: LucideIcons.ellipsis,
                       tooltip: l.moreActions,
                       onTap: onMenu,
                     ),
@@ -2632,12 +2868,135 @@ class _Reactions extends StatelessWidget {
 
 /// One entry in a message's actions.
 class _Action {
-  const _Action(this.id, this.icon, this.label, {this.destructive = false});
+  const _Action(
+    this.id,
+    this.icon,
+    this.label, {
+    this.short,
+    this.destructive = false,
+  });
 
   final String id;
   final IconData icon;
   final String label;
+
+  /// The label under its icon when it is one of the quick ones.
+  final String? short;
   final bool destructive;
+}
+
+/// The sheet a long press on a message opens: reactions, the three things
+/// most often done as big buttons, and the rest behind «More».
+class _ActionSheet extends StatefulWidget {
+  const _ActionSheet({required this.choices, required this.reactions});
+
+  final List<_Action> choices;
+  final Widget? reactions;
+
+  /// The ones that make the quick row, in this order.
+  static const quickOrder = ['reply', 'copy', 'task', 'download'];
+
+  @override
+  State<_ActionSheet> createState() => _ActionSheetState();
+}
+
+class _ActionSheetState extends State<_ActionSheet> {
+  bool _more = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final quick = [
+      for (final id in _ActionSheet.quickOrder)
+        ?widget.choices.where((a) => a.id == id).firstOrNull,
+    ].take(3).toList();
+    final rest = widget.choices.where((a) => !quick.contains(a)).toList();
+    // One left over is shown as it is; more wait behind «More».
+    final showRest = _more || rest.length < 2;
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.reactions != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: widget.reactions,
+                ),
+              ),
+            if (quick.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(
+                  children: [
+                    for (final a in quick)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Material(
+                            color: scheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              key: Key('action-${a.id}'),
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => Navigator.pop(context, a.id),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 4,
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(a.icon, color: scheme.primary),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      a.short ?? a.label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (showRest)
+              for (final a in rest)
+                ListTile(
+                  leading: Icon(
+                    a.icon,
+                    color: a.destructive ? scheme.error : null,
+                  ),
+                  title: Text(
+                    a.label,
+                    style: a.destructive
+                        ? TextStyle(color: scheme.error)
+                        : null,
+                  ),
+                  onTap: () => Navigator.pop(context, a.id),
+                )
+            else
+              ListTile(
+                key: const Key('moreActions'),
+                leading: const Icon(LucideIcons.ellipsis),
+                title: Text(l.moreActions),
+                onTap: () => setState(() => _more = true),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// A link in a message, one tap from opening; Google Drive and Docs links
@@ -2667,7 +3026,10 @@ class _LinkChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(drive ? Icons.add_to_drive : Icons.link, size: 20),
+              Icon(
+                drive ? LucideIcons.cloudUpload : LucideIcons.link,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -2678,7 +3040,7 @@ class _LinkChip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.open_in_new, size: 16),
+              const Icon(LucideIcons.externalLink, size: 16),
             ],
           ),
         ),
@@ -2858,8 +3220,8 @@ class _PendingBubble extends StatelessWidget {
                           const SizedBox(width: 4),
                           Icon(
                             message.failed
-                                ? Icons.error_outline
-                                : Icons.schedule,
+                                ? LucideIcons.circleAlert
+                                : LucideIcons.clock,
                             size: 16,
                             color: message.failed
                                 ? theme.colorScheme.error
@@ -2948,7 +3310,7 @@ class _RecordingBar extends StatelessWidget {
                 tooltip: l.cancelRecording,
                 onPressed: onCancel,
                 color: theme.colorScheme.error,
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(LucideIcons.trash2),
               ),
               Expanded(
                 child: Container(
@@ -2975,7 +3337,7 @@ class _RecordingBar extends StatelessWidget {
                   key: const Key('sendVoice'),
                   tooltip: l.send,
                   onPressed: onSend,
-                  icon: const Icon(Icons.send),
+                  icon: const Icon(LucideIcons.sendHorizontalDir),
                 ),
               ),
             ],
@@ -3025,7 +3387,7 @@ class _RecordingDotState extends State<_RecordingDot>
   Widget build(BuildContext context) => FadeTransition(
     opacity: Tween(begin: 1.0, end: 0.25).animate(_blink),
     child: Icon(
-      Icons.mic,
+      LucideIcons.mic,
       size: 20,
       color: Theme.of(context).colorScheme.error,
     ),
@@ -3065,7 +3427,7 @@ class _HoldingStrip extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.arrow_back_ios,
+                    LucideIcons.chevronLeftDir,
                     size: 14,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -3246,7 +3608,7 @@ class _LockHint extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            progress > 0.6 ? Icons.lock : Icons.lock_open,
+            progress > 0.6 ? LucideIcons.lock : LucideIcons.lockOpen,
             size: 20,
             color: Color.lerp(
               theme.colorScheme.onSurfaceVariant,
@@ -3255,7 +3617,7 @@ class _LockHint extends StatelessWidget {
             ),
           ),
           Icon(
-            Icons.keyboard_arrow_up,
+            LucideIcons.chevronUp,
             size: 18,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -3339,7 +3701,7 @@ class _Composer extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(8, 0, 0, 6),
                   child: Row(
                     children: [
-                      Icon(Icons.reply, size: 18, color: muted),
+                      Icon(LucideIcons.replyDir, size: 18, color: muted),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -3355,7 +3717,7 @@ class _Composer extends StatelessWidget {
                       IconButton(
                         tooltip: l.cancel,
                         visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(LucideIcons.x, size: 18),
                         onPressed: onCancelReply,
                       ),
                     ],
@@ -3442,7 +3804,7 @@ class _Composer extends StatelessWidget {
                                   ),
                                 ),
                                 Icon(
-                                  Icons.arrow_drop_down,
+                                  LucideIcons.chevronDown,
                                   size: 18,
                                   color: muted,
                                 ),
@@ -3486,7 +3848,7 @@ class _Composer extends StatelessWidget {
                                       : muted,
                                   icon: Icon(
                                     emojiOpen
-                                        ? Icons.keyboard_outlined
+                                        ? LucideIcons.keyboard
                                         : LucideIcons.smile,
                                     size: 22,
                                   ),
@@ -3605,7 +3967,11 @@ class _LongTextCard extends StatelessWidget {
         children: [
           asFile
               ? FileBadge(name: l.longTextFile, size: 36)
-              : Icon(Icons.notes, size: 28, color: theme.colorScheme.primary),
+              : Icon(
+                  LucideIcons.notebookText,
+                  size: 28,
+                  color: theme.colorScheme.primary,
+                ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -3639,7 +4005,7 @@ class _LongTextCard extends StatelessWidget {
           IconButton(
             tooltip: l.cancel,
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close, size: 18),
+            icon: const Icon(LucideIcons.x, size: 18),
             onPressed: onDrop,
           ),
         ],
@@ -3679,7 +4045,7 @@ class _LatestButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.arrow_downward, size: 18, color: scheme.primary),
+              Icon(LucideIcons.arrowDown, size: 18, color: scheme.primary),
               if (count > 0) ...[
                 const SizedBox(width: 6),
                 Badge(
@@ -3818,7 +4184,7 @@ class _DateSheetState extends ConsumerState<_DateSheet> {
                 IconButton(
                   key: const Key('prevMonth'),
                   tooltip: l.previousMonth,
-                  icon: const Icon(Icons.chevron_left),
+                  icon: const Icon(LucideIcons.chevronLeftDir),
                   onPressed: () => setState(
                     () => _month = DateTime(_month.year, _month.month - 1),
                   ),
@@ -3835,7 +4201,7 @@ class _DateSheetState extends ConsumerState<_DateSheet> {
                 IconButton(
                   key: const Key('nextMonth'),
                   tooltip: l.nextMonth,
-                  icon: const Icon(Icons.chevron_right),
+                  icon: const Icon(LucideIcons.chevronRightDir),
                   onPressed: isThisMonth
                       ? null
                       : () => setState(
@@ -4117,7 +4483,7 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
               builder: (list) {
                 if (list.isEmpty) {
                   return EmptyState(
-                    icon: Icons.forum_outlined,
+                    icon: LucideIcons.messagesSquare,
                     title: l.originalNotFound,
                   );
                 }
@@ -4222,7 +4588,7 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
                         onPressed: _sending || _text.text.trim().isEmpty
                             ? null
                             : () => _send(root),
-                        icon: const Icon(Icons.send),
+                        icon: const Icon(LucideIcons.sendHorizontalDir),
                       ),
                     ],
                   ),
@@ -4230,6 +4596,286 @@ class _ReplyThreadScreenState extends ConsumerState<ReplyThreadScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// A poll under its question: each option with how many picked it, a tap to
+/// pick (again to take it back), and who answered.
+class _PollView extends StatelessWidget {
+  const _PollView({
+    required this.poll,
+    required this.me,
+    required this.mine,
+    required this.onVote,
+  });
+
+  final Poll poll;
+  final String? me;
+  final bool mine;
+  final void Function(Set<int> picks)? onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    final picks = poll.picksOf(me);
+    final voters = poll.voters.length;
+    final open = !poll.closed && onVote != null;
+    final accent = mine ? Colors.white : theme.colorScheme.primary;
+    final muted = mine ? Colors.white70 : theme.colorScheme.onSurfaceVariant;
+
+    void pick(int i) {
+      final next = poll.multiple
+          ? (picks.contains(i) ? ({...picks}..remove(i)) : {...picks, i})
+          : (picks.contains(i) ? <int>{} : {i});
+      onVote!(next);
+    }
+
+    return Padding(
+      key: const Key('poll'),
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            poll.closed
+                ? l.pollClosed
+                : poll.multiple
+                ? l.pollPickMany
+                : l.pollPickOne,
+            style: theme.textTheme.labelSmall?.copyWith(color: muted),
+          ),
+          const SizedBox(height: 4),
+          for (var i = 0; i < poll.options.length; i++)
+            InkWell(
+              key: Key('pollOption-$i'),
+              borderRadius: BorderRadius.circular(8),
+              onTap: open ? () => pick(i) : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          picks.contains(i)
+                              ? LucideIcons.circleCheckBig
+                              : LucideIcons.circle,
+                          size: 18,
+                          color: picks.contains(i) ? accent : muted,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(poll.options[i])),
+                        Text(
+                          '${poll.votersOf(i).length}',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: voters == 0
+                            ? 0
+                            : poll.votersOf(i).length / voters,
+                        minHeight: 5,
+                        color: accent,
+                        backgroundColor: accent.withValues(alpha: 0.15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Text(
+            l.pollVoters(voters),
+            style: theme.textTheme.labelSmall?.copyWith(color: muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+typedef _PollDraft = ({String question, List<String> options, bool multiple});
+
+/// Writes a poll: the question, two to ten options, and whether more than
+/// one may be picked.
+class _PollComposer extends StatefulWidget {
+  const _PollComposer();
+
+  @override
+  State<_PollComposer> createState() => _PollComposerState();
+}
+
+class _PollComposerState extends State<_PollComposer> {
+  final _question = TextEditingController();
+  final _options = [TextEditingController(), TextEditingController()];
+  bool _multiple = false;
+
+  @override
+  void dispose() {
+    _question.dispose();
+    for (final c in _options) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _send() {
+    final question = _question.text.trim();
+    final options = [
+      for (final c in _options)
+        if (c.text.trim().isNotEmpty) c.text.trim(),
+    ];
+    if (question.isEmpty || options.length < 2) {
+      showMessage(context, context.l10n.pollNeedsTwo);
+      return;
+    }
+    Navigator.pop<_PollDraft>(context, (
+      question: question,
+      options: options,
+      multiple: _multiple,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          0,
+          20,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l.newPoll,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('pollQuestion'),
+              controller: _question,
+              autofocus: true,
+              maxLength: 300,
+              minLines: 1,
+              maxLines: 3,
+              decoration: InputDecoration(labelText: l.pollQuestion),
+            ),
+            for (var i = 0; i < _options.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TextField(
+                  key: Key('pollOptionField-$i'),
+                  controller: _options[i],
+                  maxLength: 100,
+                  decoration: InputDecoration(
+                    labelText: l.pollOption(i + 1),
+                    counterText: '',
+                  ),
+                ),
+              ),
+            if (_options.length < 10)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  key: const Key('pollAddOption'),
+                  icon: const Icon(LucideIcons.plus, size: 18),
+                  label: Text(l.pollAddOption),
+                  onPressed: () =>
+                      setState(() => _options.add(TextEditingController())),
+                ),
+              ),
+            SwitchListTile(
+              key: const Key('pollMultiple'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.pollMultiple),
+              value: _multiple,
+              onChanged: (v) => setState(() => _multiple = v),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              key: const Key('sendPoll'),
+              onPressed: _send,
+              child: Text(l.pollSend),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// On top of a chat: its pinned message, a tap from it, and for whoever
+/// may, a way to take it down.
+class _PinnedBar extends StatelessWidget {
+  const _PinnedBar({required this.pin, required this.onTap, this.onUnpin});
+
+  final PinnedMessage pin;
+  final VoidCallback onTap;
+  final VoidCallback? onUnpin;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final theme = Theme.of(context);
+    return Material(
+      key: const Key('pinnedBar'),
+      color: theme.colorScheme.surfaceContainerHigh,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 4, 8),
+          child: Row(
+            children: [
+              Icon(LucideIcons.pin, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.pinnedMessage,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${firstName(pin.senderName)}: '
+                      '${pin.body ?? pin.fileName ?? ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              if (onUnpin != null)
+                IconButton(
+                  key: const Key('unpin'),
+                  tooltip: l.unpinMessage,
+                  icon: const Icon(LucideIcons.x, size: 18),
+                  onPressed: onUnpin,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

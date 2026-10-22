@@ -4,6 +4,7 @@
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'widgets.dart';
 
@@ -280,7 +281,7 @@ class ReactionBar extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: scheme.surfaceContainerHigh,
               ),
-              child: Icon(Icons.add, color: scheme.onSurfaceVariant),
+              child: Icon(LucideIcons.plus, color: scheme.onSurfaceVariant),
             ),
           ),
         ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/providers.dart';
@@ -30,7 +31,7 @@ class JoinRequestsScreen extends ConsumerWidget {
                   children: [
                     const SizedBox(height: 80),
                     EmptyState(
-                      icon: Icons.how_to_reg_outlined,
+                      icon: LucideIcons.userCheck,
                       title: l.noJoinRequests,
                     ),
                   ],

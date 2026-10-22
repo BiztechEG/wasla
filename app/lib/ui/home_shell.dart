@@ -11,6 +11,7 @@ import '../push/push.dart';
 import '../state/chat_providers.dart';
 import '../state/google_providers.dart';
 import '../state/providers.dart';
+import '../state/settings.dart';
 import '../state/task_providers.dart';
 import 'account_screen.dart';
 import 'approvals_screen.dart';
@@ -20,10 +21,12 @@ import 'modern.dart';
 import 'more_tab.dart';
 import 'my_tasks_tab.dart';
 import 'notifications_screen.dart';
+import 'phone_view.dart';
 import 'projects_tab.dart';
 import 'start_screen.dart';
 import 'widgets.dart';
 import 'workspaces_screen.dart';
+import 'status.dart';
 
 /// The four tabs from the design, with notifications in the top bar.
 class HomeShell extends ConsumerStatefulWidget {
@@ -143,9 +146,26 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                         child: _WorkspaceTitle(membership: membership),
                       ),
                     ),
+                    // In a wide browser window: the phone view, a click away.
+                    if (ref.watch(isWebProvider) &&
+                        phoneViewFits(MediaQuery.sizeOf(context))) ...[
+                      SoftIconButton(
+                        key: const Key('phoneViewButton'),
+                        tooltip: l.phoneViewTitle,
+                        onPressed: () => ref
+                            .read(settingsProvider.notifier)
+                            .setPhoneView(true),
+                        icon: const Icon(LucideIcons.smartphone, size: 20),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     _BellButton(count: notes),
                     const SizedBox(width: 8),
-                    _MeButton(name: name, onTap: () => openAccount(context)),
+                    _MeButton(
+                      name: name,
+                      status: myStatus(ref, membership.workspaceId)?.kind,
+                      onTap: () => openAccount(context),
+                    ),
                   ],
                 ),
               ),
@@ -174,6 +194,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ChatsTab(
                       key: ValueKey(membership.workspaceId),
                       membership: membership,
+                      onOpenTasks: () => setState(() => _tab = 2),
                     ),
                     ProjectsTab(membership: membership),
                     MyTasksTab(membership: membership),
@@ -259,9 +280,10 @@ class _BellButton extends StatelessWidget {
 
 /// My initials in the top bar; opens my account.
 class _MeButton extends StatelessWidget {
-  const _MeButton({required this.name, required this.onTap});
+  const _MeButton({required this.name, required this.onTap, this.status});
 
   final String name;
+  final StatusKind? status;
   final VoidCallback onTap;
 
   @override
@@ -273,7 +295,18 @@ class _MeButton extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: Avatar(key: const Key('meButton'), name: name, radius: 20),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Avatar(key: const Key('meButton'), name: name, radius: 20),
+            if (status case final kind?)
+              PositionedDirectional(
+                end: -1,
+                bottom: -1,
+                child: PresenceDot(kind: kind),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -386,7 +419,7 @@ class _WorkspaceSwitcher extends ConsumerWidget {
                     ),
                     trailing: m.workspaceId == current?.workspaceId
                         ? Icon(
-                            Icons.check_circle,
+                            LucideIcons.circleCheckBig,
                             color: theme.colorScheme.primary,
                           )
                         : null,
@@ -430,7 +463,7 @@ class _WorkspaceSwitcher extends ConsumerWidget {
           ListTile(
             leading: CircleAvatar(
               backgroundColor: theme.colorScheme.primaryContainer,
-              child: Icon(Icons.add, color: theme.colorScheme.primary),
+              child: Icon(LucideIcons.plus, color: theme.colorScheme.primary),
             ),
             title: Text(l.addWorkspace),
             onTap: () {

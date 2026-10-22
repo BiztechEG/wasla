@@ -138,6 +138,37 @@ abstract class WaslaApi {
   /// Hours when nothing reaches one's phone; null when off.
   Future<QuietHours?> quietHours();
 
+  /// Whether one gets the weekly report (for whoever runs a team).
+  Future<bool> weeklyReport();
+  Future<void> setWeeklyReport(bool on);
+
+  /// A workspace's departments, for its owners and admins.
+  Future<List<Department>> departments(String workspaceId);
+
+  /// The departments one manages in a workspace, by id.
+  Future<Map<String, String>> myDepartments(String workspaceId);
+
+  /// Makes ([departmentId] null) or changes a department.
+  Future<void> saveDepartment(
+    String workspaceId, {
+    String? departmentId,
+    required String name,
+    required List<String> managerIds,
+    required List<String> projectIds,
+  });
+  Future<void> deleteDepartment(String departmentId);
+
+  /// The statuses of a workspace's members, by user id; those available
+  /// are left out.
+  Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId);
+
+  /// Sets one's status, or with null clears it.
+  Future<void> setMyStatus(UserStatus? status);
+
+  /// A new workspace's first steps, for its owners and admins; null for
+  /// anyone else.
+  Future<SetupProgress?> workspaceSetup(String workspaceId);
+
   /// Sets quiet hours, or turns them off with nulls.
   Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset);
 
@@ -168,6 +199,24 @@ abstract class WaslaApi {
 
   /// A message and every reply under it, oldest first.
   Future<List<ChatMessage>> replyChain(String messageId);
+
+  /// Asks the chat [question] with [options]; [multiple]: more than one may
+  /// be picked.
+  Future<void> createPoll(
+    String conversationId, {
+    required String question,
+    required List<String> options,
+    bool multiple = false,
+    String? projectId,
+  });
+
+  /// One's answer to a poll; none takes it back.
+  Future<void> votePoll(String messageId, Set<int> options);
+  Future<void> closePoll(String messageId);
+
+  /// Pins a message on top of its chat, or with [pin] false takes it down.
+  Future<void> pinMessage(String messageId, {bool pin = true});
+  Future<ChatPin> chatPin(String conversationId);
 
   /// The days, in the device's time zone, that a chat has messages on.
   Future<Set<DateTime>> messageDays(String conversationId, {String? projectId});
@@ -236,6 +285,18 @@ abstract class WaslaApi {
   Future<List<AnnouncementReader>> announcementReaders(String id);
   Future<void> setAnnouncementPinned(String id, bool pinned);
   Future<void> deleteAnnouncement(String id);
+
+  /// The same workspace-wide announcement to each of [workspaceIds].
+  Future<void> postBroadcast(
+    List<String> workspaceIds, {
+    required String body,
+    bool pinned = false,
+    bool needsAck = false,
+  });
+
+  /// How an announcement sent to several workspaces is doing in each one
+  /// runs.
+  Future<List<BroadcastReach>> broadcastReach(String broadcastId);
 
   // Tasks
 
@@ -306,6 +367,10 @@ abstract class WaslaApi {
 
   /// This phone stops getting the signed-in person's notifications.
   Future<void> unregisterPushToken(String token);
+
+  /// The key browsers subscribe to desktop notifications with; null until
+  /// the server has one.
+  Future<String?> webPushKey();
 
   /// Fires when a notification arrives for the signed-in user, and when
   /// some may have been missed.
@@ -844,7 +909,10 @@ class SupabaseWaslaApi implements WaslaApi {
   Future<List<Project>> projects(String workspaceId) async {
     final data = await _client
         .from('projects')
-        .select('id, workspace_id, name, color, status, project_members(count)')
+        .select(
+          'id, workspace_id, name, color, status, department_id, '
+          'project_members(count)',
+        )
         .eq('workspace_id', workspaceId)
         .order('created_at');
     return _rows(data).map(Project.fromJson).toList();
@@ -1028,6 +1096,101 @@ class SupabaseWaslaApi implements WaslaApi {
   }
 
   @override
+  Future<List<Department>> departments(String workspaceId) async => _rows(
+    await _client.rpc(
+      'workspace_departments',
+      params: {'p_workspace': workspaceId},
+    ),
+  ).map(Department.fromJson).toList();
+
+  @override
+  Future<Map<String, String>> myDepartments(String workspaceId) async => {
+    for (final r in _rows(
+      await _client.rpc('my_departments', params: {'p_workspace': workspaceId}),
+    ))
+      r['id'] as String: r['name'] as String? ?? '',
+  };
+
+  @override
+  Future<void> saveDepartment(
+    String workspaceId, {
+    String? departmentId,
+    required String name,
+    required List<String> managerIds,
+    required List<String> projectIds,
+  }) => _client.rpc(
+    'save_department',
+    params: {
+      'p_workspace': workspaceId,
+      'p_department': departmentId,
+      'p_name': name,
+      'p_managers': managerIds,
+      'p_projects': projectIds,
+    },
+  );
+
+  @override
+  Future<void> deleteDepartment(String departmentId) =>
+      _client.rpc('delete_department', params: {'p_department': departmentId});
+
+  @override
+  Future<Map<String, UserStatus>> workspaceStatuses(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'workspace_statuses',
+        params: {'p_workspace': workspaceId},
+      ),
+    );
+    return {
+      for (final r in rows)
+        if (StatusKind.parse(r['kind'] as String?) case final kind?)
+          r['user_id'] as String: UserStatus(
+            kind: kind,
+            note: r['note'] as String?,
+            until: r['until'] == null
+                ? null
+                : DateTime.parse(r['until'] as String),
+          ),
+    };
+  }
+
+  @override
+  Future<void> setMyStatus(UserStatus? status) => _client.rpc(
+    'set_my_status',
+    params: {
+      'p_kind': status?.kind.wire,
+      'p_note': status?.note,
+      'p_until': status?.until?.toUtc().toIso8601String(),
+    },
+  );
+
+  @override
+  Future<SetupProgress?> workspaceSetup(String workspaceId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'workspace_setup',
+        params: {'p_workspace': workspaceId},
+      ),
+    );
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    return SetupProgress(
+      project: r['has_project'] == true,
+      team: r['has_team'] == true,
+      attendance: r['attendance_on'] == true,
+      announcement: r['has_announcement'] == true,
+    );
+  }
+
+  @override
+  Future<bool> weeklyReport() async =>
+      await _client.rpc('my_weekly_report') as bool? ?? true;
+
+  @override
+  Future<void> setWeeklyReport(bool on) =>
+      _client.rpc('set_weekly_report', params: {'p_on': on});
+
+  @override
   Future<void> setQuietHours(TimeOfDay? from, TimeOfDay? to, int utcOffset) =>
       _client.rpc(
         'set_quiet_hours',
@@ -1071,6 +1234,63 @@ class SupabaseWaslaApi implements WaslaApi {
       },
     ),
   ).map(ChatMessage.fromJson).toList();
+
+  @override
+  Future<void> createPoll(
+    String conversationId, {
+    required String question,
+    required List<String> options,
+    bool multiple = false,
+    String? projectId,
+  }) => _client.rpc(
+    'create_poll',
+    params: {
+      'p_conversation': conversationId,
+      'p_question': question,
+      'p_options': options,
+      'p_multiple': multiple,
+      'p_project': projectId,
+    },
+  );
+
+  @override
+  Future<void> votePoll(String messageId, Set<int> options) => _client.rpc(
+    'vote_poll',
+    params: {'p_message': messageId, 'p_options': options.toList()},
+  );
+
+  @override
+  Future<void> closePoll(String messageId) =>
+      _client.rpc('close_poll', params: {'p_message': messageId});
+
+  @override
+  Future<void> pinMessage(String messageId, {bool pin = true}) => _client.rpc(
+    'pin_message',
+    params: {'p_message': messageId, 'p_pin': pin},
+  );
+
+  @override
+  Future<ChatPin> chatPin(String conversationId) async {
+    final rows = _rows(
+      await _client.rpc(
+        'conversation_pin',
+        params: {'p_conversation': conversationId},
+      ),
+    );
+    if (rows.isEmpty) return const ChatPin();
+    final r = rows.first;
+    return ChatPin(
+      canPin: r['can_pin'] == true,
+      message: r['message_id'] == null
+          ? null
+          : PinnedMessage(
+              messageId: r['message_id'] as String,
+              senderName: r['sender_name'] as String? ?? '',
+              body: r['body'] as String?,
+              fileName: r['file_name'] as String?,
+            ),
+    );
+  }
 
   @override
   Future<void> sendMessage(
@@ -1349,6 +1569,31 @@ class SupabaseWaslaApi implements WaslaApi {
   ).map(UnreadAnnouncement.fromJson).toList();
 
   @override
+  Future<void> postBroadcast(
+    List<String> workspaceIds, {
+    required String body,
+    bool pinned = false,
+    bool needsAck = false,
+  }) => _client.rpc(
+    'post_broadcast',
+    params: {
+      'p_workspaces': workspaceIds,
+      'p_body': body,
+      'p_pinned': pinned,
+      'p_needs_ack': needsAck,
+    },
+  );
+
+  @override
+  Future<List<BroadcastReach>> broadcastReach(String broadcastId) async =>
+      _rows(
+        await _client.rpc(
+          'broadcast_reach',
+          params: {'p_broadcast': broadcastId},
+        ),
+      ).map(BroadcastReach.fromJson).toList();
+
+  @override
   Future<void> postAnnouncement(
     String workspaceId, {
     String? projectId,
@@ -1594,6 +1839,10 @@ class SupabaseWaslaApi implements WaslaApi {
   @override
   Future<void> unregisterPushToken(String token) =>
       _client.rpc('unregister_push_token', params: {'p_token': token});
+
+  @override
+  Future<String?> webPushKey() async =>
+      await _client.rpc('web_push_key') as String?;
 
   @override
   Stream<void> notificationEvents() => _follow<bool>(

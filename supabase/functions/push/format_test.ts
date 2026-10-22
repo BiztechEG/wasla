@@ -147,3 +147,20 @@ Deno.test("a notification is finished unless it only failed for passing reasons"
   assertEquals(r.done, [1, 3, 4]);
   assertEquals(r.gone, ["d"]);
 });
+
+Deno.test("a weekly report sums the week in one line", () => {
+  const shown = format({
+    ...base,
+    kind: "weekly_report",
+    title: "Engineering",
+    actor: null,
+    body: JSON.stringify({ done: 12, done_before: 8, late: 2, review: 1, late_arrivals: null }),
+    data: { type: "dashboard", workspace: "w1" },
+  });
+  assertEquals(shown.title, "Engineering");
+  assertEquals(
+    shown.body,
+    "تقرير الأسبوع: أُنجزت 12 مهمة (مقابل 8 في الأسبوع السابق) · 2 متأخرة · 1 بانتظار المراجعة",
+  );
+  assertEquals(shown.data.type, "dashboard");
+});

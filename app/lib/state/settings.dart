@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,16 +8,38 @@ final prefsProvider = Provider<SharedPreferences>(
 );
 
 class AppSettings {
-  const AppSettings({required this.themeMode, required this.locale});
+  const AppSettings({
+    required this.themeMode,
+    required this.locale,
+    this.phoneView = false,
+  });
 
   final ThemeMode themeMode;
   final Locale locale;
+
+  /// In a browser on a wide screen: the app as wide as a phone, in the
+  /// middle of the window.
+  final bool phoneView;
+
+  AppSettings copyWith({
+    ThemeMode? themeMode,
+    Locale? locale,
+    bool? phoneView,
+  }) => AppSettings(
+    themeMode: themeMode ?? this.themeMode,
+    locale: locale ?? this.locale,
+    phoneView: phoneView ?? this.phoneView,
+  );
 }
 
-/// Theme and language, kept on the device so they apply before sign-in.
+/// Whether the app runs in a browser; tests say so to try the web's ways.
+final isWebProvider = Provider<bool>((ref) => kIsWeb);
+
+/// Theme, language and the browser's phone view, kept on the device so they apply before sign-in.
 class SettingsNotifier extends Notifier<AppSettings> {
   static const _themeKey = 'theme';
   static const _localeKey = 'locale';
+  static const _phoneViewKey = 'phone_view';
 
   SharedPreferences get _prefs => ref.read(prefsProvider);
 
@@ -29,17 +52,23 @@ class SettingsNotifier extends Notifier<AppSettings> {
         orElse: () => ThemeMode.system,
       ),
       locale: Locale(prefs.getString(_localeKey) ?? 'ar'),
+      phoneView: prefs.getBool(_phoneViewKey) ?? false,
     );
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    state = AppSettings(themeMode: mode, locale: state.locale);
+    state = state.copyWith(themeMode: mode);
     await _prefs.setString(_themeKey, mode.name);
   }
 
   Future<void> setLocale(Locale locale) async {
-    state = AppSettings(themeMode: state.themeMode, locale: locale);
+    state = state.copyWith(locale: locale);
     await _prefs.setString(_localeKey, locale.languageCode);
+  }
+
+  Future<void> setPhoneView(bool on) async {
+    state = state.copyWith(phoneView: on);
+    await _prefs.setBool(_phoneViewKey, on);
   }
 }
 

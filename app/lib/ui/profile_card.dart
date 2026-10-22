@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/chat_providers.dart';
@@ -7,6 +8,7 @@ import '../state/providers.dart';
 import 'chats_tab.dart';
 import 'my_tasks_tab.dart';
 import 'project_screen.dart';
+import 'status.dart';
 import 'widgets.dart';
 
 /// Someone's card, from the bottom: who they are, how to reach them, and
@@ -85,6 +87,9 @@ class _ProfileCard extends ConsumerWidget {
         ?projects.where((p) => p.id == id).firstOrNull,
     ];
     final fullName = member?.fullName ?? name;
+    final status = member == null
+        ? null
+        : ref.watch(statusesProvider(ws)).value?[userId];
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -109,6 +114,43 @@ class _ProfileCard extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(color: muted),
               ),
+            if (status != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                key: const Key('profileStatus'),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: presenceColor(
+                    context,
+                    status.kind,
+                  ).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      presenceIcon(status.kind),
+                      size: 18,
+                      color: presenceColor(context, status.kind),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            presenceText(context, status),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          if (status.note != null) Text(status.note!),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (member != null && userId != me) ...[
               const SizedBox(height: 16),
               Row(
@@ -116,7 +158,7 @@ class _ProfileCard extends ConsumerWidget {
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('profileMessage'),
-                      icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                      icon: const Icon(LucideIcons.messageCircle, size: 20),
                       label: Text(l.sendMessage),
                       onPressed: () => Navigator.pop(context, member),
                     ),
@@ -125,7 +167,7 @@ class _ProfileCard extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const Key('profileAssign'),
-                      icon: const Icon(Icons.add_task, size: 20),
+                      icon: const Icon(LucideIcons.listPlus, size: 20),
                       label: Text(l.assignTask),
                       onPressed: () => Navigator.pop(context, _assign),
                     ),
@@ -137,8 +179,8 @@ class _ProfileCard extends ConsumerWidget {
                 (member.email != null || member.phone != null)) ...[
               const SizedBox(height: 12),
               for (final (icon, value) in [
-                (Icons.mail_outline, member.email),
-                (Icons.phone_outlined, member.phone),
+                (LucideIcons.mail, member.email),
+                (LucideIcons.phone, member.phone),
               ])
                 if (value != null && value.isNotEmpty)
                   ListTile(

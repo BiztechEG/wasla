@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/task_models.dart';
 import '../state/providers.dart';
@@ -76,7 +77,7 @@ class _FollowUpScreenState extends ConsumerState<FollowUpScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 60),
                     child: EmptyState(
-                      icon: Icons.insights_outlined,
+                      icon: LucideIcons.chartLine,
                       title: l.followUpEmpty,
                     ),
                   )
@@ -331,7 +332,7 @@ class _NeedsRow extends ConsumerWidget {
               ),
               child: Text(l.reviewAction),
             )
-          : const Icon(Icons.chevron_right),
+          : const Icon(LucideIcons.chevronRightDir),
     );
   }
 }

@@ -9,6 +9,7 @@ import 'config.dart';
 import 'data/api.dart';
 import 'push/firebase_push.dart';
 import 'push/push.dart';
+import 'push/web_push.dart';
 import 'state/providers.dart';
 import 'state/settings.dart';
 import 'ui/join_link.dart';
@@ -25,7 +26,9 @@ Future<void> main() async {
     url: AppConfig.supabaseUrl,
     publishableKey: AppConfig.supabaseKey,
   );
-  final push = await FirebasePush.start();
+  final api = SupabaseWaslaApi(Supabase.instance.client);
+  // Phones through Firebase; browsers through Web Push.
+  final push = await FirebasePush.start() ?? startWebPush(api.webPushKey);
 
   runApp(
     ProviderScope(
@@ -33,9 +36,7 @@ Future<void> main() async {
       retry: (_, _) => null,
       overrides: [
         prefsProvider.overrideWithValue(prefs),
-        apiProvider.overrideWithValue(
-          SupabaseWaslaApi(Supabase.instance.client),
-        ),
+        apiProvider.overrideWithValue(api),
         if (push != null) pushMessagingProvider.overrideWithValue(push),
       ],
       child: const WaslaApp(),

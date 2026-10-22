@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/providers.dart';
@@ -115,7 +116,7 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
                   labelText: l.emailLabel,
                   helperText: l.inviteEmailHint,
                   helperMaxLines: 2,
-                  prefixIcon: const Icon(Icons.mail_outline),
+                  prefixIcon: const Icon(LucideIcons.mail),
                 ),
                 validator: (v) => _emailPattern.hasMatch(v?.trim() ?? '')
                     ? null
@@ -168,7 +169,7 @@ class _InviteSheetState extends ConsumerState<InviteSheet> {
               BusyButton(label: l.sendInvite, onPressed: _send),
               const SizedBox(height: 4),
               TextButton.icon(
-                icon: const Icon(Icons.link, size: 18),
+                icon: const Icon(LucideIcons.link, size: 18),
                 label: Text(l.joinLinkFromInvite),
                 onPressed: () {
                   final navigator = Navigator.of(context);
@@ -213,7 +214,7 @@ class _InviteReady extends ConsumerWidget {
                 radius: 30,
                 backgroundColor: scheme.primaryContainer,
                 child: Icon(
-                  Icons.mark_email_read_outlined,
+                  LucideIcons.mailCheck,
                   size: 30,
                   color: scheme.primary,
                 ),
@@ -238,7 +239,7 @@ class _InviteReady extends ConsumerWidget {
             const SizedBox(height: 20),
             FilledButton.icon(
               key: const Key('shareInvite'),
-              icon: const Icon(Icons.send_outlined, size: 18),
+              icon: const Icon(LucideIcons.sendHorizontalDir, size: 18),
               label: Text(l.shareInvite),
               onPressed: () => shareText(
                 context,

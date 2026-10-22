@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../state/billing_providers.dart';
@@ -15,6 +16,7 @@ import 'announcements_view.dart';
 import 'billing_format.dart';
 import 'billing_screen.dart';
 import 'dashboard_screen.dart';
+import 'departments_screen.dart';
 import 'invite_sheet.dart';
 import 'join_link.dart';
 import 'join_requests_screen.dart';
@@ -44,6 +46,9 @@ class MoreTab extends ConsumerWidget {
     final approvals = ref.watch(approvalsProvider(ws)).count;
     final attendance = ref.watch(attendanceTodayProvider(ws)).value;
     final attendanceOn = attendance?.enabled ?? false;
+    final departments =
+        ref.watch(myDepartmentsProvider(ws)).value ?? const <String, String>{};
+    final runsDepartment = departments.isNotEmpty;
 
     void push(Widget screen) =>
         Navigator.of(context)
@@ -76,7 +81,7 @@ class MoreTab extends ConsumerWidget {
               ),
             ),
             subtitle: Text(l.myAccountHint),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(LucideIcons.chevronRightDir),
             onTap: () => openAccount(context),
           ),
         ),
@@ -93,49 +98,62 @@ class MoreTab extends ConsumerWidget {
               subtitle: seats == null ? null : Text(seats),
               trailing: Tag(roleLabel(l, membership.role), strong: true),
             ),
-            if (canManage || (attendance?.isManager ?? false) || approvals > 0)
+            if (canManage ||
+                (attendance?.isManager ?? false) ||
+                approvals > 0 ||
+                runsDepartment)
               ListTile(
                 key: const Key('approvalsTile'),
-                leading: const Icon(Icons.fact_check_outlined),
+                leading: const Icon(LucideIcons.clipboardCheck),
                 title: Text(l.approvalsTitle),
                 subtitle: Text(l.approvalsHint),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (approvals > 0) Badge(label: Text('$approvals')),
-                    const Icon(Icons.chevron_right),
+                    const Icon(LucideIcons.chevronRightDir),
                   ],
                 ),
                 onTap: () => openApprovals(context, membership),
               ),
+            // A department's manager follows it, without the admin tools.
+            if (runsDepartment && !canManage && !membership.isCompanyOwner)
+              ListTile(
+                key: const Key('dashboardTile'),
+                leading: const Icon(LucideIcons.chartLine),
+                title: Text(l.departmentDashboard),
+                subtitle: Text(departments.values.join('، ')),
+                trailing: const Icon(LucideIcons.chevronRightDir),
+                onTap: () => push(const DashboardScreen()),
+              ),
             ListTile(
-              leading: const Icon(Icons.groups_outlined),
+              leading: const Icon(LucideIcons.users),
               title: Text(l.members),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(LucideIcons.chevronRightDir),
               onTap: () => push(MembersScreen(membership: membership)),
             ),
             ListTile(
-              leading: const Icon(Icons.campaign_outlined),
+              leading: const Icon(LucideIcons.megaphone),
               title: Text(l.workspaceAnnouncements),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(LucideIcons.chevronRightDir),
               onTap: () =>
                   push(WorkspaceAnnouncementsScreen(membership: membership)),
             ),
             if (attendanceOn)
               ListTile(
                 key: const Key('attendanceTile'),
-                leading: const Icon(Icons.schedule_outlined),
+                leading: const Icon(LucideIcons.clock),
                 title: Text(l.attendance),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRightDir),
                 onTap: () => openAttendance(context, membership),
               ),
             if (attendanceOn && attendance!.isManager)
               ListTile(
                 key: const Key('teamAttendanceTile'),
-                leading: const Icon(Icons.groups_2_outlined),
+                leading: const Icon(LucideIcons.users),
                 title: Text(l.teamAttendance),
                 subtitle: Text(l.teamAttendanceHint),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRightDir),
                 onTap: () => openTeamAttendance(context, membership),
               ),
           ],
@@ -148,50 +166,58 @@ class MoreTab extends ConsumerWidget {
             children: [
               ListTile(
                 key: const Key('dashboardTile'),
-                leading: const Icon(Icons.insights_outlined),
+                leading: const Icon(LucideIcons.chartLine),
                 title: Text(l.dashboardTitle),
                 subtitle: Text(l.dashboardHint),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRightDir),
                 onTap: () => push(const DashboardScreen()),
               ),
               if (canManage) ...[
                 ListTile(
-                  leading: const Icon(Icons.person_add_alt_1_outlined),
+                  leading: const Icon(LucideIcons.userPlus),
                   title: Text(l.inviteMembers),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(LucideIcons.chevronRightDir),
                   onTap: () => showInviteSheet(context, membership),
                 ),
                 ListTile(
                   key: const Key('joinLinkTile'),
-                  leading: const Icon(Icons.link),
+                  leading: const Icon(LucideIcons.link),
                   title: Text(l.joinLinkTitle),
                   subtitle: Text(l.joinLinkHint),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(LucideIcons.chevronRightDir),
                   onTap: () => push(JoinLinkScreen(membership: membership)),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.how_to_reg_outlined),
+                  leading: const Icon(LucideIcons.userCheck),
                   title: Text(l.joinRequests),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (requests != null && requests.isNotEmpty)
                         Badge(label: Text('${requests.length}')),
-                      const Icon(Icons.chevron_right),
+                      const Icon(LucideIcons.chevronRightDir),
                     ],
                   ),
                   onTap: () => push(JoinRequestsScreen(membership: membership)),
                 ),
                 ListTile(
+                  key: const Key('departmentsTile'),
+                  leading: const Icon(LucideIcons.building2),
+                  title: Text(l.departmentsTitle),
+                  subtitle: Text(l.departmentsTileHint),
+                  trailing: const Icon(LucideIcons.chevronRightDir),
+                  onTap: () => push(DepartmentsScreen(membership: membership)),
+                ),
+                ListTile(
                   key: const Key('attendanceSetupTile'),
-                  leading: const Icon(Icons.more_time_outlined),
+                  leading: const Icon(LucideIcons.clockPlus),
                   title: Text(l.attendanceSetup),
                   subtitle: attendanceOn ? null : Text(l.attendanceSetupHint),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(LucideIcons.chevronRightDir),
                   onTap: () => openAttendanceSetup(context, membership),
                 ),
                 SwitchListTile(
-                  secondary: const Icon(Icons.travel_explore_outlined),
+                  secondary: const Icon(LucideIcons.telescope),
                   title: Text(l.discoverable),
                   subtitle: Text(l.discoverableHint),
                   value: membership.discoverable,
@@ -207,7 +233,7 @@ class MoreTab extends ConsumerWidget {
                 ),
                 SwitchListTile(
                   key: const Key('allowSharing'),
-                  secondary: const Icon(Icons.ios_share),
+                  secondary: const Icon(LucideIcons.share),
                   title: Text(l.allowSharing),
                   subtitle: Text(l.allowSharingHint),
                   value: membership.allowSharing,
@@ -224,16 +250,16 @@ class MoreTab extends ConsumerWidget {
               ],
               if (membership.isCompanyOwner)
                 ListTile(
-                  leading: const Icon(Icons.workspace_premium_outlined),
+                  leading: const Icon(LucideIcons.crown),
                   title: Text(l.subscriptionTitle),
                   subtitle: Text(l.subscriptionHint(membership.companyName)),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(LucideIcons.chevronRightDir),
                   onTap: () =>
                       push(BillingScreen(companyId: membership.companyId)),
                 ),
               if (membership.isCompanyOwner)
                 ListTile(
-                  leading: const Icon(Icons.add_business_outlined),
+                  leading: const Icon(LucideIcons.building2),
                   title: Text(l.newWorkspaceInCompany(membership.companyName)),
                   onTap: () async {
                     final name = await promptText(
@@ -266,21 +292,21 @@ class MoreTab extends ConsumerWidget {
           children: [
             ListTile(
               key: const Key('manageWorkspaces'),
-              leading: const Icon(Icons.tune),
+              leading: const Icon(LucideIcons.slidersHorizontal),
               title: Text(l.manageWorkspaces),
               subtitle: Text(l.manageWorkspacesHint),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(LucideIcons.chevronRightDir),
               onTap: () => push(const WorkspacesScreen()),
             ),
             ListTile(
-              leading: const Icon(Icons.add_circle_outline),
+              leading: const Icon(LucideIcons.circlePlus),
               title: Text(l.addWorkspace),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (invites.isNotEmpty)
                     Badge(label: Text('${invites.length}')),
-                  const Icon(Icons.chevron_right),
+                  const Icon(LucideIcons.chevronRightDir),
                 ],
               ),
               onTap: () => push(const StartScreen(asPage: true)),
@@ -293,10 +319,10 @@ class MoreTab extends ConsumerWidget {
           TileGroup(
             children: [
               ListTile(
-                leading: const Icon(Icons.admin_panel_settings_outlined),
+                leading: const Icon(LucideIcons.shieldUser),
                 title: Text(l.adminTitle),
                 subtitle: Text(l.adminHint),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRightDir),
                 onTap: () => push(const AdminScreen()),
               ),
             ],

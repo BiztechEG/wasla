@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/models.dart';
 import '../push/push.dart';
@@ -51,7 +52,7 @@ class StartScreen extends ConsumerWidget {
           if (!asPage)
             IconButton(
               tooltip: l.signOut,
-              icon: const Icon(Icons.logout),
+              icon: const Icon(LucideIcons.logOut),
               onPressed: () async {
                 if (await confirm(
                   context,
@@ -107,7 +108,7 @@ class StartScreen extends ConsumerWidget {
                 children: [
                   for (final r in pending)
                     ListTile(
-                      leading: const Icon(Icons.hourglass_top_outlined),
+                      leading: const Icon(LucideIcons.hourglass),
                       title: Text(r.workspaceName),
                       subtitle: Text(l.requestWaiting),
                       trailing: TextButton(
@@ -130,7 +131,7 @@ class StartScreen extends ConsumerWidget {
             _JoinTeamCard(email: email),
             SectionTitle(l.newCompanySection),
             _ActionCard(
-              icon: Icons.add_business_outlined,
+              icon: LucideIcons.building2,
               title: l.createWorkspaceAction,
               body: l.createWorkspaceHint,
               onTap: () => Navigator.of(context).push(
@@ -170,7 +171,7 @@ class _JoinTeamCard extends ConsumerWidget {
                 CircleAvatar(
                   radius: 22,
                   backgroundColor: scheme.primaryContainer,
-                  child: Icon(Icons.groups_outlined, color: scheme.primary),
+                  child: Icon(LucideIcons.users, color: scheme.primary),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -210,7 +211,7 @@ class _JoinTeamCard extends ConsumerWidget {
                     ),
                     IconButton(
                       tooltip: l.copy,
-                      icon: const Icon(Icons.copy_rounded, size: 20),
+                      icon: const Icon(LucideIcons.copy, size: 20),
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: address));
                         if (context.mounted) showMessage(context, l.copied);
@@ -221,7 +222,7 @@ class _JoinTeamCard extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               FilledButton.tonalIcon(
-                icon: const Icon(Icons.send_outlined, size: 18),
+                icon: const Icon(LucideIcons.sendHorizontalDir, size: 18),
                 label: Text(l.sendMyEmail),
                 onPressed: () =>
                     shareText(context, ref, l.myEmailShare(address)),
@@ -231,13 +232,13 @@ class _JoinTeamCard extends ConsumerWidget {
               const SizedBox(height: 12),
             OutlinedButton.icon(
               key: const Key('haveJoinCode'),
-              icon: const Icon(Icons.key_outlined, size: 18),
+              icon: const Icon(LucideIcons.keyRound, size: 18),
               label: Text(l.haveJoinCode),
               onPressed: () => showJoinByCode(context, ref),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              icon: const Icon(Icons.search, size: 18),
+              icon: const Icon(LucideIcons.search, size: 18),
               label: Text(l.orFindWorkspace),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
@@ -314,7 +315,7 @@ class _ActionCard extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                LucideIcons.chevronRightDir,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ],

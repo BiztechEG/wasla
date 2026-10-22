@@ -142,7 +142,7 @@ void main() {
 
     // Closing is for whoever gave the task.
     expect(_chip(tester, 'منتهية').onSelected, isNull);
-    expect(find.byIcon(Icons.more_vert), findsNothing);
+    expect(find.byIcon(LucideIcons.ellipsisVertical), findsNothing);
 
     await tester.tap(find.text('قيد التنفيذ'));
     await tester.pumpAndSettle();
@@ -213,7 +213,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.longPress(find.textContaining('Price the new client').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('تحويل إلى مهمة'));
+    await tester.tap(find.byKey(const Key('action-task')));
     await tester.pumpAndSettle();
 
     // The first line is the title; the project is the chat's.
@@ -322,7 +322,7 @@ void main() {
     await _openMyTasks(tester);
     await tester.tap(find.text('Paint the hall'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(LucideIcons.ellipsisVertical));
     await tester.pumpAndSettle();
     await tester.tap(find.text('تعديل المهمة'));
     await tester.pumpAndSettle();
@@ -437,7 +437,7 @@ void main() {
     await tester.tap(find.text('Weekly report'));
     await tester.pumpAndSettle();
     expect(find.text('التكرار'), findsNothing);
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(LucideIcons.ellipsisVertical));
     await tester.pumpAndSettle();
     await tester.tap(find.text('تعديل المهمة'));
     await tester.pumpAndSettle();

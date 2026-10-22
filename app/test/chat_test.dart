@@ -1209,10 +1209,35 @@ void stage3Tests() {
 
     await tester.longPress(_says('The client approved the quote'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('moreActions')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('مشاركة'));
     await tester.tap(find.text('مشاركة'));
     await tester.pumpAndSettle();
     expect(sharer.shared, [('The client approved the quote', null)]);
+  });
+
+  testWidgets('a long press shows three quick actions, the rest on asking', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    api.receive(chat, 'u2', 'Mona Adel', 'Quick or more');
+    await startApp(tester, api);
+    await _openProjectChat(tester);
+
+    await tester.longPress(_says('Quick or more'));
+    await tester.pumpAndSettle();
+    for (final id in ['reply', 'copy', 'task']) {
+      expect(find.byKey(Key('action-$id')), findsOneWidget);
+    }
+    expect(find.text('تحديد النص'), findsNothing);
+    await tester.tap(find.byKey(const Key('moreActions')));
+    await tester.pumpAndSettle();
+    expect(find.text('تحديد النص'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('action-reply')));
+    await tester.pumpAndSettle();
+    expect(find.text('رد على Mona Adel: Quick or more'), findsOneWidget);
   });
 
   testWidgets('without a share sheet the text is copied instead', (
@@ -1235,6 +1260,8 @@ void stage3Tests() {
     await _openProjectChat(tester);
 
     await tester.longPress(_says('Copy me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('moreActions')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('مشاركة'));
     await tester.tap(find.text('مشاركة'));
@@ -1449,6 +1476,45 @@ void keyboardTests() {
       [for (final m in sent) m.body],
       ['The drawings', null, null, null, null],
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('files dragged from the computer onto a chat are sent', (
+    tester,
+  ) async {
+    final api = _team();
+    final chat = api.addProjectChat('ws1', _branch);
+    final drops = FakeDrops();
+    await startApp(tester, api, drops: drops);
+    await _openProjectChat(tester);
+    final middle = tester.getCenter(find.byKey(const Key('messageField')));
+
+    drops.drag(middle);
+    await tester.pumpAndSettle();
+    expect(find.text('أفلت الملفات هنا لإرسالها'), findsOneWidget);
+    drops.drag(null);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dropHint')), findsNothing);
+
+    drops.drag(middle);
+    await tester.pumpAndSettle();
+    drops.drop(middle, [file('plan.pdf'), file('notes.txt')], tooLarge: 1);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dropHint')), findsNothing);
+    expect(
+      [for (final m in api.chatMessages[chat]!.reversed) m.file?.name],
+      ['plan.pdf', 'notes.txt'],
+    );
+    expect(find.text('ملف واحد أكبر من 50 ميجا اتساب'), findsOneWidget);
+
+    // Not while another screen is in front of the chat.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('إرفاق'));
+    await tester.pumpAndSettle();
+    drops.drop(middle, [file('later.pdf')]);
+    await tester.pumpAndSettle();
+    expect(api.chatMessages[chat], hasLength(2));
     expect(tester.takeException(), isNull);
   });
 

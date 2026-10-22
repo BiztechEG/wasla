@@ -6,6 +6,8 @@ import 'package:wasla/data/models.dart';
 import 'fake_api.dart';
 import 'harness.dart';
 
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 void main() {
   testWidgets('new user signs in, names themselves and accepts an invite', (
     tester,
@@ -232,7 +234,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(members);
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.tap(find.byIcon(LucideIcons.ellipsisVertical));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

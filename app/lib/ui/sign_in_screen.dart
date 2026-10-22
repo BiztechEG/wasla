@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../state/providers.dart';
 import 'widgets.dart';
@@ -102,7 +103,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         textDirection: TextDirection.ltr,
                         decoration: InputDecoration(
                           labelText: l.emailLabel,
-                          prefixIcon: const Icon(Icons.mail_outline),
+                          prefixIcon: const Icon(LucideIcons.mail),
                         ),
                         validator: (v) =>
                             _emailPattern.hasMatch(v?.trim() ?? '')

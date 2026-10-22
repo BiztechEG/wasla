@@ -291,4 +291,35 @@ select pg_temp.check(
    order by created_at desc limit 1) = '🎤 1:05',
   'a voice message is announced with its length');
 
+-- Browsers: the push function's key pair, and browsers as devices.
+select pg_temp.login(804);
+select pg_temp.check(public.web_push_key() is null, 'no browser key before the function makes one');
+select pg_temp.fails($$ select * from public.web_push_keys('x') $$, '42501',
+  'the app never sees the private key');
+select pg_temp.as_server();
+select pg_temp.fails($$ select * from public.web_push_keys('wrong') $$, 'not_allowed',
+  'the key pair needs the function''s key');
+select pg_temp.check(not exists (select 1 from public.web_push_keys(pg_temp.key())),
+  'none to start with');
+select pg_temp.check(
+  (select public_key = 'BPublicOne' from public.save_web_push_keys(pg_temp.key(), 'BPublicOne',
+                                                                   '{"d": "one"}')),
+  'the first key pair is kept');
+select pg_temp.check(
+  (select public_key = 'BPublicOne' and private_jwk ->> 'd' = 'one'
+   from public.save_web_push_keys(pg_temp.key(), 'BPublicTwo', '{"d": "two"}')),
+  'and not replaced by a second run');
+select pg_temp.login(804);
+select pg_temp.check(public.web_push_key() = 'BPublicOne', 'the app gets the public half');
+select public.register_push_token(
+  '{"endpoint":"https://push.example.com/abc","keys":{"p256dh":"BKey","auth":"secret"}}',
+  'web', 'en');
+select pg_temp.login(802);
+select public.send_message(pg_temp.v('dm'), 'To the browser');
+select pg_temp.as_server();
+select pg_temp.check(
+  (select platform = 'web' and locale = 'en' from public.claim_push_batch(pg_temp.key())
+   where token like '{"endpoint"%' and body = 'To the browser'),
+  'a browser gets its notifications, marked as one');
+
 \echo 'all push tests passed'
