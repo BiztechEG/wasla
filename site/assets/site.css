@@ -164,6 +164,27 @@ img { max-width: 100%; display: block; }
   font-size: 14px;
   font-weight: 600;
 }
+.tag { text-decoration: none; }
+.tag b {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-inline-end: 6px;
+  font-size: 12px;
+}
+.new {
+  display: inline-block;
+  vertical-align: middle;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.7;
+  margin-inline-start: 4px;
+}
 h1 {
   font-size: clamp(34px, 5vw, 54px);
   line-height: 1.25;
@@ -256,6 +277,47 @@ section.alt .card { background: var(--bg); }
   font-size: 15px;
 }
 
+/* Spotlight sections: text beside two phones */
+
+.spot {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 48px;
+  align-items: center;
+}
+.spot-flip { grid-template-columns: 0.85fr 1.15fr; }
+.spot-flip > :first-child { order: 2; }
+.spot .sub { margin-bottom: 20px; }
+.spot-shots { display: flex; justify-content: center; align-items: flex-start; gap: 16px; }
+.spot-shots .phone { width: min(230px, 46%); border-width: 7px; border-radius: 30px; }
+.spot-shots .phone:nth-child(2) { margin-top: 48px; }
+.ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.ticks li {
+  position: relative;
+  padding-inline-start: 30px;
+  color: var(--muted);
+  font-size: 16px;
+}
+.ticks li::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f6e6a' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='5 12 10 17 19 7'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+.ticks b { color: var(--text); margin-inline-end: 4px; }
+.chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.chips li {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 15px;
+}
+
 /* Steps */
 
 .steps { counter-reset: step; }
@@ -331,6 +393,8 @@ footer a { color: var(--muted); }
   .phones { min-height: 0; }
   .grid, .download { grid-template-columns: 1fr 1fr; }
   .screens { grid-template-columns: 1fr 1fr; }
+  .spot, .spot-flip { grid-template-columns: 1fr; gap: 32px; }
+  .spot-flip > :first-child { order: 0; }
 }
 
 @media (max-width: 640px) {
